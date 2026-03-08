@@ -26,7 +26,7 @@ export class CombatSystem {
         const nearest = this.getNearestEnemy(COMBAT_CONFIG.aggroRange);
         if (nearest && this.fireTimer >= COMBAT_CONFIG.fireRate) {
             this.fireTimer = 0;
-            this.fireProjectile(nearest);
+            this.fireAtTarget(nearest);
         }
 
         // Update Projectiles: Movement and Collision
@@ -35,8 +35,8 @@ export class CombatSystem {
 
             p.position.addScaledVector(p.velocity, deltaTime);
 
-            // Out of range check
-            if (p.position.distanceTo(this.player.position) > COMBAT_CONFIG.aggroRange * 1.5) {
+            // Simple distance check to remove projectiles
+            if (p.position.length() > 200) {
                 this.removeProjectile(p, i);
                 continue;
             }
@@ -55,6 +55,7 @@ export class CombatSystem {
         let minDist = range;
 
         for (const enemy of this.enemySystem.enemies) {
+            if (enemy.isDead) continue;
             const dist = enemy.position.distanceTo(this.player.position);
             if (dist < minDist) {
                 minDist = dist;
@@ -64,10 +65,13 @@ export class CombatSystem {
         return nearest;
     }
 
-    fireProjectile(target) {
+    fireAtTarget(target) {
         const startPos = this.player.position.clone().add(new THREE.Vector3(0, 1, 0));
         const direction = target.position.clone().add(new THREE.Vector3(0, 0.5, 0)).sub(startPos);
+        this.spawnProjectile(startPos, direction);
+    }
 
+    spawnProjectile(startPos, direction) {
         const p = this.pool.get();
         p.reset(startPos, direction);
         this.scene.add(p);
@@ -76,6 +80,7 @@ export class CombatSystem {
 
     checkCollision(p) {
         for (const enemy of this.enemySystem.enemies) {
+            if (enemy.isDead) continue;
             if (enemy.position.distanceTo(p.position) < 0.8) {
                 return enemy;
             }

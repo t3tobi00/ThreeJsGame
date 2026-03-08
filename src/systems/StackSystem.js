@@ -84,6 +84,18 @@ export class StackSystem {
         }
     }
 
+    popDisk() {
+        if (this.stack.length === 0) return null;
+
+        const disk = this.stack.pop();
+
+        if (this.onStackCountChanged) {
+            this.onStackCountChanged(this.stack.length);
+        }
+
+        return disk;
+    }
+
     animatePop(mesh) {
         // Simple scale down to 1
         const animate = () => {

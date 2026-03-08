@@ -14,6 +14,10 @@ import { CombatSystem } from './systems/CombatSystem.js';
 import { HarvestSystem } from './systems/HarvestSystem.js';
 import { StackSystem } from './systems/StackSystem.js';
 import { HUD } from './ui/HUD.js';
+import { FloatingUI } from './ui/FloatingUI.js';
+import { ParticleSystem } from './systems/ParticleSystem.js';
+import { DrainSystem } from './systems/DrainSystem.js';
+import { LevelSystem } from './systems/LevelSystem.js';
 
 class Game {
     constructor() {
@@ -47,9 +51,18 @@ class Game {
         this.harvestSystem = new HarvestSystem(this.scene.instance, this.player, this.enemySystem);
         this.stackSystem = new StackSystem(this.scene.instance, this.player);
 
+        // Phase 3 Systems
+        this.floatingUI = new FloatingUI(this.camera.instance);
+        this.particleSystem = new ParticleSystem(this.scene.instance);
+        this.drainSystem = new DrainSystem(this.scene.instance, this.player, this.stackSystem, this.floatingUI);
+        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem);
+
         // Connect Systems
         this.harvestSystem.onCollected = () => this.stackSystem.addDisk();
         this.stackSystem.onStackCountChanged = (count) => this.hud.updateMeatCount(count);
+
+        // Start Level
+        this.levelSystem.initLevel(1);
 
         this.animate();
     }
@@ -71,6 +84,12 @@ class Game {
         this.combatSystem.update(deltaTime);
         this.harvestSystem.update(deltaTime);
         this.stackSystem.update(deltaTime);
+
+        // Phase 3 Updates
+        this.drainSystem.update(deltaTime);
+        this.particleSystem.update(deltaTime);
+        this.levelSystem.update(deltaTime, this.enemySystem.enemies);
+        this.floatingUI.update();
 
         // Render
         this.renderer.render(this.scene.instance, this.camera.instance);

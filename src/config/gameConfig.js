@@ -65,3 +65,41 @@ export const COLORS_P2 = {
     projectile: 0xffffff,
     aggroRing: 0xffffff
 };
+
+export const COLORS_P3 = {
+    unlockZone: 0xffffff,
+    unlockZoneBase: 0x224422, // Darker green for the flat base
+    hologram: 0x00aaff,
+    turret: 0xaaaaaa,
+    wall: 0x888888,
+    particle: 0xffffff
+};
+
+export const ZONE_CONFIG = {
+    size: 3.5,           // Size of the square zone
+    drainRate: 0.1,      // Seconds between each disk peel
+    marchingAntsSpeed: 0.3,
+    hologramRotationSpeed: 1.0,
+    hologramOpacity: 0.3,
+    textScale: 1.5       // Scaling for the ground-mapped text
+};
+
+export const TURRET_CONFIG = {
+    cost: 15,
+    fireRate: 0.8,       // Seconds between shots
+    aggroRange: 12,
+    projectileSpeed: 25,
+    hp: 50
+};
+
+export const WALL_CONFIG = {
+    cost: 5,
+    hp: 100,
+    size: { x: 2, y: 1.5, z: 0.8 }
+};
+
+export const PARTICLE_CONFIG = {
+    burstCount: 20,
+    duration: 0.8,
+    size: 0.1
+};

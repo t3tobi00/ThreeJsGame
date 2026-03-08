@@ -43,21 +43,21 @@ Build the two signature mechanics that make the game feel satisfying.
 
 ---
 
-## Phase 3: Base Building — Expansion, Drain & Structures
+## Phase 3: Base Building — Expansion, Drain & Structures (COMPLETE)
 
 Turn collected resources into base infrastructure.
 
 ### Deliverables
 
-- **Unlock zones** — Defined areas with animated marching-ants dashed borders
-- **Hologram previews** — Semi-transparent, slowly spinning structure previews inside locked zones
-- **Floating UI** — 3D resource cost counter above each zone
-- **Drain mechanic** — Player enters zone, movement locks, meat peels off stack top rhythmically with scale-pulse feedback on the counter
-- **Construction animation** — Hologram bursts into particles, real structure boings into existence (scale overshoot then settle)
-- **Turret structure** — Wooden/metallic tower that auto-targets and fires at nearest enemy
-- **Wall structure** — Block barrier that enemies must destroy to pass
-- **Game state manager** — Track resources, unlocked buildings, player stats
-- **Level layout system** — Define which zones and structures exist per level
+- [x] **Unlock zones** — Defined areas with animated marching-ants dashed borders
+- [x] **Hologram previews** — Semi-transparent, slowly spinning structure previews inside locked zones
+- [x] **Floating UI** — 3D resource cost counter above each zone
+- [x] **Drain mechanic** — Player enters zone, movement locks, meat peels off stack top rhythmically with scale-pulse feedback on the counter
+- [x] **Construction animation** — Hologram bursts into particles, real structure boings into existence (scale overshoot then settle)
+- [x] **Turret structure** — Wooden/metallic tower that auto-targets and fires at nearest enemy
+- [x] **Wall structure** — Block barrier that enemies must destroy to pass
+- [x] **Game state manager** — Track resources, unlocked buildings, player stats
+- [x] **Level layout system** — Define which zones and structures exist per level
 
 ### Primary Skills
 
