@@ -9,12 +9,13 @@ export class Player {
 
         this.createBody();
         this.createCrown();
+        this.createHighlight();
 
         this.velocity = new THREE.Vector3();
     }
 
     createBody() {
-        const bodyGeo = new THREE.CapsuleGeometry(0.4, 0.8, 4, 16);
+        const bodyGeo = new THREE.CapsuleGeometry(0.3, 0.6, 4, 16);
         const bodyMat = new THREE.MeshStandardMaterial({
             color: COLORS.player,
             roughness: 0.4,
@@ -22,9 +23,24 @@ export class Player {
         });
 
         this.body = new THREE.Mesh(bodyGeo, bodyMat);
-        this.body.position.y = 0.8; // Base at 0
+        this.body.position.y = 0.6; // Base at 0
         this.body.castShadow = true;
         this.group.add(this.body);
+    }
+
+    createHighlight() {
+        // Glowing cyan ring under player
+        const ringGeo = new THREE.RingGeometry(0.5, 0.6, 32);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        });
+        this.highlight = new THREE.Mesh(ringGeo, ringMat);
+        this.highlight.rotation.x = -Math.PI / 2;
+        this.highlight.position.y = 0.05;
+        this.group.add(this.highlight);
     }
 
     createCrown() {
@@ -40,7 +56,7 @@ export class Player {
 
         this.crown = new THREE.Mesh(crownGeo, crownMat);
         this.crown.rotation.x = Math.PI / 2;
-        this.crown.position.y = 1.8;
+        this.crown.position.y = 1.4;
         this.group.add(this.crown);
     }
 
@@ -62,7 +78,7 @@ export class Player {
 
         // Crown float animation
         const time = Date.now() * 0.001;
-        this.crown.position.y = 1.8 + Math.sin(time * PLAYER_CONFIG.crownFloatSpeed) * PLAYER_CONFIG.crownFloatHeight;
+        this.crown.position.y = 1.4 + Math.sin(time * PLAYER_CONFIG.crownFloatSpeed) * PLAYER_CONFIG.crownFloatHeight;
         this.crown.rotation.z += 0.01;
     }
 

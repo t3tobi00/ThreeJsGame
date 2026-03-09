@@ -77,7 +77,7 @@ class Game {
         const inputVector = this.inputSystem.getMovementVector();
 
         this.movementSystem.update(deltaTime, inputVector);
-        this.cameraSystem.update();
+        this.cameraSystem.update(deltaTime);
 
         // Phase 2 Updates
         this.enemySystem.update(deltaTime);

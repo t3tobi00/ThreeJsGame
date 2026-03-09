@@ -28,6 +28,7 @@ export class Joystick {
     }
 
     onDown(e) {
+        if (e.cancelable) e.preventDefault();
         this.active = true;
         this.origin = { x: e.clientX, y: e.clientY };
         this.current = { x: e.clientX, y: e.clientY };
@@ -41,13 +42,22 @@ export class Joystick {
 
     onMove(e) {
         if (!this.active) return;
+        if (e.cancelable) e.preventDefault();
 
         this.current = { x: e.clientX, y: e.clientY };
 
         const dx = this.current.x - this.origin.x;
         const dy = this.current.y - this.origin.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const maxDist = 60;
+
+        // Input deadzone
+        if (dist < 8) {
+            this.vector = { x: 0, y: 0 };
+            this.updateStick();
+            return;
+        }
+
+        const maxDist = Math.min(60, Math.min(window.innerWidth, window.innerHeight) * 0.08);
 
         if (dist > maxDist) {
             const angle = Math.atan2(dy, dx);

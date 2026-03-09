@@ -1,16 +1,18 @@
 export const COLORS = {
     player: 0x00aaff,
     crown: 0xffcc00,
-    safeZone: 0x44aa44,
-    dangerZone: 0xcc7744,
+    safeZone: 0x55bb55,
+    dangerZone: 0xd2b48c,
     grid: 0xffffff,
     sun: 0xffffff,
     ambient: 0xbbccff
 };
 
 export const PLAYER_CONFIG = {
-    speed: 8,
-    acceleration: 0.15,
+    speed: 12,
+    acceleration: 0.35,
+    deceleration: 0.5,
+    velocityDeadzone: 0.1,
     rotationLerp: 0.2,
     squashStretchFactor: 0.1,
     crownFloatSpeed: 2,
@@ -18,16 +20,16 @@ export const PLAYER_CONFIG = {
 };
 
 export const CAMERA_CONFIG = {
-    fov: 35,
+    fov: 55,
     near: 0.1,
     far: 1000,
-    offset: { x: 0, y: 20, z: 15 },
-    lookAtOffset: { x: 0, y: 0, z: 0 },
-    lerpFactor: 0.1
+    offset: { x: 0, y: 30, z: 22 },
+    lookAtOffset: { x: 0, y: -2, z: 0 },
+    lerpFactor: 0.08
 };
 
 export const WORLD_CONFIG = {
-    safeZoneSize: 20,
+    safeZoneSize: 30,
     dangerZoneSize: 100,
     gridSpacing: 1
 };
@@ -35,9 +37,9 @@ export const WORLD_CONFIG = {
 export const ENEMY_CONFIG = {
     speed: 3,
     spawnInterval: 2,
-    spawnDistance: 45,
+    spawnDistance: 60,
     health: 3,
-    size: 0.8,
+    size: 0.6,
     eyeColor: 0xff0000,
     bodyColor: 0xff4444
 };
@@ -47,7 +49,7 @@ export const COMBAT_CONFIG = {
     projectileSpeed: 20,
     fireRate: 0.5, // Seconds between shots
     projectileColor: 0xffffff,
-    projectileSize: 0.15
+    projectileSize: 0.12
 };
 
 export const STACK_CONFIG = {
@@ -76,12 +78,12 @@ export const COLORS_P3 = {
 };
 
 export const ZONE_CONFIG = {
-    size: 1.8,           // Size of the square zone
+    size: 1.5,           // Size of the square zone
     drainRate: 0.1,      // Seconds between each disk peel
     marchingAntsSpeed: 0.3,
     hologramRotationSpeed: 1.0,
     hologramOpacity: 0.3,
-    textScale: 1.5       // Scaling for the ground-mapped text
+    textScale: 1.0       // Scaling for the ground-mapped text
 };
 
 export const TURRET_CONFIG = {

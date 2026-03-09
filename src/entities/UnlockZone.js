@@ -25,7 +25,7 @@ export class UnlockZone {
         const baseMat = new THREE.MeshBasicMaterial({
             color: COLORS_P3.unlockZoneBase || 0x224422,
             transparent: true,
-            opacity: 0.8
+            opacity: 0.6
         });
         const base = new THREE.Mesh(baseGeo, baseMat);
         base.rotation.x = -Math.PI / 2;
@@ -44,7 +44,7 @@ export class UnlockZone {
         this.borderMat = new THREE.ShaderMaterial({
             uniforms: {
                 color: { value: new THREE.Color(0xffffff) },
-                thickness: { value: 0.15 }
+                thickness: { value: 0.18 }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -74,8 +74,8 @@ export class UnlockZone {
                         d = abs(uv.x - 0.5);
                     }
                     
-                    // Keep corners (d > 0.35) and middle (d < 0.15)
-                    if (d > 0.15 && d < 0.35) discard;
+                    // Chunky corners logic: discard the middle 60% of each edge
+                    if (d < 0.3) discard;
                     
                     gl_FragColor = vec4(color, 1.0);
                 }
@@ -97,7 +97,7 @@ export class UnlockZone {
         this.canvas.height = 256;
 
         this.texture = new THREE.CanvasTexture(this.canvas);
-        const textGeo = new THREE.PlaneGeometry(size * 0.9, size * 0.9);
+        const textGeo = new THREE.PlaneGeometry(size * 0.9 * ZONE_CONFIG.textScale, size * 0.9 * ZONE_CONFIG.textScale);
         const textMat = new THREE.MeshBasicMaterial({
             map: this.texture,
             transparent: true
