@@ -1,6 +1,6 @@
 # Architecture Map — Base Defense Tycoon
 
-> **Last Updated**: 2025-06-10 14:30:00 — selling_system_add
+> **Last Updated**: 2026-03-09 00:00:00 — resource_utilities_add
 > When you add, remove, or rename a file or its exports, update this document.
 
 ---
@@ -57,7 +57,9 @@ project-root/
 │   │   ├── HUD.js              ← Resource counter, HP bar overlays
 │   │   └── FloatingUI.js       ← In-world floating text/icons
 │   └── utils/
-│       └── ObjectPool.js       ← Generic pool: acquire/release, preWarm
+│       ├── ObjectPool.js       ← Generic pool: acquire/release, preWarm
+│       ├── ResourceStack.js    ← Reusable vertical spring-stack (world or local space)
+│       └── ResourceTransfer.js ← Reusable Bezier-arc flight animation
 ```
 
 ---
@@ -116,9 +118,11 @@ systems/CoinSystem.js
 
 | File                    | Key Exports                                      |
 |-------------------------|--------------------------------------------------|
-| `gameConfig.js`         | `PLAYER`, `ENEMY`, `COMBAT`, `HARVEST`, `STACK`, `DRAIN`, `TURRET`, `WALL`, `ZONES`, `COIN`, `TRAY`, `VILLAGER`, `SELLING`, `ROAD` |
+| `gameConfig.js`         | `PLAYER`, `ENEMY`, `COMBAT`, `HARVEST`, `STACK`, `DRAIN`, `TURRET`, `WALL`, `ZONES`, `COIN`, `TRAY`, `VILLAGER`, `SELLING`, `ROAD`, `SELLING_TABLE_POSITION` |
 | `GameState.js`          | `state` (singleton), `addResources()`, `spendResources()`, `unlockZone()` |
 | `ObjectPool.js`         | `class ObjectPool` — `acquire()`, `release(obj)`, `preWarm(count)` |
+| `ResourceStack.js`      | `class ResourceStack` — `add(mesh,{animate})`, `pop()`, `peek()`, `getCount()`, `update(basePos)`, `clear(parent)` |
+| `ResourceTransfer.js`   | `class ResourceTransfer` — `send(mesh,from,to,opts)`, `update(dt)`, `getInFlightCount()`, `dispose()` |
 | `Player.js`             | `class Player` — `mesh`, `velocity`, `stackCount` |
 | `Enemy.js`              | `class Enemy` — `mesh`, `hp`, `active`, `speed`  |
 | `CombatSystem.js`       | `init(scene, pool)`, `update(dt)`, `registerOwner(entity)` |
@@ -137,3 +141,6 @@ systems/CoinSystem.js
 - **ObjectPool.js is mandatory**: Anything spawned repeatedly (projectiles, enemies, disks, particles) MUST use the pool. No `new` in hot loops.
 - **Entities hold state, Systems hold logic**: Never put AI/update logic inside entity files.
 - **Selling system flow**: Player → SellingSystem → MeatTable ← VillagerSystem ← Villagers → CoinTray ← CoinSystem
+- **ResourceStack** is used by: StackSystem (player back), CoinTray (coin pile), MeatTable (table surface), Villager (carried meat). All share the same spring-physics loop.
+- **ResourceTransfer** is used by: MeatTable (player→table arc). Future: HarvestSystem, coin villager→tray arcs.
+- **SELLING_TABLE_POSITION** is the single source of truth for table Z. Import it anywhere instead of hardcoding `z:-9.2`.

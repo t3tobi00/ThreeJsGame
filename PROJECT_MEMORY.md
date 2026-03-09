@@ -40,10 +40,36 @@ The project strictly follows a modular ES6 architecture. Each file has a single 
 
 ## 4. Current State & Remaining Work (Phase 4 & 5)
 - **Phase 1-3**: Fully implemented. Core survival loop + tycoon base-building loop are operational.
+- **Selling System**: Fully implemented and bugfixed. Player carries meat → walks to table → meat flies to table → villagers queue on road → first villager approaches → buys meat → coins appear in tray → villager exits on road → new villager spawns.
 - **Phase 4**: Setup level progression (The Lone Outpost -> The Dusty Junction -> The Neon Oasis -> The Sandstorm Siege). Introduce new enemy types (Speeders, Tanks), wall repair mechanics, and player upgrade zones (stack limits, fire rate).
 - **Phase 5**: Boss implementation (Cylinder King), infinite wave generation, particle effects (explosions based on pooled particle systems), post-processing (bloom), and final mobile optimization passes.
 
-## 5. Coding Principles & Guidelines for LLMs (CRITICAL)
+## 5. Shared Utility Patterns (Reuse These)
+
+### `src/utils/ResourceStack.js` — Vertical stacking with spring physics
+Use for any resource that needs to stack vertically with wobble. Works in world space (scene children) and local space (group children).
+```js
+const stack = new ResourceStack({ stackOffset: 0.22, stiffness: 0.6, lerpFactor: 0.35, maxSize: 20 });
+stack.add(mesh, { animate: true }); // add with pop-in
+stack.pop();                         // remove top
+stack.update(basePosition);          // call every frame
+stack.clear(scene);                  // dispose all (pass group for local-space items)
+```
+Currently used by: StackSystem (player meat), CoinTray (coins), MeatTable (table meat), Villager (carried meat).
+
+### `src/utils/ResourceTransfer.js` — Bezier-arc flight animation
+Use for any resource that needs to fly from point A to point B with an arc. Caller adds mesh to scene; utility animates it; `onArrive` callback fires on landing.
+```js
+const transfer = new ResourceTransfer();
+transfer.send(mesh, fromPos, toPos, { arcHeight: 3, duration: 0.5, spin: true, onArrive: (m) => stack.add(m) });
+transfer.update(deltaTime); // call every frame
+```
+Currently used by: MeatTable (player stack → table surface).
+
+### `src/config/gameConfig.js` — `SELLING_TABLE_POSITION`
+Single source of truth for the selling table world position `{x:0, y:0.3, z:-9.2}`. Import this instead of hardcoding anywhere.
+
+## 6. Coding Principles & Guidelines for LLMs (CRITICAL)
 1. **No External Assets**: Use procedural geometry and Canvas-based textures. No external image loads to avoid async complexity unless necessary.
 2. **Object Pooling**: For anything spawned repeatedly (projectiles, enemies, resource disks, particles), you MUST use `ObjectPool.js` instead of rapid `new` and `.dispose()`.
 3. **Configuration first**: If you are adjusting a speed, color, scale, or count — do it in `config/gameConfig.js`. 

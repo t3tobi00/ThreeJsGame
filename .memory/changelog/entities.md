@@ -62,3 +62,47 @@
 | ADDED    | (texture generation)   | Generates 256x256 stone pattern with variety and edge lines |
 
 **Why**: Road provides visual context for villager movement and selling area.
+
+### 2026-03-09 00:00 — claude_code — Session S002
+**File**: `src/entities/MeatTable.js` (REFACTORED + BUGFIXED)
+| Action   | Target                              | Detail                                                                      |
+|----------|-------------------------------------|-----------------------------------------------------------------------------|
+| REMOVED  | `addMeatToTable()`                  | Replaced by ResourceStack.add() via onArrive callback                       |
+| REMOVED  | `calculateBezierPoint()`            | Replaced by ResourceTransfer                                                |
+| REMOVED  | `inTransitMeat` array               | Replaced by ResourceTransfer instance `_transfer`                           |
+| ADDED    | `_stackBase` (Vector3)              | Table top surface world position; base for ResourceStack                    |
+| ADDED    | `_stack` (ResourceStack)            | Vertical stack of meat on table surface — fixes horizontal spread bug       |
+| ADDED    | `_transfer` (ResourceTransfer)      | Handles bezier arc from player to table                                     |
+| MODIFIED | `transferMeat()`                    | Fixed `const→let` bug; now uses ResourceTransfer + onArrive→ResourceStack   |
+| MODIFIED | `removeMeatFromTable()`             | Now pops from ResourceStack instead of manual array                         |
+| MODIFIED | `getMeatCount()`                    | Returns `_stack.getCount()`                                                 |
+| MODIFIED | `update(deltaTime)`                 | Calls `_transfer.update()` + `_stack.update(_stackBase)` each frame         |
+
+**Why**: Meat was spreading horizontally in a grid instead of stacking vertically. Fixed by replacing manual slot positioning with ResourceStack. Also fixed `const transferred = 0` which silently prevented any transfers from registering.
+
+**File**: `src/entities/CoinTray.js` (REFACTORED)
+| Action   | Target                              | Detail                                                                      |
+|----------|-------------------------------------|-----------------------------------------------------------------------------|
+| REMOVED  | Inline stacking loop in `update()`  | Replaced by ResourceStack.update()                                          |
+| REMOVED  | `animatePop()`                      | Replaced by ResourceStack._pop() via add({animate:true})                   |
+| ADDED    | `_stack` (ResourceStack)            | Manages coin stack positioning                                              |
+| MODIFIED | `addCoin()`                         | Uses `_stack.add(coin, {animate:true})` instead of inline push              |
+| MODIFIED | `removeCoin()`                      | Uses `_stack.pop()` instead of manual array pop                             |
+| MODIFIED | `update(deltaTime)`                 | Calls `_stack.update(basePos)` + adds wobble rotation loop                  |
+
+**Why**: CoinTray had duplicate stacking loop identical to StackSystem. Eliminated duplication.
+
+**File**: `src/entities/Villager.js` (REFACTORED + BUGFIXED)
+| Action   | Target                              | Detail                                                                      |
+|----------|-------------------------------------|-----------------------------------------------------------------------------|
+| REMOVED  | `updateMeatStack()`                 | Replaced by incremental `receiveMeat()` + per-frame `_meatStack.update()`  |
+| REMOVED  | `meatStack` array                   | Replaced by `_meatStack` (ResourceStack)                                    |
+| REMOVED  | `createVisuals()` (public)          | Renamed to `_createVisuals()` (private convention)                          |
+| ADDED    | `_meatStack` (ResourceStack)        | Manages meat carried on back in group local space                           |
+| MODIFIED | `receiveMeat(count)`                | Incremental: adds count meshes to `_meatStack` rather than full rebuild     |
+| MODIFIED | `getQueuePosition()`                | Renamed `_getQueuePosition()`; fixed spread direction X→Z                  |
+| MODIFIED | `setExiting()`                      | Exit target changed from `(999,0,z)` to `(0,0,-30)` (along road)           |
+| MODIFIED | `update()`                          | Calls `_meatStack.update(localBase)` each frame for carried meat            |
+| MODIFIED | `dispose()`                         | Uses `_meatStack.clear(this.group)` for clean group-local disposal          |
+
+**Why**: Queue spread along X-axis (horizontal) instead of Z-axis (along road). Villagers exited to the right instead of down the road. Meat rebuild-on-every-receive caused geometry thrash.

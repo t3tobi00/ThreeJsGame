@@ -1,6 +1,6 @@
 # Project State — Base Defense Tycoon
 
-> **Last Updated**: 2025-06-10 15:15:00 — selling_system_complete
+> **Last Updated**: 2026-03-09 00:00:00 — selling_system_bugfix_and_utils
 > **Current Phase**: Phase 4 IN PROGRESS → Selling System COMPLETE
 
 ---
@@ -41,16 +41,18 @@
 ---
 
 ## Recently Completed (last 5 milestones)
-1. **Selling System** — Complete implementation with coin tray, villagers, road, transactions
-2. Coin tray with vertical jelly-stack animation (gold coins)
-3. Villager NPC system with queue behavior, states, economy participation
-4. Player-to-table meat transfer with bezier curve animations
+1. **Selling System bugfixes** — 6 bugs fixed: road length, table position mismatch (3 sources→1), circular canBuy() dep, const/let, queue orientation, spawn/exit direction
+2. **ResourceStack utility** — Reusable vertical spring-stack; replaces duplicate loops in StackSystem, CoinTray, MeatTable, Villager
+3. **ResourceTransfer utility** — Reusable Bezier-arc flight; replaces MeatTable's manual inTransitMeat system
+4. **Selling System** — Initial full implementation (coin tray, villagers, road, transactions)
 5. Turret multi-owner firing integrated with CombatSystem
 
 ---
 
 ## Active Concerns / Tech Debt
-- (None logged yet — agents should add items here as they discover them)
+- MeatTable.transferMeat() creates new geometry/material per disk — consider pooling for high throughput
+- Villager.receiveMeat() similarly creates geometry per call — same pooling concern
+- HarvestSystem still has its own arc logic — could migrate to ResourceTransfer in a future cleanup pass
 
 ---
 
@@ -62,3 +64,7 @@
 - `src/systems/SellingSystem.js` — Player-to-table meat transfer
 - `src/systems/VillagerSystem.js` — Villager spawn, queue, transactions
 - `src/systems/CoinSystem.js` — Coin economy management
+
+## New Utility Files (S002)
+- `src/utils/ResourceStack.js` — Reusable vertical spring-stack for any resource type
+- `src/utils/ResourceTransfer.js` — Reusable Bezier-arc flight animation

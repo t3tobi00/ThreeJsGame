@@ -51,3 +51,26 @@
 | ADDED    | `update()`             | Delegates to coinTray.update() for stack animation          |
 
 **Why**: Coin economy needs centralized management with tray integration for animation.
+
+### 2026-03-09 00:00 — claude_code — Session S002
+**File**: `src/systems/StackSystem.js` (REFACTORED)
+| Action   | Target                              | Detail                                                                      |
+|----------|-------------------------------------|-----------------------------------------------------------------------------|
+| REMOVED  | Inline stacking loop in `update()`  | Replaced by ResourceStack.update()                                          |
+| REMOVED  | `animatePop()`                      | Replaced by ResourceStack._pop() via add({animate:true})                   |
+| ADDED    | `_resourceStack` (ResourceStack)    | Internal ResourceStack instance drives all position math                    |
+| MODIFIED | `update()`                          | Computes basePos, calls `_resourceStack.update()`, syncs rotation           |
+| MODIFIED | `addDisk()`                         | Uses `_resourceStack.add(disk, {animate:true})`                             |
+| MODIFIED | `popDisk()`                         | Uses `_resourceStack.pop()`                                                 |
+
+**Note**: `this.stack` is set to `this._resourceStack.items` (same array reference). SellingSystem reads `.stack.length` — no change needed there.
+
+**Why**: StackSystem had the canonical stacking loop. Moved to ResourceStack so all consumers share one implementation.
+
+**File**: `src/systems/VillagerSystem.js` (BUGFIXED)
+| Action   | Target                              | Detail                                                                      |
+|----------|-------------------------------------|-----------------------------------------------------------------------------|
+| MODIFIED | `update()` line 82                  | Condition `nextInQueue.canBuy()` → `meatOnTable > 0 && nextInQueue.coinsHeld > 0` |
+| MODIFIED | `update()`                          | Now calls `this.advanceQueue()` immediately after `setApproachingTable()`   |
+
+**Why**: `canBuy()` requires `state === 'approaching_table'` but villager is still `'in_queue'` at check time → always false → villager never approached table. Also, queue wasn't advancing when a villager was sent forward, causing the next villager to never reach position 0.
