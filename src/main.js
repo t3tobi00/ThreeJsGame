@@ -5,6 +5,8 @@ import { Scene } from './core/Scene.js';
 import { Lighting } from './core/Lighting.js';
 import { Environment } from './entities/Environment.js';
 import { Player } from './entities/Player.js';
+import { CoinTray } from './entities/CoinTray.js';
+import { Road } from './entities/Road.js';
 import { Joystick } from './ui/Joystick.js';
 import { InputSystem } from './systems/InputSystem.js';
 import { MovementSystem } from './systems/MovementSystem.js';
@@ -13,11 +15,15 @@ import { EnemySystem } from './systems/EnemySystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
 import { HarvestSystem } from './systems/HarvestSystem.js';
 import { StackSystem } from './systems/StackSystem.js';
+import { SellingSystem } from './systems/SellingSystem.js';
+import { VillagerSystem } from './systems/VillagerSystem.js';
+import { CoinSystem } from './systems/CoinSystem.js';
 import { HUD } from './ui/HUD.js';
 import { FloatingUI } from './ui/FloatingUI.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
 import { DrainSystem } from './systems/DrainSystem.js';
 import { LevelSystem } from './systems/LevelSystem.js';
+import { GATE_CONFIG, SELLING_CONFIG, SELLING_TABLE_POSITION } from './config/gameConfig.js';
 
 class Game {
     constructor() {
@@ -57,6 +63,14 @@ class Game {
         this.drainSystem = new DrainSystem(this.scene.instance, this.player, this.stackSystem, this.floatingUI);
         this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, this.player);
 
+        // Selling System
+        this.coinTray = new CoinTray(this.scene.instance);
+        this.road = new Road(this.scene.instance);
+        const sellingTablePosition = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
+        this.sellingSystem = new SellingSystem(this.scene.instance, this.stackSystem, sellingTablePosition);
+        this.coinSystem = new CoinSystem(this.coinTray);
+        this.villagerSystem = new VillagerSystem(this.scene.instance, this.coinTray, this.sellingSystem);
+
         // Connect Systems
         this.harvestSystem.onCollected = () => this.stackSystem.addDisk();
         this.stackSystem.onStackCountChanged = (count) => this.hud.updateMeatCount(count);
@@ -90,6 +104,11 @@ class Game {
         this.particleSystem.update(deltaTime);
         this.levelSystem.update(deltaTime, this.enemySystem.enemies);
         this.floatingUI.update();
+
+        // Selling System Updates
+        this.sellingSystem.update(deltaTime, this.player.position);
+        this.villagerSystem.update(deltaTime);
+        this.coinSystem.update(deltaTime);
 
         // Render
         this.renderer.render(this.scene.instance, this.camera.instance);

@@ -3,7 +3,7 @@ import { UnlockZone } from '../entities/UnlockZone.js';
 import { Turret } from '../entities/Turret.js';
 import { Wall } from '../entities/Wall.js';
 import { Gate } from '../entities/Gate.js';
-import { TURRET_CONFIG, WALL_CONFIG } from '../config/gameConfig.js';
+import { TURRET_CONFIG, WALL_CONFIG, GATE_CONFIG } from '../config/gameConfig.js';
 
 export class LevelSystem {
     constructor(scene, drainSystem, particleSystem, combatSystem, player) {
@@ -21,8 +21,12 @@ export class LevelSystem {
             // New 20-coin zone perfectly inside the bottom-left dirt notch
             this.createZone(new THREE.Vector3(-5, 0, 7), 'Turret', 20);
 
-            // Animated Gate exactly in the front fence gap
-            const gate = new Gate(this.scene, new THREE.Vector3(3.6, 0, 9), 2.4);
+            // Animated Gate in the center of the front fence gap
+            const gate = new Gate(
+                this.scene,
+                new THREE.Vector3(GATE_CONFIG.position.x, GATE_CONFIG.position.y, GATE_CONFIG.position.z),
+                GATE_CONFIG.width
+            );
             this.gates.push(gate);
 
             // First Turret Zone — inside base, right-center

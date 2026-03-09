@@ -100,6 +100,55 @@ export const WALL_CONFIG = {
     size: { x: 2, y: 1.5, z: 0.8 }
 };
 
+export const GATE_CONFIG = {
+    width: 3.0,
+    position: { x: 0, y: 0, z: 9 },
+    activationRange: 4.0,
+    openSpeed: 8.0
+};
+
+export const COIN_CONFIG = {
+    color: 0xffd700,           // Gold
+    size: 0.15,
+    stackOffset: 0.12,
+    followLag: 0.1,
+    wobbleIntensity: 0.2,
+    valuePerMeat: 0.5           // 1 coin = 2 meat (0.5 coin per meat)
+};
+
+export const SELLING_TABLE_POSITION = { x: 0, y: 0.3, z: -9.2 };
+
+export const TRAY_CONFIG = {
+    position: { x: -3, y: 0, z: -11.2 },
+    size: { x: 1.5, y: 0.1, z: 1.0 },
+    color: 0x8b4513             // Wood color
+};
+
+export const VILLAGER_CONFIG = {
+    spawnPoint: { x: 0, z: -24 },        // Far end of road
+    queueStart: { x: 0, z: -12 },        // First in line, close to table
+    tablePosition: { x: 0, z: -10.5 },   // Buying spot just in front of table
+    speed: 2.5,
+    initialCount: 4,
+    minCoins: 2,
+    maxCoins: 10,
+    exitDistance: 20,                   // Units before deletion
+    color: 0x4a7c59                    // Villager green color
+};
+
+export const SELLING_CONFIG = {
+    detectionRange: 4.0,
+    transferSpeed: 0.3,         // Seconds between each meat transfer
+    tableCapacity: 10             // Max meat on table
+};
+
+export const ROAD_CONFIG = {
+    width: 3.0,
+    length: 15,                  // From table to spawn area
+    color: 0x999999,            // Gray stone
+    position: { x: 0, z: -16.7 } // Center: table(-9.2) - 7.5 = -16.7
+};
+
 export const PARTICLE_CONFIG = {
     burstCount: 20,
     duration: 0.8,

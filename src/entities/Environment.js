@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD_CONFIG, COLORS } from '../config/gameConfig.js';
+import { WORLD_CONFIG, COLORS, SELLING_TABLE_POSITION } from '../config/gameConfig.js';
 
 export class Environment {
     constructor(scene) {
@@ -12,15 +12,19 @@ export class Environment {
     createGround() {
         const halfSize = WORLD_CONFIG.safeZoneSize / 2;
 
-        // Define the Square with a U-cutout at the bottom-left (front-left in isometric)
+        // Define the Square with U-cutouts on both bottom-left and bottom-right (front in isometric)
         const shape = new THREE.Shape();
         // Shape coordinates (x, y) map to 3D world (x, -z) due to rotation
         shape.moveTo(-halfSize, halfSize); // Top-Left (3D: -9, -9)
         shape.lineTo(-halfSize, -halfSize); // Bottom-Left (3D: -9, 9)
-        shape.lineTo(-7, -halfSize);        // Notch start
-        shape.lineTo(-7, -5);               // Notch deep
-        shape.lineTo(-3, -5);               // Notch wide
-        shape.lineTo(-3, -halfSize);        // Notch end
+        shape.lineTo(-7, -halfSize);        // Left U notch start
+        shape.lineTo(-7, -5);               // Left U notch deep
+        shape.lineTo(-3, -5);               // Left U notch wide
+        shape.lineTo(-3, -halfSize);        // Left U notch end
+        shape.lineTo(3, -halfSize);         // Right U notch start
+        shape.lineTo(3, -5);                // Right U notch deep
+        shape.lineTo(7, -5);                // Right U notch wide
+        shape.lineTo(7, -halfSize);         // Right U notch end
         shape.lineTo(halfSize, -halfSize);  // Bottom-Right (3D: 9, 9)
         shape.lineTo(halfSize, halfSize);   // Top-Right (3D: 9, -9)
         shape.closePath();
@@ -130,40 +134,43 @@ export class Environment {
             }
         };
 
-        // Points
+        // Points - Symmetrical with U notches on both sides
         const p1 = new THREE.Vector3(-halfSize, 0, -halfSize);
         const p2 = new THREE.Vector3(-halfSize, 0, halfSize);
         const p3 = new THREE.Vector3(-7, 0, halfSize);
         const p4 = new THREE.Vector3(-7, 0, 5);
         const p5 = new THREE.Vector3(-3, 0, 5);
         const p6 = new THREE.Vector3(-3, 0, halfSize);
-        const p7 = new THREE.Vector3(halfSize, 0, halfSize);
-        const p8 = new THREE.Vector3(halfSize, 0, -halfSize);
+        const p7 = new THREE.Vector3(3, 0, halfSize);
+        const p8 = new THREE.Vector3(3, 0, 5);
+        const p9 = new THREE.Vector3(7, 0, 5);
+        const p10 = new THREE.Vector3(7, 0, halfSize);
+        const p11 = new THREE.Vector3(halfSize, 0, halfSize);
+        const p12 = new THREE.Vector3(halfSize, 0, -halfSize);
 
-        // Trace the path
+        // Trace the path - Both U notches now included
         spawnLogsAlongLine(p1, p2);                   // Left edge
         spawnLogsAlongLine(p2, p3);                   // Bottom edge (start)
-        spawnLogsAlongLine(p3, p4);                   // Notch left 
-        spawnLogsAlongLine(p4, p5);                   // Notch top
-        spawnLogsAlongLine(p5, p6);                   // Notch right
-        spawnLogsAlongLine(p6, p7, 0.45, 0.65);       // Bottom edge (Gate Gap at t ~ 0.55. Length=12, gap 2.4)
-        spawnLogsAlongLine(p7, p8);                   // Right edge 
-        spawnLogsAlongLine(p8, p1, 0.15, 0.25);       // Top edge (Selling Area Gap at right side)
+        spawnLogsAlongLine(p3, p4);                   // Left notch left side
+        spawnLogsAlongLine(p4, p5);                   // Left notch top
+        spawnLogsAlongLine(p5, p6);                   // Left notch right side
+        spawnLogsAlongLine(p6, p7, 0.4, 0.6);         // Bottom edge center (Gate Gap at middle. Length=6, gap 2.4)
+        spawnLogsAlongLine(p7, p8);                   // Right notch left side
+        spawnLogsAlongLine(p8, p9);                   // Right notch top
+        spawnLogsAlongLine(p9, p10);                  // Right notch right side
+        spawnLogsAlongLine(p10, p11);                 // Bottom edge (end)
+        spawnLogsAlongLine(p11, p12);                 // Right edge
+        spawnLogsAlongLine(p12, p1, 0.33, 0.67);      // Top edge (Selling Area Gap centered, 6-unit wide)
 
         this.scene.add(fenceGroup);
         this.createSellingTable();
     }
 
     createSellingTable() {
-        const halfSize = WORLD_CONFIG.safeZoneSize / 2;
         const tableMat = new THREE.MeshStandardMaterial({ color: 0x5d4037 });
 
-        // Place table slightly peeking out of the back gap on the top edge
         const table = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 1.2), tableMat);
-        // p8 is (9, 0, -9). p1 is (-9, 0, -9). 
-        // Gap is at 0.15 to 0.25 along line from p8 to p1.
-        // t = 0.2 means x is 9 -> -9, 20% along = 9 - (18*0.2) = 5.4.
-        table.position.set(5.4, 0.3, -halfSize - 0.2);
+        table.position.set(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
         table.castShadow = true;
         this.scene.add(table);
     }

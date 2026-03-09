@@ -1,10 +1,13 @@
 import * as THREE from 'three';
+import { GATE_CONFIG } from '../config/gameConfig.js';
 
 export class Gate {
-    constructor(scene, position, width = 1.5) {
+    constructor(scene, position, width = GATE_CONFIG.width) {
         this.scene = scene;
         this.position = position;
         this.width = width;
+        this.activationRange = GATE_CONFIG.activationRange;
+        this.openSpeed = GATE_CONFIG.openSpeed;
         this.isOpen = false;
         this.openRatio = 0; // 0 is closed, 1 is open
 
@@ -54,11 +57,10 @@ export class Gate {
 
     update(deltaTime, playerPosition) {
         const dist = this.container.position.distanceTo(playerPosition);
-        const targetOpen = dist < 4.0 ? 1 : 0;
+        const targetOpen = dist < this.activationRange ? 1 : 0;
 
         // Linear interpolation with a bit of "bouncy" feel logic
-        const speed = 8.0;
-        this.openRatio = THREE.MathUtils.lerp(this.openRatio, targetOpen, deltaTime * speed);
+        this.openRatio = THREE.MathUtils.lerp(this.openRatio, targetOpen, deltaTime * this.openSpeed);
 
         // Swing the door open 90 degrees (Math.PI / 2)
         this.doorGroup.rotation.y = this.openRatio * (Math.PI / 2);
