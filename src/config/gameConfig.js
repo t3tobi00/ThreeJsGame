@@ -1,10 +1,10 @@
 export const COLORS = {
-    player: 0x00aaff,
-    crown: 0xffcc00,
-    safeZone: 0x55bb55,
-    dangerZone: 0xd2b48c,
+    player: 0x0088ff, // Deeper, more saturated blue
+    crown: 0xffdd00,  // Bright gold
+    safeZone: 0x66cc66, // Lush emerald green
+    dangerZone: 0xe6c280, // Golden terracotta sand
     grid: 0xffffff,
-    sun: 0xffffff,
+    sun: 0xffeedd,
     ambient: 0xbbccff
 };
 
@@ -20,11 +20,11 @@ export const PLAYER_CONFIG = {
 };
 
 export const CAMERA_CONFIG = {
-    fov: 55,
-    near: 0.1,
+    frustumSize: 20, // Scale for orthographic camera. Lower means "zoomed in"
+    near: -100, // Orthographic near plane should extend behind camera
     far: 1000,
-    offset: { x: 0, y: 30, z: 22 },
-    lookAtOffset: { x: 0, y: -2, z: 0 },
+    offset: { x: 20, y: 30, z: 20 }, // Shallow, diagonal isometric angle
+    lookAtOffset: { x: 0, y: 0, z: 0 },
     lerpFactor: 0.08
 };
 
@@ -55,7 +55,7 @@ export const COMBAT_CONFIG = {
 export const STACK_CONFIG = {
     pullRange: 5,
     collectDistance: 0.5,
-    stackOffset: 0.25, // Height of each disk in stack
+    stackOffset: 0.22, // Height of each disk in stack (adjusted for chunkiness)
     followLag: 0.1,    // Delay for each disk follow
     wobbleIntensity: 0.3,
     maxStackSize: 20

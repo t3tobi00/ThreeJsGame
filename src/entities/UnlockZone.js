@@ -129,7 +129,12 @@ export class UnlockZone {
         ctx.shadowBlur = 10;
         ctx.shadowOffsetY = 5;
 
-        // Centered text slightly higher to leave room for coin
+        // Draw Thick Outline
+        ctx.lineWidth = 12;
+        ctx.strokeStyle = '#224422'; // Dark green outline instead of black for better integration
+        ctx.strokeText(cost.toString(), canvas.width / 2, canvas.height / 2 - 30);
+
+        // Fill Text
         ctx.fillText(cost.toString(), canvas.width / 2, canvas.height / 2 - 30);
 
         // Draw Icon below
@@ -139,6 +144,9 @@ export class UnlockZone {
         ctx.beginPath();
         ctx.arc(canvas.width / 2, iconY, 35, 0, Math.PI * 2);
         ctx.fill();
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = '#cc7700';
+        ctx.stroke();
 
         // Inner meat emoji
         ctx.fillStyle = '#cc7700';

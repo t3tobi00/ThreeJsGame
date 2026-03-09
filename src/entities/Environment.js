@@ -26,8 +26,14 @@ export class Environment {
         const colorHex = '#' + COLORS.safeZone.toString(16).padStart(6, '0');
         ctx.fillStyle = colorHex;
         ctx.fillRect(0, 0, 128, 128);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-        ctx.lineWidth = 2;
+
+        // Checkerboard Pattern
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; // slight darkening
+        ctx.fillRect(0, 0, 64, 64);
+        ctx.fillRect(64, 64, 64, 64);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 4;
         ctx.strokeRect(0, 0, 128, 128);
 
         const gridTex = new THREE.CanvasTexture(canvas);
@@ -68,9 +74,9 @@ export class Environment {
     createFence() {
         const size = WORLD_CONFIG.safeZoneSize;
         const halfSize = size / 2;
-        const logHeight = 0.8;
-        const logRadius = 0.15;
-        const spacing = 0.45;
+        const logHeight = 1.2;
+        const logRadius = 0.25;
+        const spacing = 0.6;
 
         const logGeo = new THREE.CylinderGeometry(logRadius, logRadius, logHeight, 6);
         const logMat = new THREE.MeshStandardMaterial({

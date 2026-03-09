@@ -11,24 +11,26 @@ export class CameraSystem {
         const targetPos = this.target.position.clone();
 
         // Portrait mode compensation
-        const aspect = this.camera.instance.aspect;
-        let yOffsetMult = 1;
-        let fovBonus = 0;
+        const aspect = window.innerWidth / window.innerHeight;
+        let frustumMult = 1;
 
         if (aspect < 1) { // Portrait mode
-            yOffsetMult = 1.3;
-            fovBonus = 10;
+            frustumMult = 1.3;
         }
 
-        // Apply FOV adjustment
-        if (this.camera.instance.fov !== CAMERA_CONFIG.fov + fovBonus) {
-            this.camera.instance.fov = CAMERA_CONFIG.fov + fovBonus;
+        // Apply Orthographic adjustment
+        const s = CAMERA_CONFIG.frustumSize * frustumMult;
+        if (this.camera.instance.top !== s / 2) {
+            this.camera.instance.left = s * aspect / -2;
+            this.camera.instance.right = s * aspect / 2;
+            this.camera.instance.top = s / 2;
+            this.camera.instance.bottom = s / -2;
             this.camera.instance.updateProjectionMatrix();
         }
 
         const idealOffset = new THREE.Vector3(
             CAMERA_CONFIG.offset.x,
-            CAMERA_CONFIG.offset.y * yOffsetMult,
+            CAMERA_CONFIG.offset.y,
             CAMERA_CONFIG.offset.z
         );
 
