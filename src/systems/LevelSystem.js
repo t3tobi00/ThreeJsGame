@@ -15,13 +15,13 @@ export class LevelSystem {
 
     initLevel(level = 1) {
         if (level === 1) {
-            // First Turret Zone
-            this.createZone(new THREE.Vector3(8, 0, 4), 'Turret', TURRET_CONFIG.cost);
+            // First Turret Zone — inside base, right-center
+            this.createZone(new THREE.Vector3(4, 0, -3), 'Turret', TURRET_CONFIG.cost);
 
-            // First Wall Zone
-            this.createZone(new THREE.Vector3(-4, 0, 8), 'Wall', WALL_CONFIG.cost);
-            this.createZone(new THREE.Vector3(0, 0, 8), 'Wall', WALL_CONFIG.cost);
-            this.createZone(new THREE.Vector3(4, 0, 8), 'Wall', WALL_CONFIG.cost);
+            // Wall Zones — inside base, near back edge
+            this.createZone(new THREE.Vector3(-4, 0, 6), 'Wall', WALL_CONFIG.cost);
+            this.createZone(new THREE.Vector3(0, 0, 6), 'Wall', WALL_CONFIG.cost);
+            this.createZone(new THREE.Vector3(4, 0, 6), 'Wall', WALL_CONFIG.cost);
         }
     }
 

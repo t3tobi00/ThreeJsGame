@@ -3,18 +3,6 @@
 ## Overview
 This document summarizes the comprehensive visual enhancements and mobile scaling adjustments applied to Base Defense Tycoon. The goal of this overhaul was to bridge the visual gap between the early prototype and the target "Fake Ad" / Hyper-Casual aesthetic (e.g., *Kingshot*), ensuring the game looks polished, dense, and "juicy" on mobile portrait screens.
 
----
-
-## Architectural Evolution: Single-File to Modular
-*Note on the original `idea.md`:* The project was initially conceived as a monolithic, single-file HTML prototype for speed and simplicity. However, as the mechanics (stacking, magnetic harvesting, turret aggro, unlocking zones) and the visual requirements expanded, a single file became unmaintainable. 
-
-We transitioned to a **Modular ES6 Architecture** because:
-1. **Separation of Concerns:** Moving configurations (`gameConfig.js`), core engine logic (`Renderer.js`, `Camera.js`), rendering entities (`Player.js`, `UnlockZone.js`), and game rules (`CombatSystem.js`) into their own files prevents a 3,000-line "spaghetti code" file.
-2. **Scalability:** It is now trivial to add new enemy types or weapons without breaking unrelated systems (e.g., just add a new file in `/entities/`).
-3. **Performance:** A structured architecture allows for easier object pooling and cleaner frame loop updates (`main.js` just iterates through cleanly separated system files).
-
----
-
 ## 1. Camera & Perspective Improvements
 * **Orthographic Projection:** Replaced the standard `PerspectiveCamera` with an `OrthographicCamera` (via highly narrowed `frustumSize`). This eliminates edge distortion and creates a true isometric, architectural look where parallel lines do not converge.
 * **Shallow "Hero" Angle:** Lowered the camera's Y offset (e.g., from `y: 30` to `y: 12`) and reduced the look-distance. This shallow ~30°-35° angle reveals the front of the character (rather than just the top of their head) and provides clear visibility of incoming enemies over the back fences.

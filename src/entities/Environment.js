@@ -120,9 +120,9 @@ export class Environment {
     createFence() {
         const size = WORLD_CONFIG.safeZoneSize;
         const halfSize = size / 2;
-        const logHeight = 1.2;
-        const logRadius = 0.25;
-        const spacing = 0.6;
+        const logHeight = 0.5;
+        const logRadius = 0.08;
+        const spacing = 0.35;
 
         const logGeo = new THREE.CylinderGeometry(logRadius, logRadius, logHeight, 6);
         const logMat = new THREE.MeshStandardMaterial({
@@ -174,7 +174,7 @@ export class Environment {
 
         for (let i = 0; i < 40; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const dist = WORLD_CONFIG.safeZoneSize * 0.6 + Math.random() * 30;
+            const dist = WORLD_CONFIG.safeZoneSize * 0.7 + Math.random() * 25;
             const x = Math.cos(angle) * dist;
             const z = Math.sin(angle) * dist;
 

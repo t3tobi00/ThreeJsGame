@@ -25,7 +25,7 @@ export class UnlockZone {
         const baseMat = new THREE.MeshBasicMaterial({
             color: COLORS_P3.unlockZoneBase || 0x224422,
             transparent: true,
-            opacity: 0.6
+            opacity: 0.3
         });
         const base = new THREE.Mesh(baseGeo, baseMat);
         base.rotation.x = -Math.PI / 2;
@@ -120,7 +120,7 @@ export class UnlockZone {
 
         // Draw Value (Number)
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 140px Outfit, Inter, sans-serif';
+        ctx.font = 'bold 100px Outfit, Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
