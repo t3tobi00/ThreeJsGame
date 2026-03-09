@@ -56,6 +56,10 @@ export class SellingSystem {
         return this.meatTable.removeMeatFromTable(count);
     }
 
+    popMeatMeshFromTable() {
+        return this.meatTable.popMeatMesh();
+    }
+
     dispose() {
         this.meatTable.dispose();
     }

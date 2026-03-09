@@ -1,14 +1,16 @@
 import * as THREE from 'three';
 import { Villager } from '../entities/Villager.js';
 import { VILLAGER_CONFIG, COIN_CONFIG, SELLING_CONFIG } from '../config/gameConfig.js';
+import { ResourceTransfer } from '../utils/ResourceTransfer.js';
 
 export class VillagerSystem {
-    constructor(scene, coinTray, sellingSystem) {
+    constructor(scene, coinSystem, sellingSystem) {
         this.scene = scene;
-        this.coinTray = coinTray;
+        this.coinSystem = coinSystem;
         this.sellingSystem = sellingSystem;
         this.villagers = [];
         this.villagerIdCounter = 0;
+        this.transfer = new ResourceTransfer();
 
         this.spawnInitialVillagers();
     }
@@ -69,6 +71,7 @@ export class VillagerSystem {
     }
 
     update(deltaTime) {
+        this.transfer.update(deltaTime);
         const toRemove = [];
 
         // Get meat on table from selling system
@@ -120,25 +123,47 @@ export class VillagerSystem {
         );
 
         if (meatToBuy > 0) {
-            // Transfer meat from table to villager
-            this.sellingSystem.removeMeatFromTable(meatToBuy);
-            villager.receiveMeat(meatToBuy);
+            // Transfer meat from table to villager smoothly
+            for (let i = 0; i < meatToBuy; i++) {
+                const meatMesh = this.sellingSystem.popMeatMeshFromTable();
+                if (meatMesh) {
+                    const fromPos = meatMesh.position.clone();
+                    const toPos = villager.group.position.clone().add(new THREE.Vector3(0, 1.2, -0.25));
+
+                    this.transfer.send(meatMesh, fromPos, toPos, {
+                        arcHeight: 2,
+                        duration: 0.5,
+                        spin: true,
+                        onArrive: (m) => villager.receiveMeatMesh(m)
+                    });
+                }
+            }
 
             // Calculate coins to give
             const coinsToGive = Math.ceil(meatToBuy * COIN_CONFIG.valuePerMeat);
-            villager.giveCoins(coinsToGive);
 
-            // Add coins to tray
+            // Transfer coins to tray smoothly
             for (let i = 0; i < coinsToGive; i++) {
-                this.coinTray.addCoin();
+                const coinMesh = villager.popCoinMesh();
+                if (coinMesh) {
+                    const fromPos = coinMesh.position.clone();
+                    const toPos = this.coinSystem.coinTray.position.clone().setY(0.4);
+
+                    this.transfer.send(coinMesh, fromPos, toPos, {
+                        arcHeight: 2,
+                        duration: 0.5,
+                        spin: false,
+                        onArrive: (m) => this.coinSystem.receiveCoinMesh(m)
+                    });
+                }
             }
         }
 
-        // Villager exits after transaction
+        // Wait for animations to complete before exiting
         setTimeout(() => {
             villager.setExiting();
             this.advanceQueue();
-        }, 500);
+        }, 1000);
     }
 
     removeVillager(villager) {

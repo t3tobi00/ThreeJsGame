@@ -69,7 +69,7 @@ class Game {
         const sellingTablePosition = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
         this.sellingSystem = new SellingSystem(this.scene.instance, this.stackSystem, sellingTablePosition);
         this.coinSystem = new CoinSystem(this.coinTray);
-        this.villagerSystem = new VillagerSystem(this.scene.instance, this.coinTray, this.sellingSystem);
+        this.villagerSystem = new VillagerSystem(this.scene.instance, this.coinSystem, this.sellingSystem);
 
         // Connect Systems
         this.harvestSystem.onCollected = () => this.stackSystem.addDisk();

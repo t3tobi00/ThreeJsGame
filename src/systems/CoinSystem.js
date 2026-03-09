@@ -12,6 +12,11 @@ export class CoinSystem {
         this.coinTray.addCoin();
     }
 
+    receiveCoinMesh(mesh) {
+        this.totalCoins++;
+        this.coinTray.receiveCoinMesh(mesh);
+    }
+
     removeCoin() {
         if (this.totalCoins > 0) {
             this.totalCoins--;

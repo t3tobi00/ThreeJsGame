@@ -13,12 +13,12 @@ export class CoinTray {
 
         this._stack = new ResourceStack({
             stackOffset: COIN_CONFIG.stackOffset,
-            stiffness:   0.5,
-            lerpFactor:  0.3
+            stiffness: 0.5,
+            lerpFactor: 0.3
         });
 
         // Expose coins array for external reads (e.g. getCoinCount)
-        this.coins     = this._stack.items;
+        this.coins = this._stack.items;
         this.coinCount = 0;
 
         this.createVisuals();
@@ -38,7 +38,7 @@ export class CoinTray {
         this.tray = new THREE.Mesh(trayGeo, trayMat);
         this.tray.position.copy(this.position);
         this.tray.position.y = TRAY_CONFIG.size.y / 2;
-        this.tray.castShadow  = true;
+        this.tray.castShadow = true;
         this.tray.receiveShadow = true;
         this.scene.add(this.tray);
     }
@@ -46,14 +46,14 @@ export class CoinTray {
     addCoin() {
         const coinGeo = new THREE.CylinderGeometry(COIN_CONFIG.size, COIN_CONFIG.size, 0.05, 16);
         const coinMat = new THREE.MeshStandardMaterial({
-            color:            COIN_CONFIG.color,
-            roughness:        0.4,
-            metalness:        0.6,
-            emissive:         COIN_CONFIG.color,
+            color: COIN_CONFIG.color,
+            roughness: 0.4,
+            metalness: 0.6,
+            emissive: COIN_CONFIG.color,
             emissiveIntensity: 0.1
         });
         const coin = new THREE.Mesh(coinGeo, coinMat);
-        coin.castShadow    = true;
+        coin.castShadow = true;
         coin.receiveShadow = true;
         coin.position.copy(this.position);
         coin.position.y = TRAY_CONFIG.size.y + 0.5;
@@ -63,6 +63,12 @@ export class CoinTray {
         this.coinCount++;
 
         return coin;
+    }
+
+    receiveCoinMesh(mesh) {
+        // Assume mesh is already added to scene and traversing
+        this._stack.add(mesh, { animate: true });
+        this.coinCount++;
     }
 
     removeCoin() {

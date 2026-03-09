@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { SELLING_CONFIG, COLORS_P2 } from '../config/gameConfig.js';
-import { ResourceStack }    from '../utils/ResourceStack.js';
+import { ResourceStack } from '../utils/ResourceStack.js';
 import { ResourceTransfer } from '../utils/ResourceTransfer.js';
 
 export class MeatTable {
     constructor(scene, tablePosition) {
-        this.scene         = scene;
+        this.scene = scene;
         this.tablePosition = tablePosition;  // THREE.Vector3
-        this.maxCapacity   = SELLING_CONFIG.tableCapacity;
+        this.maxCapacity = SELLING_CONFIG.tableCapacity;
 
         // Stack base: top surface of the table (table geometry height 0.6, centred at y=0.3)
         this._stackBase = new THREE.Vector3(
@@ -18,9 +18,9 @@ export class MeatTable {
 
         this._stack = new ResourceStack({
             stackOffset: 0.12,
-            stiffness:   0.8,  // stiffer — meat on a table shouldn't wobble much
-            lerpFactor:  0.4,
-            maxSize:     this.maxCapacity
+            stiffness: 0.8,  // stiffer — meat on a table shouldn't wobble much
+            lerpFactor: 0.4,
+            maxSize: this.maxCapacity
         });
 
         this._transfer = new ResourceTransfer();
@@ -39,9 +39,9 @@ export class MeatTable {
         for (let i = 0; i < count; i++) {
             if (this._stack.getCount() >= this.maxCapacity) break;
 
-            const geo  = new THREE.CylinderGeometry(0.15, 0.15, 0.08, 8);
-            const mat  = new THREE.MeshStandardMaterial({
-                color:     COLORS_P2.meatDisk,
+            const geo = new THREE.CylinderGeometry(0.15, 0.15, 0.08, 8);
+            const mat = new THREE.MeshStandardMaterial({
+                color: COLORS_P2.meatDisk,
                 roughness: 0.6,
                 metalness: 0.1
             });
@@ -54,9 +54,9 @@ export class MeatTable {
 
             this._transfer.send(mesh, startPos, endPos, {
                 arcHeight: 2.5,
-                duration:  0.5,
-                spin:      true,
-                onArrive:  (m) => this._stack.add(m, { animate: true })
+                duration: 0.5,
+                spin: true,
+                onArrive: (m) => this._stack.add(m, { animate: true })
             });
 
             dispatched++;
@@ -81,6 +81,17 @@ export class MeatTable {
             removed++;
         }
         return removed;
+    }
+
+    /**
+     * Pops and returns a meat mesh from the table.
+     * @returns {THREE.Object3D|null} The meat mesh or null if empty
+     */
+    popMeatMesh() {
+        if (this._stack.getCount() > 0) {
+            return this._stack.pop();
+        }
+        return null;
     }
 
     getMeatCount() {

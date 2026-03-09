@@ -4,21 +4,28 @@ import { ResourceStack } from '../utils/ResourceStack.js';
 
 export class Villager {
     constructor(scene, queuePosition) {
-        this.scene       = scene;
-        this.coinsHeld   = this._randomCoins();
-        this.meatHeld    = 0;
-        this.state       = 'in_queue'; // 'in_queue'|'approaching_table'|'buying'|'exiting'
+        this.scene = scene;
+        this.coinsHeld = this._randomCoins();
+        this.meatHeld = 0;
+        this.state = 'in_queue'; // 'in_queue'|'approaching_table'|'buying'|'exiting'
         this.queuePosition = queuePosition;
 
-        this.position       = this._getQueuePosition();
+        this.position = this._getQueuePosition();
         this.targetPosition = null;
-        this.exitTraveled   = 0;
+        this.exitTraveled = 0;
 
         // Meat carried on back — local space of this.group
         this._meatStack = new ResourceStack({
             stackOffset: 0.1,
-            stiffness:   0.8,
-            lerpFactor:  0.4
+            stiffness: 0.8,
+            lerpFactor: 0.4
+        });
+
+        // Coins carried on head — local space of this.group
+        this._coinStack = new ResourceStack({
+            stackOffset: 0.05,
+            stiffness: 0.9,
+            lerpFactor: 0.4
         });
 
         this._createVisuals();
@@ -50,23 +57,23 @@ export class Villager {
         // Body
         const bodyGeo = new THREE.CapsuleGeometry(0.25, 0.5, 4, 8);
         const bodyMat = new THREE.MeshStandardMaterial({ color: VILLAGER_CONFIG.color, roughness: 0.7 });
-        this.body     = new THREE.Mesh(bodyGeo, bodyMat);
-        this.body.position.y  = 0.5;
-        this.body.castShadow  = true;
+        this.body = new THREE.Mesh(bodyGeo, bodyMat);
+        this.body.position.y = 0.5;
+        this.body.castShadow = true;
         this.group.add(this.body);
 
         // Head
         const headGeo = new THREE.SphereGeometry(0.2, 8, 6);
         const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.6 });
-        this.head     = new THREE.Mesh(headGeo, headMat);
+        this.head = new THREE.Mesh(headGeo, headMat);
         this.head.position.y = 1.1;
-        this.head.castShadow  = true;
+        this.head.castShadow = true;
         this.group.add(this.head);
 
         // Eyes
         const eyeGeo = new THREE.SphereGeometry(0.05, 4, 4);
         const eyeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-        const leftEye  = new THREE.Mesh(eyeGeo, eyeMat);
+        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
         leftEye.position.set(-0.08, 1.12, 0.18);
         this.group.add(leftEye);
 
@@ -74,62 +81,42 @@ export class Villager {
         rightEye.position.set(0.08, 1.12, 0.18);
         this.group.add(rightEye);
 
-        // Coin indicator
-        this.coinDisplay = this._createCoinDisplay();
-        this.group.add(this.coinDisplay);
-
-        this.scene.add(this.group);
-    }
-
-    _createCoinDisplay() {
-        const coinGroup = new THREE.Group();
-        const coinGeo   = new THREE.CylinderGeometry(0.08, 0.08, 0.03, 8);
-        const coinMat   = new THREE.MeshStandardMaterial({
-            color:     COIN_CONFIG.color,
+        // Coins on head
+        const coinGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.03, 8);
+        const coinMat = new THREE.MeshStandardMaterial({
+            color: COIN_CONFIG.color,
             roughness: 0.4,
             metalness: 0.6
         });
 
-        for (let i = 0; i < Math.min(3, this.coinsHeld); i++) {
+        for (let i = 0; i < this.coinsHeld; i++) {
             const coin = new THREE.Mesh(coinGeo, coinMat);
-            coin.position.set(0, 1.2 + i * 0.05, -0.2);
             coin.rotation.x = Math.PI / 2;
-            coinGroup.add(coin);
+            coin.castShadow = true;
+            this.group.add(coin);
+            this._coinStack.add(coin);
         }
 
-        return coinGroup;
-    }
-
-    _updateCoinDisplay() {
-        this.group.remove(this.coinDisplay);
-        this.coinDisplay = this._createCoinDisplay();
-        this.group.add(this.coinDisplay);
+        this.scene.add(this.group);
     }
 
     // ── Meat stack ─────────────────────────────────────────────────────────────
 
-    receiveMeat(count) {
-        const geo = new THREE.CylinderGeometry(0.15, 0.15, 0.08, 8);
-        const mat = new THREE.MeshStandardMaterial({ color: 0xff3333, roughness: 0.6, metalness: 0.1 });
-
-        for (let i = 0; i < count; i++) {
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.castShadow = true;
-            this.group.add(mesh);
-            this._meatStack.add(mesh, { animate: true });
-            this.meatHeld++;
-        }
+    receiveMeatMesh(mesh) {
+        this.group.attach(mesh);
+        this._meatStack.add(mesh, { animate: true });
+        this.meatHeld++;
     }
 
     // ── Movement ───────────────────────────────────────────────────────────────
 
     moveTo(target, deltaTime) {
         const direction = new THREE.Vector3().subVectors(target, this.group.position);
-        const distance  = direction.length();
+        const distance = direction.length();
 
         if (distance > 0.1) {
             direction.normalize();
-            const step   = VILLAGER_CONFIG.speed * deltaTime;
+            const step = VILLAGER_CONFIG.speed * deltaTime;
             const newPos = this.group.position.clone().add(direction.multiplyScalar(Math.min(step, distance)));
 
             if (distance > 0.5) {
@@ -145,20 +132,23 @@ export class Villager {
 
     // ── State transitions ─────────────────────────────────────────────────────
 
-    giveCoins(amount) {
-        const given      = Math.min(amount, this.coinsHeld);
-        this.coinsHeld  -= given;
-        this._updateCoinDisplay();
-        return given;
+    popCoinMesh() {
+        if (this.coinsHeld <= 0) return null;
+        this.coinsHeld--;
+        const mesh = this._coinStack.pop();
+        if (mesh) {
+            this.scene.attach(mesh);
+        }
+        return mesh;
     }
 
     moveToQueuePosition(queuePosition) {
-        this.queuePosition   = queuePosition;
-        this.targetPosition  = this._getQueuePosition();
+        this.queuePosition = queuePosition;
+        this.targetPosition = this._getQueuePosition();
     }
 
     setApproachingTable() {
-        this.state          = 'approaching_table';
+        this.state = 'approaching_table';
         this.targetPosition = new THREE.Vector3(
             VILLAGER_CONFIG.tablePosition.x,
             0,
@@ -167,7 +157,7 @@ export class Villager {
     }
 
     setExiting() {
-        this.state        = 'exiting';
+        this.state = 'exiting';
         this.exitTraveled = 0;
         this.targetPosition = new THREE.Vector3(0, 0, -30); // walk away on road
     }
@@ -203,6 +193,12 @@ export class Villager {
             this._meatStack.update(base);
         }
 
+        // Update coin stack positions (local space — base on villager's head)
+        if (this._coinStack.getCount() > 0) {
+            const base = new THREE.Vector3(0, 1.4, 0);
+            this._coinStack.update(base);
+        }
+
         return {
             arrived,
             canExit: this.exitTraveled >= VILLAGER_CONFIG.exitDistance
@@ -213,6 +209,7 @@ export class Villager {
 
     dispose() {
         this._meatStack.clear(this.group);
+        this._coinStack.clear(this.group);
         this.scene.remove(this.group);
     }
 }
