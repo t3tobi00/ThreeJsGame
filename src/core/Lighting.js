@@ -11,7 +11,7 @@ export class Lighting {
 
         // Directional Light (Sun)
         this.sunLight = new THREE.DirectionalLight(COLORS.sun, 1.4);
-        this.sunLight.position.set(20, 40, 20); // Steeper angle for clearer shadows
+        this.sunLight.position.set(10, 20, -5); // Angled sun to cast shadows diagonally, similar to Kingshot
         this.sunLight.castShadow = true;
 
         // Shadow config - soften and tighten bounds for high res
@@ -24,8 +24,8 @@ export class Lighting {
         this.sunLight.shadow.camera.bottom = -d;
         this.sunLight.shadow.camera.near = 0.5;
         this.sunLight.shadow.camera.far = 100;
-        this.sunLight.shadow.bias = -0.0005;
-        this.sunLight.shadow.normalBias = 0.02; // Prevents peter-panning
+        this.sunLight.shadow.bias = -0.001;
+        this.sunLight.shadow.normalBias = 0; // Reset normal bias because it was clipping shadows on mobile
 
         this.scene.add(this.sunLight);
     }

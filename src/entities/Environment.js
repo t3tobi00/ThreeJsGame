@@ -27,13 +27,18 @@ export class Environment {
         ctx.fillStyle = colorHex;
         ctx.fillRect(0, 0, 128, 128);
 
-        // Checkerboard Pattern
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; // slight darkening
+        // Stylized Checkerboard Turf
+        ctx.fillStyle = 'rgba(0, 50, 0, 0.05)'; // slight darkening
         ctx.fillRect(0, 0, 64, 64);
         ctx.fillRect(64, 64, 64, 64);
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.lineWidth = 4;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'; // slight lightening
+        ctx.fillRect(64, 0, 64, 64);
+        ctx.fillRect(0, 64, 64, 64);
+
+        // Soft internal grid lines
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.lineWidth = 2;
         ctx.strokeRect(0, 0, 128, 128);
 
         const gridTex = new THREE.CanvasTexture(canvas);
@@ -51,6 +56,47 @@ export class Environment {
         safePlane.rotation.x = -Math.PI / 2;
         safePlane.receiveShadow = true;
         this.scene.add(safePlane);
+
+        // --- Add Fake AO Shadow at edges ---
+        const aoCanvas = document.createElement('canvas');
+        aoCanvas.width = 512;
+        aoCanvas.height = 512;
+        const aoCtx = aoCanvas.getContext('2d');
+
+        // Transparent middle
+        aoCtx.clearRect(0, 0, 512, 512);
+
+        const gt = 40; // gradient thickness
+
+        // Top edge
+        let g = aoCtx.createLinearGradient(0, 0, 0, gt);
+        g.addColorStop(0, 'rgba(0,0,0,0.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        aoCtx.fillStyle = g; aoCtx.fillRect(0, 0, 512, gt);
+        // Bottom edge
+        g = aoCtx.createLinearGradient(0, 512, 0, 512 - gt);
+        g.addColorStop(0, 'rgba(0,0,0,0.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        aoCtx.fillStyle = g; aoCtx.fillRect(0, 512 - gt, 512, gt);
+        // Left edge
+        g = aoCtx.createLinearGradient(0, 0, gt, 0);
+        g.addColorStop(0, 'rgba(0,0,0,0.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        aoCtx.fillStyle = g; aoCtx.fillRect(0, 0, gt, 512);
+        // Right edge
+        g = aoCtx.createLinearGradient(512, 0, 512 - gt, 0);
+        g.addColorStop(0, 'rgba(0,0,0,0.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        aoCtx.fillStyle = g; aoCtx.fillRect(512 - gt, 0, gt, 512);
+
+        const aoTex = new THREE.CanvasTexture(aoCanvas);
+        const aoMat = new THREE.MeshBasicMaterial({
+            map: aoTex,
+            transparent: true,
+            opacity: 0.8,
+            depthWrite: false
+        });
+
+        const aoPlane = new THREE.Mesh(safeGeo, aoMat);
+        aoPlane.rotation.x = -Math.PI / 2;
+        aoPlane.position.y = 0.02; // Very slightly above the grass plane
+        this.scene.add(aoPlane);
 
         // Danger Zone
         const dangerGeo = new THREE.PlaneGeometry(
