@@ -55,7 +55,7 @@ class Game {
         this.floatingUI = new FloatingUI(this.camera.instance);
         this.particleSystem = new ParticleSystem(this.scene.instance);
         this.drainSystem = new DrainSystem(this.scene.instance, this.player, this.stackSystem, this.floatingUI);
-        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem);
+        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, this.player);
 
         // Connect Systems
         this.harvestSystem.onCollected = () => this.stackSystem.addDisk();
