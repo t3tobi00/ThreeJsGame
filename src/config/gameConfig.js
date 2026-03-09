@@ -18,10 +18,10 @@ export const PLAYER_CONFIG = {
 };
 
 export const CAMERA_CONFIG = {
-    fov: 45,
+    fov: 35,
     near: 0.1,
     far: 1000,
-    offset: { x: 15, y: 15, z: 15 },
+    offset: { x: 0, y: 20, z: 15 },
     lookAtOffset: { x: 0, y: 0, z: 0 },
     lerpFactor: 0.1
 };
@@ -76,7 +76,7 @@ export const COLORS_P3 = {
 };
 
 export const ZONE_CONFIG = {
-    size: 3.5,           // Size of the square zone
+    size: 1.8,           // Size of the square zone
     drainRate: 0.1,      // Seconds between each disk peel
     marchingAntsSpeed: 0.3,
     hologramRotationSpeed: 1.0,

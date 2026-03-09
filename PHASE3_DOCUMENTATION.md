@@ -13,35 +13,38 @@ Strict adherence to the modular ES6 architecture continued, with the addition of
 ## 3. New Entities & Visuals
 
 ### Unlock Zones (`src/entities/UnlockZone.js`)
-- **Marching Ants Border**: A custom `ShaderMaterial` on a `TorusGeometry` that creates a spinning dashed line effect on the floor.
-- **Hologram Previews**: Semi-transparent, wireframe versions of structures that spin and float within the zone using `MeshStandardMaterial` with emissive mapping.
-- **State-Driven**: Zones transition from active construction to hidden once the resource cost reaches zero.
+- **Flat Square Design**: Replaced circular zones with compact, dark-green square bases for a modern hyper-casual look.
+- **Static Dash Pattern**: Custom `ShaderMaterial` renders a thick white dashed border with a "Corners & Middles" static pattern.
+- **In-World UI**: Resource costs and icons are rendered directly on the floor via `CanvasTexture`, eliminating HTML/CSS overhead for zones.
+- **Tactile Feedback**: Text planes feature a "Scale Pop" on resource drain, and structures use a "Back-out" scale animation (overshoot and settle) when completed.
 
 ### Structures
 - **Turret (`src/entities/Turret.js`)**: 
-    - A modular sentry with a rotating head.
-    - Features auto-targeting of the nearest enemy and a recoil animation when firing.
-    - Connected to the `CombatSystem`'s projectile object pool.
+    - Modular sentry with a rotating head and auto-targeting logic.
+    - Shares the `CombatSystem` projectile pool for performance.
 - **Wall (`src/entities/Wall.js`)**: 
-    - A physics barrier (block) with health and damage indicators (red flash).
-- **Juicy Entry**: All structures use a "Back-out" easing scale animation (overshoot and settle) when they are "boinged" into existence.
+    - Physics-blocking barrier with health and damage flash effects.
 
 ## 4. Key Systems
 
 ### `LevelSystem`
-- Defines the layout for each level, instantiating `UnlockZones` at specific coordinates.
-- Orchestrates the transition from "Hologram Zone" to "Real Structure" upon completion.
+- Orchestrates the transition from "Unlock Zone" to "Structure" upon completion.
+- Coordinates positions to prevent overlap between the new square zones.
+
+### `DrainSystem`
+- Handles the parabolic "peeling" of resources from the player stack into construction sites.
+- Collision logic uses a forgiving proximity trigger based on `ZONE_CONFIG.size`.
 
 ### `ParticleSystem`
-- A pooled point-based system that triggers white "pop" bursts when a building is completed, enhancing the tactile feedback of construction.
+- pooled point-based system for "pop" bursts upon building completion.
 
 ### `CombatSystem` (Updated)
-- Now supports multi-owner firing. The system exposes a `spawnProjectile` utility, allowing both the player and multiple Turrets to share the same optimized object pool for projectiles.
+- Now supports multi-owner firing, allowing Turrets to utilize the existing player projectile pooling logic.
 
-## 5. UI & Polish
-- **Floating HUD**: Strategic use of the `FloatingUI` class ensures that resource costs feel physically attached to the 3D world, maintaining a high-quality "hyper-casual" aesthetic without cluttering the screen mid-game.
-- **Physics-Based Resource Flow**: When draining, resources follow a parabolic arc (Bezier-like) from the player's back into the center of the zone, mirroring the "Magnetic Harvest" mechanic from Phase 2.
+## 5. Visuals & Polish
+- **Mobile Perspective**: Updated `CAMERA_CONFIG` to a steeper, tighter isometric view (FOV 35, top-down offset).
+- **In-World Icons**: Uses Meat emojis and gold coins rendered directly into the 3D scene.
 
 ## 6. Performance
-- **Shader Optimization**: Marching ants effect is handled entirely on the GPU.
-- **Math**: Reused existing Three.js vectors and matrices to avoid garbage collection during projection calculations in `FloatingUI`.
+- **Resource Management**: Removed `FloatingUI` dependency for zones, reducing DOM complexity.
+- **Shader Power**: Border patterns and animations are calculated on the GPU to maintain 60 FPS.

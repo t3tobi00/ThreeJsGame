@@ -26,8 +26,8 @@ export class DrainSystem {
             zone.update(deltaTime);
 
             const dist = this.player.position.distanceTo(zone.position);
-            // Use size for collision check (simple radius check is usually fine even for squares)
-            if (dist < ZONE_CONFIG.size * 0.7) {
+            // Use size for collision check, making it more forgiving so the player just needs to touch the border
+            if (dist < ZONE_CONFIG.size * 1.2) {
                 this.handleDrain(zone);
             }
         }

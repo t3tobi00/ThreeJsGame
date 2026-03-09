@@ -40,13 +40,11 @@ export class UnlockZone {
     }
 
     initBorder(size) {
-        const borderGeo = new THREE.PlaneGeometry(size + 0.1, size + 0.1);
+        const borderGeo = new THREE.PlaneGeometry(size, size);
         this.borderMat = new THREE.ShaderMaterial({
             uniforms: {
-                time: { value: 0 },
                 color: { value: new THREE.Color(0xffffff) },
-                thickness: { value: 0.15 },
-                bracketLength: { value: 0.4 } // 0 to 0.5
+                thickness: { value: 0.15 }
             },
             vertexShader: `
                 varying vec2 vUv;
@@ -57,36 +55,29 @@ export class UnlockZone {
             `,
             fragmentShader: `
                 varying vec2 vUv;
-                uniform float time;
                 uniform vec3 color;
                 uniform float thickness;
-                uniform float bracketLength;
 
                 void main() {
                     vec2 uv = vUv;
-                    // Distance from edge (0.0 to 0.5)
+                    // Distance from center (0.0 to 1.0)
                     vec2 dist = abs(uv - 0.5) * 2.0; 
                     float edge = max(dist.x, dist.y);
                     
                     // Only draw near the very edges
                     if (edge < 1.0 - thickness) discard;
 
-                    // Dash logic for corners
-                    // vUv is 0 to 1.
-                    bool show = false;
-                    
-                    // Corner logic: if both dist.x and dist.y are high, we are in a corner
-                    // If either is high, we are on an edge.
-                    // Let's just use bracketLength
-                    if (dist.x > 1.0 - bracketLength && dist.y > 1.0 - bracketLength) {
-                        show = true;
+                    float d = 0.0;
+                    if (dist.x > dist.y) {
+                        d = abs(uv.y - 0.5);
+                    } else {
+                        d = abs(uv.x - 0.5);
                     }
                     
-                    // Animation: Pulse opacity
-                    float alpha = show ? (0.8 + 0.2 * sin(time * 5.0)) : 0.0;
-                    if (alpha <= 0.0) discard;
+                    // Keep corners (d > 0.35) and middle (d < 0.15)
+                    if (d > 0.15 && d < 0.35) discard;
                     
-                    gl_FragColor = vec4(color, alpha);
+                    gl_FragColor = vec4(color, 1.0);
                 }
             `,
             transparent: true,
@@ -106,7 +97,7 @@ export class UnlockZone {
         this.canvas.height = 256;
 
         this.texture = new THREE.CanvasTexture(this.canvas);
-        const textGeo = new THREE.PlaneGeometry(size * 0.8, size * 0.8);
+        const textGeo = new THREE.PlaneGeometry(size * 0.9, size * 0.9);
         const textMat = new THREE.MeshBasicMaterial({
             map: this.texture,
             transparent: true
@@ -129,7 +120,7 @@ export class UnlockZone {
 
         // Draw Value (Number)
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 120px Outfit, Inter, sans-serif';
+        ctx.font = 'bold 140px Outfit, Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
@@ -138,20 +129,21 @@ export class UnlockZone {
         ctx.shadowBlur = 10;
         ctx.shadowOffsetY = 5;
 
-        ctx.fillText(cost.toString(), canvas.width / 2, canvas.height / 2 - 20);
+        // Centered text slightly higher to leave room for coin
+        ctx.fillText(cost.toString(), canvas.width / 2, canvas.height / 2 - 30);
 
-        // Draw Icon below (Gold circle for simplicity - looks like a coin)
+        // Draw Icon below
         const iconY = canvas.width / 2 + 70;
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#ffcc00'; // Gold
         ctx.beginPath();
-        ctx.arc(canvas.width / 2, iconY, 30, 0, Math.PI * 2);
+        ctx.arc(canvas.width / 2, iconY, 35, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner crown-like star or "meat" representation
+        // Inner meat emoji
         ctx.fillStyle = '#cc7700';
-        ctx.font = 'bold 30px Arial';
-        ctx.fillText('🥩', canvas.width / 2, iconY + 10);
+        ctx.font = 'bold 35px Arial';
+        ctx.fillText('🥩', canvas.width / 2, iconY + 12);
 
         this.texture.needsUpdate = true;
 
@@ -161,10 +153,6 @@ export class UnlockZone {
 
     update(deltaTime) {
         if (this.isCompleted) return;
-
-        if (this.borderMat) {
-            this.borderMat.uniforms.time.value += deltaTime;
-        }
 
         // Smoothly return text plane scale to 1.0
         if (this.textPlane.scale.x > 1.0) {
