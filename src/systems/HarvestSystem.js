@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { STACK_CONFIG } from '../config/gameConfig.js';
-import { ResourceDisk } from '../entities/ResourceDisk.js';
+import { STACK_CONFIG, COLORS_P2 } from '../config/gameConfig.js';
+import { Resource } from '../entities/Resource.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
 export class HarvestSystem {
@@ -9,7 +9,7 @@ export class HarvestSystem {
         this.player = player;
         this.disks = [];
 
-        this.pool = new ObjectPool(() => new ResourceDisk(), 50, 'DiskPool');
+        this.pool = new ObjectPool(() => new Resource('meat', COLORS_P2.meatDisk), 50, 'DiskPool');
 
         // Track how many disks are currently in-flight to prevent over-collecting
         this.inFlightCount = 0;

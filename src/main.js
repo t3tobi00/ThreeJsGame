@@ -26,10 +26,10 @@ import { DrainSystem } from './systems/DrainSystem.js';
 import { LevelSystem } from './systems/LevelSystem.js';
 import { SellingSystem } from './systems/SellingSystem.js';
 import { CoinSystem } from './systems/CoinSystem.js';
-import { CoinTray } from './entities/CoinTray.js';
+import { StorageNode } from './entities/StorageNode.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
-import { SELLING_TABLE_POSITION } from './config/gameConfig.js';
+import { SELLING_TABLE_POSITION, SELLING_CONFIG, TRAY_CONFIG, COIN_CONFIG } from './config/gameConfig.js';
 
 class Game {
     constructor() {
@@ -114,10 +114,29 @@ class Game {
 
         // 7. Initialize Storage Nodes
         const tablePos = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
+        const meatTableNode = new StorageNode(this.scene.instance, tablePos, {
+            size: new THREE.Vector3(2, 0.6, 1),
+            color: 0x8B4513,
+            maxCapacity: SELLING_CONFIG.tableCapacity || 50,
+            stackOffset: 0.12,
+            stiffness: 0.8,
+            lerpFactor: 0.4,
+            idleWobble: false
+        });
+
+        const trayPos = new THREE.Vector3(TRAY_CONFIG.position.x, TRAY_CONFIG.position.y, TRAY_CONFIG.position.z);
+        const coinTrayNode = new StorageNode(this.scene.instance, trayPos, {
+            size: new THREE.Vector3(TRAY_CONFIG.size.x, TRAY_CONFIG.size.y, TRAY_CONFIG.size.z),
+            color: TRAY_CONFIG.color,
+            maxCapacity: 100,
+            stackOffset: COIN_CONFIG.stackOffset,
+            stiffness: 0.5,
+            lerpFactor: 0.3,
+            idleWobble: true
+        });
 
         // Bridge for Selling system logic (Still needed for VillagerSystem to know table inventory)
-        this.legacyCoinTray = new CoinTray(this.scene.instance);
-        this.coinSystem = new CoinSystem(this.legacyCoinTray);
+        this.coinSystem = new CoinSystem(coinTrayNode);
         this.sellingSystem = new SellingSystem(this.scene.instance, {
             getCount: () => playerInventory.stack.getCount(),
             popDisk: () => {
@@ -125,7 +144,7 @@ class Game {
                 if (popped) this.hud.updateMeatCount(playerInventory.stack.getCount());
                 return popped;
             }
-        }, tablePos);
+        }, meatTableNode);
 
         this.villagerSystem = new VillagerSystem(this.scene.instance, this.coinSystem, this.sellingSystem);
 

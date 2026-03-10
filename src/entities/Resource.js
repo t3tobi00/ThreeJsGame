@@ -1,21 +1,28 @@
 import * as THREE from 'three';
-import { COLORS_P2 } from '../config/gameConfig.js';
 
-export class ResourceDisk extends THREE.Mesh {
-    constructor() {
+export class Resource extends THREE.Mesh {
+    /**
+     * @param {string} type - 'meat', 'coin', etc.
+     * @param {number} color - Hex color code (e.g., 0xff3333)
+     */
+    constructor(type, color) {
         // Uniform chunk size for both Player, Table, and Villagers
         const geo = new THREE.CylinderGeometry(0.18, 0.18, 0.1, 16);
         const mat = new THREE.MeshStandardMaterial({
-            color: COLORS_P2.meatDisk,
+            color: color,
             roughness: 0.6,
-            metalness: 0.1
+            metalness: type === 'coin' ? 0.6 : 0.1 // Coins look shinier
         });
         super(geo, mat);
 
+        this.type = type;
         this.velocity = new THREE.Vector3();
+
+        // Harvest system properties
         this.isBeingHarvested = false;
         this.harvestStartTime = 0;
         this.curve = null;
+
         this.castShadow = true;
     }
 

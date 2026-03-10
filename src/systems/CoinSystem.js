@@ -1,8 +1,8 @@
 import { COIN_CONFIG } from '../config/gameConfig.js';
 
 export class CoinSystem {
-    constructor(coinTray) {
-        this.coinTray = coinTray;
+    constructor(storageNode) {
+        this.storageNode = storageNode;
         this.totalCoins = 0;
         this.pendingCoins = []; // Coins in transit (from villager to tray)
     }
@@ -14,13 +14,13 @@ export class CoinSystem {
 
     receiveCoinMesh(mesh) {
         this.totalCoins++;
-        this.coinTray.receiveCoinMesh(mesh);
+        this.storageNode.addMesh(mesh);
     }
 
     removeCoin() {
         if (this.totalCoins > 0) {
             this.totalCoins--;
-            return this.coinTray.removeCoin();
+            return this.storageNode.popMesh();
         }
         return null;
     }
@@ -36,7 +36,7 @@ export class CoinSystem {
     }
 
     update(deltaTime) {
-        // Update the coin tray stack animation
-        this.coinTray.update(deltaTime);
+        // Update the storage node stack animation
+        this.storageNode.update(deltaTime);
     }
 }

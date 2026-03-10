@@ -1,16 +1,15 @@
 import * as THREE from 'three';
-import { MeatTable } from '../entities/MeatTable.js';
 import { SELLING_CONFIG } from '../config/gameConfig.js';
 
 export class SellingSystem {
-    constructor(scene, stackSystem, tablePosition) {
+    constructor(scene, stackSystem, storageNode) {
         this.scene = scene;
         this.stackSystem = stackSystem;
-        this.tablePosition = tablePosition;
+        this.tablePosition = storageNode.position.clone();
         this.detectionRange = SELLING_CONFIG.detectionRange;
         this.transferSpeed = SELLING_CONFIG.transferSpeed;
 
-        this.meatTable = new MeatTable(scene, tablePosition);
+        this.storageNode = storageNode;
         this.lastTransferTime = 0;
         this.isPlayerNear = false;
     }
@@ -20,8 +19,8 @@ export class SellingSystem {
         const distance = playerPosition.distanceTo(this.tablePosition);
         this.isPlayerNear = distance < this.detectionRange;
 
-        // Update meat table animations
-        this.meatTable.update(deltaTime);
+        // Update storage node animations
+        this.storageNode.update(deltaTime);
 
         // Transfer meat from player to table if player is near and has meat
         if (this.isPlayerNear && this.stackSystem.getCount() > 0) {
@@ -34,7 +33,7 @@ export class SellingSystem {
                 if (disk) {
                     // Start transfer animation to table using the physical popped disk
                     const startPos = disk.position.clone();
-                    this.meatTable.transferMeat(disk, startPos);
+                    this.storageNode.transferMesh(disk, startPos, 2.5, true);
 
                     this.lastTransferTime = 0;
                 }
@@ -43,18 +42,18 @@ export class SellingSystem {
     }
 
     getMeatOnTable() {
-        return this.meatTable.getMeatCount();
+        return this.storageNode.getMeshCount();
     }
 
     removeMeatFromTable(count) {
-        return this.meatTable.removeMeatFromTable(count);
+        return this.storageNode.removeMeshes(count);
     }
 
     popMeatMeshFromTable() {
-        return this.meatTable.popMeatMesh();
+        return this.storageNode.popMesh();
     }
 
     dispose() {
-        this.meatTable.dispose();
+        this.storageNode.dispose();
     }
 }

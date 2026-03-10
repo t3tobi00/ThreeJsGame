@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { VILLAGER_CONFIG, COIN_CONFIG } from '../config/gameConfig.js';
 import { ResourceStack } from '../utils/ResourceStack.js';
+import { Resource } from './Resource.js';
 
 export class Villager {
     constructor(scene, queuePosition) {
@@ -82,16 +83,8 @@ export class Villager {
         this.group.add(rightEye);
 
         // Coins on head
-        const coinGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.03, 8);
-        const coinMat = new THREE.MeshStandardMaterial({
-            color: COIN_CONFIG.color,
-            roughness: 0.4,
-            metalness: 0.6
-        });
-
         for (let i = 0; i < this.coinsHeld; i++) {
-            const coin = new THREE.Mesh(coinGeo, coinMat);
-            coin.rotation.x = Math.PI / 2;
+            const coin = new Resource('coin', COIN_CONFIG.color);
             coin.castShadow = true;
             this.group.add(coin);
             this._coinStack.add(coin);

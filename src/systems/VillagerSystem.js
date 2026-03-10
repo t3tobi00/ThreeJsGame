@@ -147,7 +147,7 @@ export class VillagerSystem {
                 const coinMesh = villager.popCoinMesh();
                 if (coinMesh) {
                     const fromPos = coinMesh.position.clone();
-                    const toPos = this.coinSystem.coinTray.position.clone().setY(0.4);
+                    const toPos = this.coinSystem.storageNode.position.clone().setY(0.4);
 
                     this.transfer.send(coinMesh, fromPos, toPos, {
                         arcHeight: 2,
