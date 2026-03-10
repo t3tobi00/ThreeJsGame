@@ -1,33 +1,56 @@
 import * as THREE from 'three';
-import { PLAYER_CONFIG } from '../config/gameConfig.js';
 
+/**
+ * ECS MovementSystem — Universal physics and steering for ALL entities.
+ */
 export class MovementSystem {
-    constructor(player) {
-        this.player = player;
-        this.velocity = new THREE.Vector3();
+    constructor(joystick) {
+        this.joystick = joystick;
     }
 
-    update(deltaTime, inputVector) {
-        const targetVelocity = inputVector.clone().multiplyScalar(PLAYER_CONFIG.speed);
+    /**
+     * @param {number[]} entities IDs of entities with ['Transform', 'Movement']
+     * @param {number} deltaTime
+     * @param {ECSManager} ecs
+     */
+    update(entities, deltaTime, ecs) {
+        for (const id of entities) {
+            const transform = ecs.getComponent(id, 'Transform');
+            const movement = ecs.getComponent(id, 'Movement');
 
-        // Pick acceleration or deceleration factor
-        const isMoving = inputVector.lengthSq() > 0.001;
-        const factor = isMoving ? PLAYER_CONFIG.acceleration : PLAYER_CONFIG.deceleration;
+            if (!transform || !movement) continue;
 
-        // Frame-rate independent lerp
-        const smoothing = 1 - Math.pow(1 - factor, deltaTime * 60);
-        this.velocity.lerp(targetVelocity, smoothing);
+            const mesh = transform.mesh;
+            const velocity = new THREE.Vector3();
 
-        // Snap to zero if below deadzone to prevent sliding/drifting
-        if (!isMoving && this.velocity.length() < PLAYER_CONFIG.velocityDeadzone) {
-            this.velocity.set(0, 0, 0);
+            // Handle Input/Controller Types
+            if (movement.controller === 'joystick' && this.joystick) {
+                const input = this.joystick.getVector();
+                velocity.set(input.x, 0, input.y);
+            }
+            else if (movement.controller === 'simple_steering' && movement.targetPoint) {
+                // Point A to B steering
+                const direction = new THREE.Vector3().subVectors(movement.targetPoint, mesh.position);
+                if (direction.length() > 0.1) {
+                    velocity.copy(direction.normalize());
+                }
+            }
+
+            // Apply Movement
+            if (velocity.length() > 0.1) {
+                const step = movement.speed * deltaTime;
+                mesh.position.add(velocity.multiplyScalar(step));
+
+                // Snappy rotation toward movement direction
+                const angle = Math.atan2(velocity.x, velocity.z);
+                mesh.rotation.y = angle;
+
+                // Visual "wobble" (Squash and stretch based on velocity length)
+                const speedScale = 1.0 + Math.sin(Date.now() * 0.015) * 0.05;
+                mesh.scale.set(1, speedScale, 1);
+            } else {
+                mesh.scale.set(1, 1, 1);
+            }
         }
-
-        // Move player
-        const frameVelocity = this.velocity.clone().multiplyScalar(deltaTime);
-        this.player.group.position.add(frameVelocity);
-
-        // Let player entity handle internal animations (squash/rotation)
-        this.player.update(deltaTime, this.velocity);
     }
 }

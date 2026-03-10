@@ -19,4 +19,8 @@ export class Projectile extends THREE.Mesh {
         this.velocity.copy(targetDirection).normalize().multiplyScalar(COMBAT_CONFIG.projectileSpeed);
         this.visible = true;
     }
+
+    update(deltaTime) {
+        this.position.addScaledVector(this.velocity, deltaTime);
+    }
 }

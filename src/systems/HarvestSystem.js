@@ -11,6 +11,9 @@ export class HarvestSystem {
 
         this.pool = new ObjectPool(() => new ResourceDisk(), 50, 'DiskPool');
 
+        // Track how many disks are currently in-flight to prevent over-collecting
+        this.inFlightCount = 0;
+
         // Listen to enemy deaths
         enemySystem.onEnemyDeath = (pos) => this.spawnDisks(pos);
     }
@@ -28,8 +31,14 @@ export class HarvestSystem {
 
             // Magnetic Pull check
             const dist = disk.position.distanceTo(playerPos);
-            if (dist < STACK_CONFIG.pullRange) {
+
+            // Check if player has room (current stack + ones already flying towards player)
+            const currentStackSize = this.player.meatStackLength || 0;
+            const hasRoom = (currentStackSize + this.inFlightCount) < (this.player.maxCapacity || STACK_CONFIG.maxStackSize);
+
+            if (dist < STACK_CONFIG.pullRange && hasRoom) {
                 disk.isBeingHarvested = true;
+                this.inFlightCount++; // Increment in-flight tracker
                 disk.harvestStartTime = Date.now() * 0.001;
                 // Create parabolic curve (start, mid, end)
                 const start = disk.position.clone();
@@ -76,6 +85,7 @@ export class HarvestSystem {
             if (this.onCollected) {
                 this.onCollected(disk);
             }
+            this.inFlightCount = Math.max(0, this.inFlightCount - 1); // Decrement tracker
             this.removeDisk(disk, index);
         }
     }

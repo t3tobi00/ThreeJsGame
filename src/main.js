@@ -4,26 +4,32 @@ import { Camera } from './core/Camera.js';
 import { Scene } from './core/Scene.js';
 import { Lighting } from './core/Lighting.js';
 import { Environment } from './entities/Environment.js';
-import { Player } from './entities/Player.js';
-import { CoinTray } from './entities/CoinTray.js';
 import { Road } from './entities/Road.js';
 import { Joystick } from './ui/Joystick.js';
-import { InputSystem } from './systems/InputSystem.js';
-import { MovementSystem } from './systems/MovementSystem.js';
-import { CameraSystem } from './systems/CameraSystem.js';
-import { EnemySystem } from './systems/EnemySystem.js';
-import { CombatSystem } from './systems/CombatSystem.js';
-import { HarvestSystem } from './systems/HarvestSystem.js';
-import { StackSystem } from './systems/StackSystem.js';
-import { SellingSystem } from './systems/SellingSystem.js';
-import { VillagerSystem } from './systems/VillagerSystem.js';
-import { CoinSystem } from './systems/CoinSystem.js';
 import { HUD } from './ui/HUD.js';
 import { FloatingUI } from './ui/FloatingUI.js';
+
+// --- ECS Framework ---
+import { ECSManager } from './ecs/ECSManager.js';
+import { EntityFactory } from './entities/EntityFactory.js';
+import { MovementSystem } from './systems/MovementSystem.js';
+import { CombatSystem } from './systems/CombatSystem.js';
+import { TransactionSystem } from './systems/TransactionSystem.js';
+
+// --- Existing Juiced Systems ---
+import { CameraSystem } from './systems/CameraSystem.js';
+import { EnemySystem } from './systems/EnemySystem.js';
+import { HarvestSystem } from './systems/HarvestSystem.js';
+import { VillagerSystem } from './systems/VillagerSystem.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
 import { DrainSystem } from './systems/DrainSystem.js';
 import { LevelSystem } from './systems/LevelSystem.js';
-import { GATE_CONFIG, SELLING_CONFIG, SELLING_TABLE_POSITION } from './config/gameConfig.js';
+import { SellingSystem } from './systems/SellingSystem.js';
+import { CoinSystem } from './systems/CoinSystem.js';
+import { CoinTray } from './entities/CoinTray.js';
+import { ObjectPool } from './utils/ObjectPool.js';
+import { Projectile } from './entities/Projectile.js';
+import { SELLING_TABLE_POSITION } from './config/gameConfig.js';
 
 class Game {
     constructor() {
@@ -32,50 +38,110 @@ class Game {
     }
 
     init() {
-        // Core
+        // 1. Core Engine Boilerplate
         this.renderer = new Renderer();
         this.scene = new Scene();
         this.camera = new Camera();
         this.lighting = new Lighting(this.scene.instance);
 
-        // Entities
-        this.environment = new Environment(this.scene.instance);
-        this.player = new Player(this.scene.instance);
-
-        // UI
+        // 2. Global UI
         this.joystick = new Joystick();
         this.hud = new HUD();
-
-        // Systems
-        this.inputSystem = new InputSystem(this.joystick);
-        this.movementSystem = new MovementSystem(this.player);
-        this.cameraSystem = new CameraSystem(this.camera, this.player);
-
-        // Phase 2 Systems
-        this.enemySystem = new EnemySystem(this.scene.instance, this.player);
-        this.combatSystem = new CombatSystem(this.scene.instance, this.player, this.enemySystem);
-        this.harvestSystem = new HarvestSystem(this.scene.instance, this.player, this.enemySystem);
-        this.stackSystem = new StackSystem(this.scene.instance, this.player);
-
-        // Phase 3 Systems
         this.floatingUI = new FloatingUI(this.camera.instance);
-        this.particleSystem = new ParticleSystem(this.scene.instance);
-        this.drainSystem = new DrainSystem(this.scene.instance, this.player, this.stackSystem, this.floatingUI);
-        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, this.player);
 
-        // Selling System
-        this.coinTray = new CoinTray(this.scene.instance);
+        // 3. Initialize ECS
+        this.ecs = new ECSManager();
+        this.factory = new EntityFactory(this.scene.instance, this.ecs);
+
+        // 4. World Environment
+        this.environment = new Environment(this.scene.instance);
         this.road = new Road(this.scene.instance);
-        const sellingTablePosition = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
-        this.sellingSystem = new SellingSystem(this.scene.instance, this.stackSystem, sellingTablePosition);
-        this.coinSystem = new CoinSystem(this.coinTray);
+
+        // 5. Spawn Entities via Factory
+        this.playerId = this.factory.createPlayer(new THREE.Vector3(0, 0, 0));
+
+        // Get player transform for camera following
+        const playerTransform = this.ecs.getComponent(this.playerId, 'Transform');
+        const playerInventory = this.ecs.getComponent(this.playerId, 'InventoryStack');
+
+        // 6. Define Systems
+        // --- Shared Pools ---
+        this.projectilePool = new ObjectPool(() => new Projectile(), 50, 'ProjectilePool');
+
+        // --- Active ECS Systems ---
+        this.movementSystem = new MovementSystem(this.joystick);
+
+        // --- Legacy Bridges (To be refactored next) ---
+        // Note: These still expect "Player" class instance, so we pass a bridge object
+        this.playerBridge = {
+            position: playerTransform.mesh.position,
+            group: playerTransform.mesh,
+            mesh: playerTransform.mesh,
+            _meatStack: playerInventory.stack,
+            get meatStackLength() { return playerInventory.stack.getCount(); },
+            maxCapacity: playerInventory.maxCapacity,
+            popFromStack: () => playerInventory.stack.pop()
+        };
+
+        this.enemySystem = new EnemySystem(this.scene.instance, this.playerBridge);
+        this.combatSystem = new CombatSystem(this.scene.instance, this.projectilePool, this.enemySystem);
+
+        // TransactionSystem is needed for the Visual Stack Wobble physics!
+        this.transactionSystem = new TransactionSystem(this.scene.instance);
+
+        // Register ECS Systems
+        this.ecs.registerSystem(this.movementSystem, ['Transform', 'Movement']);
+        this.ecs.registerSystem(this.combatSystem, ['Transform', 'Shooter']);
+        this.ecs.registerSystem(this.transactionSystem, ['Transform', 'InventoryStack', 'Tag']);
+
+        // --- Utility Systems ---
+        this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
+        this.particleSystem = new ParticleSystem(this.scene.instance);
+        // Utility Systems
+        this.harvestSystem = new HarvestSystem(this.scene.instance, this.playerBridge, this.enemySystem);
+
+        // Mock StackSystem interface for DrainSystem
+        const mockStackSystem = {
+            stack: playerInventory.stack.items,
+            popDisk: () => {
+                const popped = playerInventory.stack.pop();
+                if (popped) this.hud.updateMeatCount(playerInventory.stack.getCount());
+                return popped;
+            }
+        };
+        this.drainSystem = new DrainSystem(this.scene.instance, this.playerBridge, mockStackSystem, this.floatingUI);
+        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, this.playerBridge);
+
+        // 7. Initialize Storage Nodes
+        const tablePos = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
+
+        // Bridge for Selling system logic (Still needed for VillagerSystem to know table inventory)
+        this.legacyCoinTray = new CoinTray(this.scene.instance);
+        this.coinSystem = new CoinSystem(this.legacyCoinTray);
+        this.sellingSystem = new SellingSystem(this.scene.instance, {
+            getCount: () => playerInventory.stack.getCount(),
+            popDisk: () => {
+                const popped = playerInventory.stack.pop();
+                if (popped) this.hud.updateMeatCount(playerInventory.stack.getCount());
+                return popped;
+            }
+        }, tablePos);
+
         this.villagerSystem = new VillagerSystem(this.scene.instance, this.coinSystem, this.sellingSystem);
 
-        // Connect Systems
-        this.harvestSystem.onCollected = () => this.stackSystem.addDisk();
-        this.stackSystem.onStackCountChanged = (count) => this.hud.updateMeatCount(count);
+        // Disable generic ECS table so we don't have overlapping visual tables
+        // this.factory.createTable(tablePos, 'meat');
 
-        // Start Level
+        // Connect Systems
+        this.harvestSystem.onCollected = (disk) => {
+            // Clone the mesh so the original can be returned to the pool safely
+            const newDisk = disk.clone();
+            this.scene.instance.add(newDisk);
+            playerInventory.stack.add(newDisk, { animate: true });
+            this.hud.updateMeatCount(playerInventory.stack.getCount());
+        };
+
+        // Init Level 1 elements (Gates, Unlock Zones)
         this.levelSystem.initLevel(1);
 
         this.animate();
@@ -84,33 +150,23 @@ class Game {
     animate() {
         requestAnimationFrame(this.animate.bind(this));
 
-        const deltaTime = Math.min(this.clock.getDelta(), 0.1); // Cap delta to avoid jumps
+        const deltaTime = Math.min(this.clock.getDelta(), 0.1);
 
-        // Update Systems
-        this.inputSystem.update();
-        const inputVector = this.inputSystem.getMovementVector();
+        // 1. Update Core ECS Loop
+        this.ecs.update(deltaTime);
 
-        this.movementSystem.update(deltaTime, inputVector);
+        // 2. Update Legacy/Visual Systems
         this.cameraSystem.update(deltaTime);
-
-        // Phase 2 Updates
         this.enemySystem.update(deltaTime);
-        this.combatSystem.update(deltaTime);
         this.harvestSystem.update(deltaTime);
-        this.stackSystem.update(deltaTime);
-
-        // Phase 3 Updates
-        this.drainSystem.update(deltaTime);
         this.particleSystem.update(deltaTime);
-        this.levelSystem.update(deltaTime, this.enemySystem.enemies);
         this.floatingUI.update();
-
-        // Selling System Updates
-        this.sellingSystem.update(deltaTime, this.player.position);
+        this.levelSystem.update(deltaTime, this.enemySystem.enemies);
+        this.sellingSystem.update(deltaTime, this.playerBridge ? this.playerBridge.position : new THREE.Vector3());
         this.villagerSystem.update(deltaTime);
         this.coinSystem.update(deltaTime);
 
-        // Render
+        // 3. Render
         this.renderer.render(this.scene.instance, this.camera.instance);
     }
 }

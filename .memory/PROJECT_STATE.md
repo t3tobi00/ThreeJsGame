@@ -12,8 +12,9 @@
 | 1     | Foundation (Movement/Input) | ✅ DONE     |
 | 2     | Core Juice (Combat/Harvest) | ✅ DONE     |
 | 3     | Base Building & Expansion   | ✅ DONE     |
-| 4     | Level Progression & Enemies | 🔧 PENDING  |
-| 5     | Boss, Polish & Optimization | ⬜ NOT YET  |
+| 4     | Selling System              | ✅ DONE     |
+| 5     | ECS Migration & Polish      | ✅ DONE     |
+| 6     | Level Progression & Final   | 🔧 PENDING  |
 
 ---
 
@@ -31,28 +32,34 @@
 
 ---
 
-## Phase 5 — Planned (Not Started)
+## Phase 6 — Planned (Not Started)
 - Boss: Cylinder King
 - Infinite wave generator
 - Particle system (pooled explosions)
-- Post-processing bloom pass
-- Final mobile optimization
+- Further ECS integration of UI/Level systems
 
 ---
 
 ## Recently Completed (last 5 milestones)
-1. **Selling System bugfixes** — 6 bugs fixed: road length, table position mismatch (3 sources→1), circular canBuy() dep, const/let, queue orientation, spawn/exit direction
-2. **ResourceStack utility** — Reusable vertical spring-stack; replaces duplicate loops in StackSystem, CoinTray, MeatTable, Villager
-3. **ResourceTransfer utility** — Reusable Bezier-arc flight; replaces MeatTable's manual inTransitMeat system
-4. **Selling System** — Initial full implementation (coin tray, villagers, road, transactions)
-5. Turret multi-owner firing integrated with CombatSystem
+1. **ECS Bugfixes** — Fixed `SellingSystem` loop crash, missing `Projectile.update`, massive disk visuals, and infinite `HarvestSystem`.
+2. **ECS Migration** — Introduced `ECSManager.js`, `EntityFactory`, and `Component_*` models to slowly port away from hardcoded entity classes.
+3. **Selling System bugfixes** — 6 bugs fixed: road length, table position mismatch (3 sources→1), circular canBuy() dep, const/let, queue orientation, spawn/exit direction
+4. **ResourceStack utility** — Reusable vertical spring-stack; replaces duplicate loops in StackSystem, CoinTray, MeatTable, Villager
+5. **ResourceTransfer utility** — Reusable Bezier-arc flight; replaces MeatTable's manual inTransitMeat system
 
 ---
 
 ## Active Concerns / Tech Debt
-- MeatTable.transferMeat() creates new geometry/material per disk — consider pooling for high throughput
-- Villager.receiveMeat() similarly creates geometry per call — same pooling concern
-- HarvestSystem still has its own arc logic — could migrate to ResourceTransfer in a future cleanup pass
+- Needs full migration of Villagers and Coins to the new ECS `EntityFactory` system. Currently using legacy classes bridged by mock methods.
+- The `UnlockZone` system and coin collection should ideally be merged into pure ECS logic.
+
+---
+
+## New Files Added (ECS Architecture)
+- `src/ecs/ECSManager.js` — Core registry
+- `src/ecs/components/` — `Component_Transform`, `Component_Movement`, `Component_InventoryStack`, `Component_Shooter`, `Component_TransactionLogic`
+- `src/entities/EntityFactory.js` — Factory for composite entities
+- `src/systems/TransactionSystem.js` — Universal resource logic
 
 ---
 

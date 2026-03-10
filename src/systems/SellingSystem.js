@@ -24,7 +24,7 @@ export class SellingSystem {
         this.meatTable.update(deltaTime);
 
         // Transfer meat from player to table if player is near and has meat
-        if (this.isPlayerNear && this.stackSystem.stack.length > 0) {
+        if (this.isPlayerNear && this.stackSystem.getCount() > 0) {
             this.lastTransferTime += deltaTime;
 
             if (this.lastTransferTime >= this.transferSpeed) {
@@ -32,15 +32,9 @@ export class SellingSystem {
                 const disk = this.stackSystem.popDisk();
 
                 if (disk) {
-                    // Remove disk from scene
-                    this.scene.remove(disk);
-                    disk.geometry.dispose();
-                    disk.material.dispose();
-
-                    // Start transfer animation to table
-                    const startPos = playerPosition.clone();
-                    startPos.y += 1.5; // Start from player's back height
-                    this.meatTable.transferMeat(startPos, 1);
+                    // Start transfer animation to table using the physical popped disk
+                    const startPos = disk.position.clone();
+                    this.meatTable.transferMeat(disk, startPos);
 
                     this.lastTransferTime = 0;
                 }

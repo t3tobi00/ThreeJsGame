@@ -3,8 +3,8 @@ import { COLORS_P2 } from '../config/gameConfig.js';
 
 export class ResourceDisk extends THREE.Mesh {
     constructor() {
-        // Chunky meat disks
-        const geo = new THREE.CylinderGeometry(0.3, 0.3, 0.2, 16);
+        // Uniform chunk size for both Player, Table, and Villagers
+        const geo = new THREE.CylinderGeometry(0.18, 0.18, 0.1, 16);
         const mat = new THREE.MeshStandardMaterial({
             color: COLORS_P2.meatDisk,
             roughness: 0.6,

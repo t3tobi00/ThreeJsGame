@@ -28,41 +28,28 @@ export class MeatTable {
 
     /**
      * Called by SellingSystem when a disk leaves the player stack.
-     * Creates a meat mesh and flies it to the table.
+     * Takes an existing meat mesh and flies it to the table stack.
+     * @param {THREE.Object3D} disk     The popped mesh
      * @param {THREE.Vector3} startPos  World position to launch from
-     * @param {number} count            Number of disks to send
-     * @returns {number} How many were dispatched
+     * @returns {boolean} True if successfully dispatched
      */
-    transferMeat(startPos, count = 1) {
-        let dispatched = 0;
-
-        for (let i = 0; i < count; i++) {
-            if (this._stack.getCount() >= this.maxCapacity) break;
-
-            const geo = new THREE.CylinderGeometry(0.15, 0.15, 0.08, 8);
-            const mat = new THREE.MeshStandardMaterial({
-                color: COLORS_P2.meatDisk,
-                roughness: 0.6,
-                metalness: 0.1
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.castShadow = true;
-            mesh.position.copy(startPos);
-            this.scene.add(mesh);
-
-            const endPos = this._stackBase.clone();
-
-            this._transfer.send(mesh, startPos, endPos, {
-                arcHeight: 2.5,
-                duration: 0.5,
-                spin: true,
-                onArrive: (m) => this._stack.add(m, { animate: true })
-            });
-
-            dispatched++;
+    transferMeat(disk, startPos) {
+        if (!disk) return false;
+        if (this._stack.getCount() >= this.maxCapacity) {
+            // Revert deletion or ignore if full (SellingSystem handles safety)
+            return false;
         }
 
-        return dispatched;
+        const endPos = this._stackBase.clone();
+
+        this._transfer.send(disk, startPos, endPos, {
+            arcHeight: 2.5,
+            duration: 0.5,
+            spin: true,
+            onArrive: (m) => this._stack.add(m, { animate: true })
+        });
+
+        return true;
     }
 
     /**
