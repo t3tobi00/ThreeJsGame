@@ -23,16 +23,16 @@ import { StackSystem } from './systems/StackSystem.js';
 import { CameraSystem } from './systems/CameraSystem.js';
 import { EnemySystem } from './systems/EnemySystem.js';
 import { CollectorSystem } from './systems/CollectorSystem.js';
-import { VillagerSystem } from './systems/VillagerSystem.js';
+import { AgentAISystem } from './systems/AgentAISystem.js';
+import { TraderSystem } from './systems/TraderSystem.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
 import { DrainSystem } from './systems/DrainSystem.js';
 import { LevelSystem } from './systems/LevelSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
-import { CoinSystem } from './systems/CoinSystem.js';
 import { StorageNode } from './entities/StorageNode.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
-import { SELLING_TABLE_POSITION, SELLING_CONFIG, TRAY_CONFIG, COIN_CONFIG } from './config/gameConfig.js';
+import { SELLING_TABLE_POSITION, SELLING_CONFIG, TRAY_CONFIG } from './config/gameConfig.js';
 
 class Game {
     constructor() {
@@ -129,19 +129,6 @@ class Game {
             idleWobble: false
         });
 
-        const trayPos = new THREE.Vector3(TRAY_CONFIG.position.x, TRAY_CONFIG.position.y, TRAY_CONFIG.position.z);
-        const coinTrayNode = new StorageNode(this.scene.instance, trayPos, {
-            size: new THREE.Vector3(TRAY_CONFIG.size.x, TRAY_CONFIG.size.y, TRAY_CONFIG.size.z),
-            color: TRAY_CONFIG.color,
-            maxCapacity: 100,
-            stackOffset: COIN_CONFIG.stackOffset,
-            stiffness: 0.5,
-            lerpFactor: 0.3,
-            idleWobble: true
-        });
-
-        this.coinSystem = new CoinSystem(coinTrayNode);
-
         // Create ECS table entity so DepositorSystem can find it by Tag
         const tablePos3 = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
         this.meatTableEntityId = this.factory.create('meat-table', tablePos3);
@@ -150,19 +137,25 @@ class Game {
         this.depositorSystem = new DepositorSystem(this.scene.instance);
         this.ecs.registerSystem(this.depositorSystem, ['Transform', 'Depositor', 'InventoryStack']);
 
-        // Temporary shim: VillagerSystem still needs table inventory access
-        this.sellingSystemShim = {
-            getMeatOnTable: () => {
-                const inv = this.ecs.getComponent(this.meatTableEntityId, 'InventoryStack');
-                return inv ? inv.stack.getCount() : 0;
-            },
-            popMeatMeshFromTable: () => {
-                const inv = this.ecs.getComponent(this.meatTableEntityId, 'InventoryStack');
-                return inv ? inv.stack.pop() : null;
-            }
-        };
+        // Create coin tray ECS entity
+        this.coinTrayEntityId = this.factory.create('coin-tray',
+            new THREE.Vector3(TRAY_CONFIG.position.x, TRAY_CONFIG.position.y, TRAY_CONFIG.position.z));
 
-        this.villagerSystem = new VillagerSystem(this.scene.instance, this.coinSystem, this.sellingSystemShim);
+        // Create AgentAISystem + TraderSystem
+        this.agentAISystem = new AgentAISystem(this.factory, this.scene.instance);
+        this.traderSystem = new TraderSystem(this.scene.instance, this.agentAISystem, this.coinTrayEntityId);
+        this.traderSystem.setECS(this.ecs);
+
+        // Register with ECS
+        this.ecs.registerSystem(this.agentAISystem, ['Transform', 'Movement', 'AgentAI']);
+        this.ecs.registerSystem(this.traderSystem, ['Transform', 'InventoryStack', 'Trader']);
+
+        // Spawn initial villagers (4 in queue)
+        for (let i = 0; i < 4; i++) {
+            const spawnPos = new THREE.Vector3(0, 0, -24 + i * 0.5);
+            const villagerId = this.factory.create('villager', spawnPos);
+            this.agentAISystem.register(villagerId, i);
+        }
 
         // Note: ECS meat-table entity (meatTableEntityId) provides Tag+InventoryStack for DepositorSystem.
         // meatTableNode (StorageNode) provides the visual table mesh. Two visual objects co-exist at same position.
@@ -193,8 +186,6 @@ class Game {
         this.floatingUI.update();
         this.levelSystem.update(deltaTime, this.enemySystem.enemies);
         this.meatTableNode.update(deltaTime);
-        this.villagerSystem.update(deltaTime);
-        this.coinSystem.update(deltaTime);
 
         // 3. Render
         this.renderer.render(this.scene.instance, this.camera.instance);
