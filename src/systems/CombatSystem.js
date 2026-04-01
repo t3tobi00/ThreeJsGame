@@ -73,8 +73,7 @@ export class CombatSystem {
                 const health = ecs.getComponent(entityId, 'Health');
                 const dist = p.position.distanceTo(t.mesh.position);
                 if (dist < 1.0) {
-                    health.hp -= (p.damage || 1);
-                    EventBus.emit('entity:damaged', { entityId, amount: p.damage || 1 });
+                    EventBus.emit('entity:damaged', { entityId, damage: p.damage || 1 });
                     hit = true;
                     break;
                 }

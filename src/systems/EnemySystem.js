@@ -37,17 +37,8 @@ export class EnemySystem {
 
             if (!transform || !movement || !health) continue;
 
-            // Dead enemies — emit died event and destroy
-            if (health.hp <= 0) {
-                EventBus.emit('entity:died', {
-                    entityId,
-                    position: transform.mesh.position.clone(),
-                    drops: ['meat']
-                });
-                this.scene.remove(transform.mesh);
-                ecs.destroyEntity(entityId);
-                continue;
-            }
+            // Skip dead/destroyed enemies (HealthSystem handles death)
+            if (health.hp <= 0) continue;
 
             // Steer toward player
             const dir = new THREE.Vector3()
