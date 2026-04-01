@@ -17,6 +17,7 @@ import { EntityFactory } from './entities/EntityFactory.js';
 import { MovementSystem } from './systems/MovementSystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
 import { TransactionSystem } from './systems/TransactionSystem.js';
+import { StackSystem } from './systems/StackSystem.js';
 
 // --- Existing Juiced Systems ---
 import { CameraSystem } from './systems/CameraSystem.js';
@@ -96,6 +97,11 @@ class Game {
         this.ecs.registerSystem(this.combatSystem, ['Transform', 'Shooter']);
         this.ecs.registerSystem(this.transactionSystem, ['Transform', 'InventoryStack', 'Tag']);
 
+        // StackSystem — ECS driven, no player reference
+        this.stackSystem = new StackSystem(this.scene.instance);
+        this.stackSystem.setECS(this.ecs);
+        this.ecs.registerSystem(this.stackSystem, ['Transform', 'InventoryStack']);
+
         // --- Utility Systems ---
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
         this.particleSystem = new ParticleSystem(this.scene.instance);
@@ -105,11 +111,7 @@ class Game {
         // Mock StackSystem interface for DrainSystem
         const mockStackSystem = {
             stack: playerInventory.stack.items,
-            popDisk: () => {
-                const popped = playerInventory.stack.pop();
-                if (popped) this.hud.updateMeatCount(playerInventory.stack.getCount());
-                return popped;
-            }
+            popDisk: () => this.stackSystem.popDisk(this.playerId)
         };
         this.drainSystem = new DrainSystem(this.scene.instance, this.playerBridge, mockStackSystem, this.floatingUI);
         this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, this.playerBridge);
@@ -140,12 +142,11 @@ class Game {
         // Bridge for Selling system logic (Still needed for VillagerSystem to know table inventory)
         this.coinSystem = new CoinSystem(coinTrayNode);
         this.sellingSystem = new SellingSystem(this.scene.instance, {
-            getCount: () => playerInventory.stack.getCount(),
-            popDisk: () => {
-                const popped = playerInventory.stack.pop();
-                if (popped) this.hud.updateMeatCount(playerInventory.stack.getCount());
-                return popped;
-            }
+            getCount: () => {
+                const inv = this.ecs.getComponent(this.playerId, 'InventoryStack');
+                return inv ? inv.stack.getCount() : 0;
+            },
+            popDisk: () => this.stackSystem.popDisk(this.playerId)
         }, meatTableNode);
 
         this.villagerSystem = new VillagerSystem(this.scene.instance, this.coinSystem, this.sellingSystem);
@@ -155,12 +156,13 @@ class Game {
 
         // Connect Systems
         this.harvestSystem.onCollected = (disk) => {
-            // Clone the mesh so the original can be returned to the pool safely
             const newDisk = disk.clone();
-            this.scene.instance.add(newDisk);
-            playerInventory.stack.add(newDisk, { animate: true });
-            this.hud.updateMeatCount(playerInventory.stack.getCount());
+            // Emit item:collected so StackSystem handles it via EventBus
+            EventBus.emit('item:collected', { collectorId: this.playerId, mesh: newDisk });
         };
+        EventBus.on('stack:changed', ({ entityId, count }) => {
+            if (entityId === this.playerId) this.hud.updateMeatCount(count);
+        });
 
         // Init Level 1 elements (Gates, Unlock Zones)
         this.levelSystem.initLevel(1);
