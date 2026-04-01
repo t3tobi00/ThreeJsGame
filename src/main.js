@@ -74,20 +74,11 @@ class Game {
         // --- Active ECS Systems ---
         this.movementSystem = new MovementSystem(this.joystick);
 
-        // --- Legacy Bridges (To be refactored next) ---
-        // Note: These still expect "Player" class instance, so we pass a bridge object
-        this.playerBridge = {
-            position: playerTransform.mesh.position,
-            group: playerTransform.mesh,
-            mesh: playerTransform.mesh,
-            _meatStack: playerInventory.stack,
-            get meatStackLength() { return playerInventory.stack.getCount(); },
-            maxCapacity: playerInventory.maxCapacity,
-            popFromStack: () => playerInventory.stack.pop()
-        };
+        this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
+        this.enemySystem.setECS(this.ecs);
+        this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health']);
 
-        this.enemySystem = new EnemySystem(this.scene.instance, this.playerBridge);
-        this.combatSystem = new CombatSystem(this.scene.instance, this.projectilePool, this.enemySystem);
+        this.combatSystem = new CombatSystem(this.scene.instance, this.projectilePool);
 
         // TransactionSystem is needed for the Visual Stack Wobble physics!
         this.transactionSystem = new TransactionSystem(this.scene.instance);
@@ -114,8 +105,8 @@ class Game {
             stack: playerInventory.stack.items,
             popDisk: () => this.stackSystem.popDisk(this.playerId)
         };
-        this.drainSystem = new DrainSystem(this.scene.instance, this.playerBridge, mockStackSystem, this.floatingUI);
-        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, this.playerBridge);
+        this.drainSystem = new DrainSystem(this.scene.instance, { position: playerTransform.mesh.position, group: playerTransform.mesh }, mockStackSystem, this.floatingUI);
+        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, { position: playerTransform.mesh.position, group: playerTransform.mesh });
 
         // 7. Initialize Storage Nodes
         const tablePos = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
@@ -181,10 +172,9 @@ class Game {
 
         // 2. Update Legacy/Visual Systems
         this.cameraSystem.update(deltaTime);
-        this.enemySystem.update(deltaTime);
         this.particleSystem.update(deltaTime);
         this.floatingUI.update();
-        this.levelSystem.update(deltaTime, this.enemySystem.enemies);
+        this.levelSystem.update(deltaTime, []);
         this.meatTableNode.update(deltaTime);
 
         // 3. Render

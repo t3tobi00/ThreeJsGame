@@ -1,74 +1,54 @@
 import * as THREE from 'three';
+import EventBus from '../core/EventBus.js';
 
 /**
- * ECS CombatSystem — Handles auto-firing for any entity with a Shooter component.
+ * CombatSystem — Pure ECS. No legacy enemySystem bridge.
+ * Queries shooter entities: ['Transform', 'Shooter']
+ * Targets are found by querying entities with ['Transform', 'Movement'] and matching faction.
  */
 export class CombatSystem {
-    constructor(scene, projectilePool, enemySystem) {
+    constructor(scene, projectilePool) {
         this.scene = scene;
         this.projectilePool = projectilePool;
-        this.enemySystem = enemySystem;
         this.projectiles = [];
     }
 
-    /**
-     * @param {number[]} entities IDs of entities with ['Transform', 'Shooter']
-     */
     update(entities, deltaTime, ecs) {
         for (const shooterId of entities) {
             const transform = ecs.getComponent(shooterId, 'Transform');
             const shooter = ecs.getComponent(shooterId, 'Shooter');
-            const movement = ecs.getComponent(shooterId, 'Movement');
-
             if (!transform || !shooter) continue;
 
             shooter.lastFireTime += deltaTime;
 
-            // 1. Find the closest target in range belonging to an enemy faction
             let closestDist = shooter.range;
             let bestTarget = null;
 
-            // Find valid target entities (entities with Transform & Movement mapped in ECS)
-            const targetableIds = ecs.queryEntities(['Transform', 'Movement']);
-            for (const targetId of targetableIds) {
+            // Find targets from ECS only — no legacy array
+            const targetables = ecs.queryEntities(['Transform', 'Movement']);
+            for (const targetId of targetables) {
                 if (targetId === shooterId) continue;
-
                 const targetMovement = ecs.getComponent(targetId, 'Movement');
                 if (!shooter.targetFactions.includes(targetMovement.faction)) continue;
 
                 const targetTransform = ecs.getComponent(targetId, 'Transform');
                 const dist = transform.mesh.position.distanceTo(targetTransform.mesh.position);
-
                 if (dist < closestDist) {
                     closestDist = dist;
-                    bestTarget = targetTransform.mesh.position.clone();
+                    bestTarget = { pos: targetTransform.mesh.position.clone(), entityId: targetId };
                 }
             }
 
-            // Bridge to legacy EnemySystem (Temporary until enemies are fully ported to ECS Factory)
-            if (this.enemySystem && this.enemySystem.enemies) {
-                for (const enemy of this.enemySystem.enemies) {
-                    if (enemy.state === 'DYING') continue;
-                    const dist = transform.mesh.position.distanceTo(enemy.position);
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        bestTarget = enemy.position.clone();
-                    }
-                }
-            }
-
-            // 2. Fire projectile if target found and cooldown ready
             if (bestTarget && shooter.lastFireTime >= shooter.fireRate) {
-                this.fireProjectile(transform.mesh.position, bestTarget, shooter.damage);
+                this._fireProjectile(transform.mesh.position, bestTarget.pos, shooter.damage);
                 shooter.lastFireTime = 0;
             }
         }
 
-        // Update in-flight projectiles
-        this.updateProjectiles(deltaTime);
+        this._updateProjectiles(deltaTime, ecs);
     }
 
-    fireProjectile(origin, target, damage = 5) {
+    _fireProjectile(origin, target, damage) {
         const direction = new THREE.Vector3().subVectors(target, origin).normalize();
         const projectile = this.projectilePool.get();
         projectile.reset(origin, direction);
@@ -77,24 +57,26 @@ export class CombatSystem {
         this.projectiles.push(projectile);
     }
 
-    updateProjectiles(deltaTime) {
+    _updateProjectiles(deltaTime, ecs) {
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.update(deltaTime);
             let hit = false;
 
-            // Check collisions with legacy enemies
-            if (this.enemySystem && this.enemySystem.enemies) {
-                for (const enemy of this.enemySystem.enemies) {
-                    if (enemy.state !== 'ALIVE') continue;
+            // Collision check against ECS entities with Health
+            const hittable = ecs.queryEntities(['Transform', 'Health', 'Movement']);
+            for (const entityId of hittable) {
+                const movement = ecs.getComponent(entityId, 'Movement');
+                if (movement.faction === 'player' || movement.faction === 'neutral') continue;
 
-                    // Simple distance check (enemy capsule radius + projectile radius)
-                    const dist = p.position.distanceTo(enemy.position);
-                    if (dist < 1.0) {
-                        enemy.takeDamage(p.damage || 5);
-                        hit = true;
-                        break;
-                    }
+                const t = ecs.getComponent(entityId, 'Transform');
+                const health = ecs.getComponent(entityId, 'Health');
+                const dist = p.position.distanceTo(t.mesh.position);
+                if (dist < 1.0) {
+                    health.hp -= (p.damage || 1);
+                    EventBus.emit('entity:damaged', { entityId, amount: p.damage || 1 });
+                    hit = true;
+                    break;
                 }
             }
 

@@ -1,82 +1,69 @@
 import * as THREE from 'three';
-import { ENEMY_CONFIG, WORLD_CONFIG } from '../config/gameConfig.js';
-import { Enemy } from '../entities/Enemy.js';
-import { ObjectPool } from '../utils/ObjectPool.js';
+import { ENEMY_CONFIG } from '../config/gameConfig.js';
 import EventBus from '../core/EventBus.js';
 
+/**
+ * EnemySystem — ECS-driven enemy spawning and steering.
+ * Enemies are created via EntityFactory (archetype 'enemy').
+ * Queries: ['Transform', 'Movement', 'Health']
+ */
 export class EnemySystem {
-    constructor(scene, player) {
+    constructor(scene, factory, playerTransform) {
         this.scene = scene;
-        this.player = player;
-        this.enemies = [];
-        this.spawnTimer = 0;
-
-        this.pool = new ObjectPool(() => new Enemy(), 10, 'EnemyPool');
+        this._factory = factory;
+        this._playerTransform = playerTransform;
+        this._spawnTimer = 0;
+        this._ecs = null;
     }
 
-    update(deltaTime) {
-        this.spawnTimer += deltaTime;
+    setECS(ecs) { this._ecs = ecs; }
 
-        // Auto-spawn logic
-        if (this.spawnTimer >= ENEMY_CONFIG.spawnInterval) {
-            this.spawnTimer = 0;
-            this.spawnEnemy();
+    /** Called by ECS every frame. */
+    update(entities, deltaTime, ecs) {
+        this._ecs = ecs;
+        this._spawnTimer += deltaTime;
+
+        if (this._spawnTimer >= ENEMY_CONFIG.spawnInterval) {
+            this._spawnTimer = 0;
+            this._spawnEnemy();
         }
 
-        // Behavior: Move toward player
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-            const enemy = this.enemies[i];
+        const playerPos = this._playerTransform.mesh.position;
 
-            if (enemy.state === 'DYING') {
-                this.handleEnemyDeath(enemy, i);
+        for (const entityId of entities) {
+            const transform = ecs.getComponent(entityId, 'Transform');
+            const movement = ecs.getComponent(entityId, 'Movement');
+            const health = ecs.getComponent(entityId, 'Health');
+
+            if (!transform || !movement || !health) continue;
+
+            // Dead enemies — emit died event and destroy
+            if (health.hp <= 0) {
+                EventBus.emit('entity:died', {
+                    entityId,
+                    position: transform.mesh.position.clone(),
+                    drops: ['meat']
+                });
+                this.scene.remove(transform.mesh);
+                ecs.destroyEntity(entityId);
                 continue;
             }
 
-            // Direction to player
-            const direction = new THREE.Vector3()
-                .copy(this.player.position)
-                .sub(enemy.position);
-
-            // basic avoidance or stop near player
-            if (direction.length() > 0.5) {
-                direction.normalize();
-                enemy.position.addScaledVector(direction, ENEMY_CONFIG.speed * deltaTime);
-                // Look at player (rotation snap)
-                enemy.rotation.y = Math.atan2(direction.x, direction.z);
+            // Steer toward player
+            const dir = new THREE.Vector3()
+                .subVectors(playerPos, transform.mesh.position);
+            if (dir.length() > 0.5) {
+                dir.normalize();
+                transform.mesh.position.addScaledVector(dir, movement.speed * deltaTime);
+                transform.mesh.rotation.y = Math.atan2(dir.x, dir.z);
             }
         }
     }
 
-    spawnEnemy() {
-        // Spawn at random angle on a distance circle
+    _spawnEnemy() {
         const angle = Math.random() * Math.PI * 2;
-        const dist = ENEMY_CONFIG.spawnDistance + (Math.random() * 5);
-        const x = Math.cos(angle) * dist;
-        const z = Math.sin(angle) * dist;
-
-        const enemy = this.pool.get();
-        enemy.reset();
-        enemy.position.set(x, 0, z);
-        this.scene.add(enemy);
-        this.enemies.push(enemy);
-    }
-
-    handleEnemyDeath(enemy, index) {
-        // EventBus emission (new ECS path)
-        EventBus.emit('entity:died', {
-            entityId: null,            // legacy enemies have no ECS ID yet
-            position: enemy.position.clone(),
-            drops: ['meat']
-        });
-
-        // Legacy callback (kept during migration — remove in Task 9)
-        if (this.onEnemyDeath) {
-            this.onEnemyDeath(enemy.position.clone());
-        }
-
-        // Return to pool
-        this.pool.release(enemy);
-        this.scene.remove(enemy);
-        this.enemies.splice(index, 1);
+        const dist = ENEMY_CONFIG.spawnDistance + Math.random() * 5;
+        const pos = new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+        this._factory.create('enemy', pos);
     }
 }
