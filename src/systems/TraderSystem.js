@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { ResourceTransfer } from '../utils/ResourceTransfer.js';
 import EventBus from '../core/EventBus.js';
-import { COIN_CONFIG } from '../config/gameConfig.js';
 import ResourceRegistry from '../core/ResourceRegistry.js';
 
 export class TraderSystem {
@@ -15,7 +14,9 @@ export class TraderSystem {
         EventBus.on('item:deposited', ({ targetId }) => {
             if (this._ecs) {
                 const tableInv = this._ecs.getComponent(targetId, 'InventoryStack');
-                if (tableInv && tableInv.stack.getCount() >= 1) {
+                const tableMeta = targetId ? this._ecs.getComponent(targetId, 'Trader') : null;
+                const minStock = tableMeta ? tableMeta.minStock : 1;
+                if (tableInv && tableInv.stack.getCount() >= minStock) {
                     this._agentAI.sendFrontToTable(this._ecs);
                 }
             }
@@ -76,7 +77,8 @@ export class TraderSystem {
             return;
         }
 
-        const meatToBuy = Math.min(3, tableInventory.stack.getCount());
+        const trader = ecs.getComponent(buyerId, 'Trader');
+        const meatToBuy = Math.min(trader ? trader.rate : 3, tableInventory.stack.getCount());
         if (meatToBuy === 0) {
             // No meat available — release the villager
             setTimeout(() => EventBus.emit('trade:complete', { traderId: buyerId, gave: { type: 'coin', count: 0 }, received: { type: 'meat', count: 0 } }), 100);
@@ -94,12 +96,14 @@ export class TraderSystem {
             });
         }
 
-        const coinsToGive = Math.ceil(meatToBuy * (COIN_CONFIG.valuePerMeat || 1));
+        const givesType = trader ? trader.gives : 'coin';
+        const givesDef = ResourceRegistry.get(givesType);
+        const coinsToGive = Math.ceil(meatToBuy * (givesDef ? givesDef.value : 1));
         const coinTrayInv = this._coinTrayId ? ecs.getComponent(this._coinTrayId, 'InventoryStack') : null;
         const coinTrayTransform = this._coinTrayId ? ecs.getComponent(this._coinTrayId, 'Transform') : null;
 
         for (let i = 0; i < coinsToGive; i++) {
-            const coinMesh = ResourceRegistry.createMesh('coin');
+            const coinMesh = ResourceRegistry.createMesh(givesType);
             this.scene.add(coinMesh);
             coinMesh.position.copy(buyerTransform.mesh.position).add(new THREE.Vector3(0, 1.4, 0));
             const to = coinTrayTransform
