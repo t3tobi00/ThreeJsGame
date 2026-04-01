@@ -104,7 +104,7 @@ class Game {
             popDisk: () => this.stackSystem.popDisk(this.playerId)
         };
         this.drainSystem = new DrainSystem(this.scene.instance, { position: playerTransform.mesh.position, group: playerTransform.mesh }, mockStackSystem, this.floatingUI);
-        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, { position: playerTransform.mesh.position, group: playerTransform.mesh });
+        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, { position: playerTransform.mesh.position, group: playerTransform.mesh }, this.factory);
 
         // 7. Initialize Storage Nodes (ECS-driven)
         const tablePos3 = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);

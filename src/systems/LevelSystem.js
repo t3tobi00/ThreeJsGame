@@ -1,18 +1,16 @@
 import * as THREE from 'three';
 import { UnlockZone } from '../entities/UnlockZone.js';
-import { Turret } from '../entities/Turret.js';
-import { Wall } from '../entities/Wall.js';
 import { Gate } from '../entities/Gate.js';
 import { TURRET_CONFIG, WALL_CONFIG, GATE_CONFIG } from '../config/gameConfig.js';
 
 export class LevelSystem {
-    constructor(scene, drainSystem, particleSystem, combatSystem, player) {
+    constructor(scene, drainSystem, particleSystem, combatSystem, player, factory) {
         this.scene = scene;
         this.drainSystem = drainSystem;
         this.particleSystem = particleSystem;
         this.combatSystem = combatSystem;
         this.player = player;
-        this.activeStructures = [];
+        this.factory = factory;
         this.gates = [];
     }
 
@@ -48,28 +46,14 @@ export class LevelSystem {
 
     onStructureBuilt(position, type) {
         this.particleSystem.createBurst(position);
-
-        let structure;
         if (type === 'Turret') {
-            structure = new Turret(this.scene, position);
-            // Connect turret fire to combat system projectile pooling
-            structure.onFire = (pos, dir) => {
-                this.combatSystem.fireProjectile(pos, dir);
-            };
-        } else {
-            structure = new Wall(this.scene, position);
+            this.factory.create('turret', position);
+        } else if (type === 'Wall') {
+            this.factory.create('wall', position);
         }
-
-        this.activeStructures.push(structure);
     }
 
     update(deltaTime, enemies) {
-        for (const struct of this.activeStructures) {
-            if (struct.update) {
-                struct.update(deltaTime, enemies);
-            }
-        }
-
         for (const gate of this.gates) {
             gate.update(deltaTime, this.player.position);
         }

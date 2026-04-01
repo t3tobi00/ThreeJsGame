@@ -1,10 +1,9 @@
 {
-  "type": "Turret",
-  "mesh": { "preset": "turret", "color": "0xaaaaaa" },
-  "behaviors": ["shooter"],
-  "components": {
-    "Shooter":   { "fireRate": 0.4, "range": 12, "damage": 1, "faction": "player", "targetFactions": ["enemy"] },
-    "Tag":       { "tags": ["turret", "structure"] },
-    "SpawnAnim": { "type": "bounce", "duration": 0.4 }
-  }
+    "type": "Turret",
+    "mesh": { "preset": "turret", "color": "0xaaaaaa" },
+    "components": {
+        "Health": { "hp": 50, "maxHp": 50 },
+        "Shooter": { "fireRate": 0.8, "range": 12, "damage": 1, "targetFactions": ["enemy"] },
+        "Tag": { "tags": ["turret", "structure", "static"] }
+    }
 }
