@@ -1,0 +1,17 @@
+{
+    "meat": {
+        "mesh": { "preset": "disk", "color": "0xff3333", "radius": 0.3, "height": 0.1 },
+        "stackOffset": 0.22,
+        "value": 1
+    },
+    "coin": {
+        "mesh": { "preset": "coin", "color": "0xffdd00", "radius": 0.15, "height": 0.05 },
+        "stackOffset": 0.12,
+        "value": 1
+    },
+    "wood": {
+        "mesh": { "preset": "disk", "color": "0x8B4513", "radius": 0.25, "height": 0.12 },
+        "stackOffset": 0.20,
+        "value": 1
+    }
+}
