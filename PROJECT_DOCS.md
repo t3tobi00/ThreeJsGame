@@ -37,7 +37,7 @@ A hyper-casual 3D base defense tycoon built with Three.js. "Fake Ad" aesthetic �
 - ResourceStack utility: reusable spring-stack for all resource holders
 - ResourceTransfer utility: reusable Bezier-arc flight animation
 
-### Phase 5: ECS Migration (Current — 2026-04-01)
+### Phase 5: ECS Migration (2026-04-01)
 Full migration from legacy coupled systems to pure ECS architecture.
 
 **What was done (10 tasks):**
@@ -71,18 +71,47 @@ DepositorSystem (player near table) emits item:deposited
 
 **Deleted files:** HarvestSystem.js, SellingSystem.js, VillagerSystem.js, CoinSystem.js, Player.js, Enemy.js, TransactionSystem.js
 
+### Phase 6: Full Modularization (2026-04-01)
+Converted all remaining hardcoded systems to data-driven architecture. New content (entities, resources, levels) now requires only JSON.
+
+**What was done (14 tasks across 3 layers):**
+
+Layer 1 — Foundations:
+1. MeshPresets registry — named mesh builders (character, table, disk, coin, rock, tree, wall, turret, etc.)
+2. All archetypes gain `mesh` field — EntityFactory uses MeshPresets instead of hardcoded mesh creation
+3. ResourceRegistry + resources.json — data-driven resource definitions (meat, coin, wood)
+4. CollectorSystem + TraderSystem use ResourceRegistry for mesh creation
+
+Layer 2 — Refactors:
+5. TraderSystem reads Trader component (`rate`, `gives`, `minStock`) instead of hardcoded values
+6. AgentAISystem queue config moved to QUEUE_CONFIG in gameConfig.js
+7. HealthSystem — tracks HP, emits entity:died, enables player death in future
+8. Wall + Turret converted to ECS entities (archetypes + components, legacy classes deleted)
+
+Layer 3 — New Architecture:
+9. GridSystem — 2D numbered grid with adjacency detection and debug overlay
+10. SceneLoader + level-1.json — data-driven level loading replaces hardcoded Environment.js
+11. Component_UnlockZone + UnlockZoneSystem — multi-resource drain (simultaneous, partial funding)
+12. BuildSystem — spawns buildings (one-time) or units (repeatable) on zone:funded
+13. Final integration — main.js wired to new systems, legacy files deleted
+14. Documentation update
+
+**New files:** MeshPresets.js, ResourceRegistry.js, resources.json, GridSystem.js, SceneLoader.js, level-1.json, HealthSystem.js, UnlockZoneSystem.js, BuildSystem.js, Component_UnlockZone.js, unlock-turret.json
+
+**Deleted files:** Wall.js, Turret.js, Environment.js, Road.js, UnlockZone.js, DrainSystem.js, LevelSystem.js, StorageNode.js, Villager.js, Component_TransactionLogic.js
+
+**Key architecture additions:**
+- `MeshPresets` — register named mesh builders, archetypes reference by name + color/scale overrides
+- `ResourceRegistry` — JSON-defined resources, stamps `mesh.userData.resourceType` for identification
+- `GridSystem` — numbered cells with row/col, adjacency, debug overlay for level design
+- `SceneLoader` — reads level JSON, builds ground/fence/props/road, returns grid for system wiring
+- Unlock zones support multi-resource costs, simultaneous draining, build (one-time) and spawner (repeatable) types
+
 ---
 
 ## Known Issues
 
-### Villagers Not Moving (Priority: HIGH)
-After ECS migration (Task 8), villagers spawn at the road start but stay idle — they don't walk to their queue positions or trade. The AgentAISystem state machine and queue logic need debugging. Likely causes:
-- `AgentAISystem.register()` relies on `_ecs` being set, but `_ecs` is lazily initialized on first `update()` call — the register calls happen before the first frame
-- Queue slot positions may not match the road/table layout
-- The `_handleArrival` exiting case references `this.scene` which may not be properly passed
-
-### Dual Visual Objects at Table/Tray Positions
-The old `StorageNode` (meatTableNode) and the new ECS `meat-table` entity both create meshes at the same position. Visual overlap exists. Low priority — fix by hiding one.
+None currently tracked.
 
 ---
 
@@ -92,44 +121,44 @@ The old `StorageNode` (meatTableNode) and the new ECS `meat-table` entity both c
 src/
   main.js                    — Bootstrap, render loop, system wiring
   config/
-    gameConfig.js            — Global tunable values
-    archetypes/              — JSON entity definitions (player, enemy, villager, etc.)
+    gameConfig.js            — Global tunable values (camera, renderer, waves, UI, zones, queue)
+    resources.json           — Resource type definitions (meat, coin, wood)
+    archetypes/              — JSON entity definitions (player, enemy, villager, wall, turret, etc.)
+    levels/
+      level-1.json           — First level definition (grid, ground, fence, props, entities, zones)
   core/
     Renderer.js              — WebGLRenderer wrapper
     Camera.js                — Isometric camera + lerp follow
     Lighting.js              — Scene lighting
     Scene.js                 — Scene wrapper
     EventBus.js              — Pub/sub singleton
-    ArchetypeLoader.js       — Loads + resolves JSON archetypes
+    ArchetypeLoader.js       — Loads + resolves JSON archetypes with inheritance
+    MeshPresets.js           — Named mesh builder registry
+    ResourceRegistry.js      — Resource type registry (creates meshes from resources.json)
+    GridSystem.js            — 2D numbered grid with adjacency detection
+    SceneLoader.js           — Loads level JSON, builds environment
   ecs/
     ECSManager.js            — Core ECS registry
-    components/              — 17 component definitions (Transform, Movement, Health, etc.)
+    components/              — 18 component definitions (Transform, Movement, Health, UnlockZone, etc.)
   entities/
-    EntityFactory.js         — Creates entities from JSON archetypes
+    EntityFactory.js         — Creates entities from JSON archetypes via MeshPresets
     Projectile.js            — Pooled projectile mesh
-    ResourceDisk.js          — "Meat" drop mesh
-    UnlockZone.js            — Build zone with cost UI
-    Turret.js                — Sentry structure
-    Wall.js                  — Barrier structure
-    StorageNode.js           — Visual storage (meat table, coin tray)
-    Road.js                  — Paved road visual
-    Environment.js           — Ground plane, zones
-    CoinTray.js              — Legacy coin storage (may be unused)
-    MeatTable.js             — Legacy meat table (may be unused)
-    Villager.js              — Legacy villager class (may be unused)
+    ResourceDisk.js          — "Meat" drop mesh (legacy, may be unused)
+    Gate.js                  — Animated gate
   systems/
     MovementSystem.js        — Joystick -> movement (ECS)
     CombatSystem.js          — Auto-fire + projectile collision (ECS)
     EnemySystem.js           — Spawn + steer enemies (ECS)
-    CollectorSystem.js       — Magnetic harvest (ECS, replaces HarvestSystem)
+    CollectorSystem.js       — Magnetic harvest (ECS)
     StackSystem.js           — Jelly stack physics (ECS)
-    DepositorSystem.js       — Player-to-table transfer (ECS, replaces SellingSystem)
-    AgentAISystem.js         — Villager queue/movement (ECS, replaces VillagerSystem)
-    TraderSystem.js          — Buy/sell transactions (ECS, replaces CoinSystem)
+    DepositorSystem.js       — Player-to-table transfer (ECS)
+    AgentAISystem.js         — Villager queue/movement (ECS)
+    TraderSystem.js          — Buy/sell transactions (ECS, reads Trader component)
+    HealthSystem.js          — HP tracking + entity death events
+    UnlockZoneSystem.js      — Multi-resource drain into zones
+    BuildSystem.js           — Spawn buildings/units on zone:funded
     CameraSystem.js          — Rubber-band camera follow
     ParticleSystem.js        — Pooled particle effects
-    DrainSystem.js           — Resource drain into unlock zones
-    LevelSystem.js           — Zone->structure replacement
   state/
     GameState.js             — Global state (resources, unlocks, progression)
   ui/
