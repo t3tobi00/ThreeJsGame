@@ -1,0 +1,10 @@
+{
+  "type": "Wall",
+  "behaviors": ["damageable"],
+  "components": {
+    "Health":    { "hp": 10, "maxHp": 10, "armor": 0 },
+    "Tag":       { "tags": ["wall", "structure"] },
+    "FlashAnim": { "color": "#ff4444", "duration": 0.15, "onEvent": "entity:damaged" },
+    "SpawnAnim": { "type": "bounce", "duration": 0.35 }
+  }
+}

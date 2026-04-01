@@ -4,6 +4,7 @@ import { Camera } from './core/Camera.js';
 import { Scene } from './core/Scene.js';
 import { Lighting } from './core/Lighting.js';
 import EventBus from './core/EventBus.js';
+import { loadArchetypes } from './core/ArchetypeLoader.js';
 import { Environment } from './entities/Environment.js';
 import { Road } from './entities/Road.js';
 import { Joystick } from './ui/Joystick.js';
@@ -192,6 +193,7 @@ class Game {
 }
 
 // Start Game
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+    await loadArchetypes();
     new Game();
 });

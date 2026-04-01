@@ -1,0 +1,10 @@
+{
+  "type": "MeatTable",
+  "behaviors": ["storage"],
+  "components": {
+    "InventoryStack": { "maxCapacity": 50, "anchorOffset": { "x": 0, "y": 0.6, "z": 0 }, "style": "rigid", "acceptsTypes": ["meat"] },
+    "Trader":         { "accepts": "meat", "gives": "meat", "rate": 1, "minStock": 1 },
+    "Tag":            { "tags": ["table", "storage"] },
+    "SpringStackAnim":{ "wobble": 0.05, "squash": 0.05, "lag": 0.1 }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "type": "Enemy",
+  "behaviors": ["mover", "damageable"],
+  "components": {
+    "Movement":  { "speed": 2.5, "controller": "simple_steering", "faction": "enemy" },
+    "Health":    { "hp": 3, "maxHp": 3, "armor": 0 },
+    "Tag":       { "tags": ["enemy"] },
+    "WalkAnim":  { "bobHeight": 0.06, "bobFreq": 7, "tiltAngle": 0.05 },
+    "FlashAnim": { "color": "#ffffff", "duration": 0.1, "onEvent": "entity:damaged" }
+  }
+}

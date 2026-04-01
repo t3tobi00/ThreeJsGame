@@ -1,0 +1,9 @@
+{
+  "type": "Turret",
+  "behaviors": ["shooter"],
+  "components": {
+    "Shooter":   { "fireRate": 0.4, "range": 12, "damage": 1, "faction": "player", "targetFactions": ["enemy"] },
+    "Tag":       { "tags": ["turret", "structure"] },
+    "SpawnAnim": { "type": "bounce", "duration": 0.4 }
+  }
+}

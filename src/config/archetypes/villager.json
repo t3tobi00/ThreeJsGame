@@ -1,0 +1,13 @@
+{
+  "type": "Villager",
+  "behaviors": ["agent", "trader", "stacker"],
+  "components": {
+    "Movement":        { "speed": 3, "controller": "agent_ai", "faction": "neutral" },
+    "AgentAI":         { "state": "in_queue", "target": null, "queueSlot": -1, "exitDist": 20 },
+    "Trader":          { "accepts": "meat", "gives": "coin", "rate": 1, "minStock": 1 },
+    "InventoryStack":  { "maxCapacity": 5, "anchorOffset": { "x": 0, "y": 1.4, "z": 0 }, "style": "wobble", "acceptsTypes": ["coin", "meat"] },
+    "FlyToAnim":       { "arcHeight": 1.5, "speed": 6, "easing": "quadOut" },
+    "SpringStackAnim": { "wobble": 0.15, "squash": 0.1, "lag": 0.12 },
+    "WalkAnim":        { "bobHeight": 0.05, "bobFreq": 6, "tiltAngle": 0.04 }
+  }
+}

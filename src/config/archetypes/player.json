@@ -1,0 +1,15 @@
+{
+  "type": "Player",
+  "behaviors": ["shooter", "collector", "stacker", "depositor"],
+  "components": {
+    "Movement":        { "speed": 10, "controller": "joystick", "faction": "player" },
+    "Shooter":         { "fireRate": 0.5, "range": 10, "damage": 1, "faction": "player", "targetFactions": ["enemy"] },
+    "Collector":       { "radius": 5, "resourceTypes": ["meat"], "pullForce": 1.0 },
+    "InventoryStack":  { "maxCapacity": 20, "anchorOffset": { "x": 0, "y": 1.2, "z": -0.25 }, "style": "wobble" },
+    "Depositor":       { "range": 4, "targetTag": "table", "transferRate": 0.3 },
+    "FlyToAnim":       { "arcHeight": 2.5, "speed": 8, "easing": "quadOut" },
+    "SpringStackAnim": { "wobble": 0.3, "squash": 0.15, "lag": 0.15 },
+    "SquashStretch":   { "intensity": 0.2, "frequency": 8, "trigger": "move" },
+    "WalkAnim":        { "bobHeight": 0.08, "bobFreq": 8, "tiltAngle": 0.06 }
+  }
+}

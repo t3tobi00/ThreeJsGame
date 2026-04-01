@@ -1,0 +1,8 @@
+{
+  "extends": "enemy",
+  "type": "Tank",
+  "components": {
+    "Movement": { "speed": 1.2 },
+    "Health":   { "hp": 10, "maxHp": 10 }
+  }
+}
