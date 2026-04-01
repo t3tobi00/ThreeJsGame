@@ -16,7 +16,6 @@ import { ECSManager } from './ecs/ECSManager.js';
 import { EntityFactory } from './entities/EntityFactory.js';
 import { MovementSystem } from './systems/MovementSystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
-import { TransactionSystem } from './systems/TransactionSystem.js';
 import { StackSystem } from './systems/StackSystem.js';
 
 // --- Existing Juiced Systems ---
@@ -80,13 +79,9 @@ class Game {
 
         this.combatSystem = new CombatSystem(this.scene.instance, this.projectilePool);
 
-        // TransactionSystem is needed for the Visual Stack Wobble physics!
-        this.transactionSystem = new TransactionSystem(this.scene.instance);
-
         // Register ECS Systems
         this.ecs.registerSystem(this.movementSystem, ['Transform', 'Movement']);
         this.ecs.registerSystem(this.combatSystem, ['Transform', 'Shooter']);
-        this.ecs.registerSystem(this.transactionSystem, ['Transform', 'InventoryStack', 'Tag']);
 
         // StackSystem — ECS driven, no player reference
         this.stackSystem = new StackSystem(this.scene.instance);
