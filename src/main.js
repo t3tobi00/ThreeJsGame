@@ -31,7 +31,7 @@ import { LevelSystem } from './systems/LevelSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
-import { SELLING_TABLE_POSITION, TRAY_CONFIG } from './config/gameConfig.js';
+import { SELLING_TABLE_POSITION, TRAY_CONFIG, VILLAGER_CONFIG } from './config/gameConfig.js';
 
 class Game {
     constructor() {
@@ -126,7 +126,7 @@ class Game {
         this.ecs.registerSystem(this.traderSystem, ['Transform', 'InventoryStack', 'Trader']);
 
         // Spawn initial villagers (4 in queue)
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < VILLAGER_CONFIG.initialCount; i++) {
             const spawnPos = new THREE.Vector3(0, 0, -24 + i * 0.5);
             const villagerId = this.factory.create('villager', spawnPos);
             this.agentAISystem.register(villagerId, i);

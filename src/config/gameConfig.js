@@ -136,6 +136,14 @@ export const VILLAGER_CONFIG = {
     color: 0x4a7c59                    // Villager green color
 };
 
+export const QUEUE_CONFIG = {
+    start: { x: 0, z: -12 },
+    spacing: 1.8,
+    tableApproach: { x: 0, z: -10.5 },
+    exitTarget: { x: 0, z: -30 },
+    arriveThreshold: 0.3
+};
+
 export const SELLING_CONFIG = {
     detectionRange: 4.0,
     transferSpeed: 0.3,         // Seconds between each meat transfer

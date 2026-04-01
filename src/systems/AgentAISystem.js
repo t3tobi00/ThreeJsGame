@@ -1,12 +1,6 @@
 import * as THREE from 'three';
 import EventBus from '../core/EventBus.js';
-
-// Queue configuration
-const QUEUE_START = new THREE.Vector3(0, 0, -12);
-const QUEUE_SPACING = 1.8;
-const TABLE_POSITION = new THREE.Vector3(0, 0, -10.5);
-const EXIT_TARGET = new THREE.Vector3(0, 0, -30);
-const ARRIVE_THRESHOLD = 0.3;
+import { QUEUE_CONFIG } from '../config/gameConfig.js';
 
 export class AgentAISystem {
     constructor(factory, scene) {
@@ -15,6 +9,7 @@ export class AgentAISystem {
         this._agents = [];
         this._ecs = null;
 
+        // EventBus listeners
         EventBus.on('trade:complete', ({ traderId }) => {
             this._setExiting(traderId);
         });
@@ -23,6 +18,8 @@ export class AgentAISystem {
             this._respawn(entityId);
         });
     }
+
+    setECS(ecs) { this._ecs = ecs; }
 
     register(entityId, queueSlot) {
         const agentAI = this._getAI(entityId);
@@ -48,13 +45,13 @@ export class AgentAISystem {
             const target = agentAI.target;
             const dist = pos.distanceTo(target);
 
-            if (dist > ARRIVE_THRESHOLD) {
+            if (dist > QUEUE_CONFIG.arriveThreshold) {
                 const dir = new THREE.Vector3().subVectors(target, pos).normalize();
                 pos.addScaledVector(dir, movement.speed * deltaTime);
                 transform.mesh.rotation.y = Math.atan2(dir.x, dir.z);
             }
 
-            if (dist <= ARRIVE_THRESHOLD) {
+            if (dist <= QUEUE_CONFIG.arriveThreshold) {
                 this._handleArrival(entityId, agentAI, transform, ecs);
             }
         }
@@ -82,22 +79,31 @@ export class AgentAISystem {
             .filter(({ ai }) => ai && ai.state === 'in_queue')
             .sort((a, b) => a.ai.queueSlot - b.ai.queueSlot);
 
-        for (const { id, ai } of inQueue) {
-            if (ai.queueSlot > 0) {
-                ai.queueSlot--;
-                ai.target = this._queueSlotPos(ai.queueSlot);
+        // Reassign slots sequentially (0, 1, 2, ...) to close any gaps
+        for (let i = 0; i < inQueue.length; i++) {
+            const { ai } = inQueue[i];
+            if (ai.queueSlot !== i) {
+                ai.queueSlot = i;
+                ai.target = this._queueSlotPos(i);
             }
         }
     }
 
     sendFrontToTable(ecs) {
+        // Don't send another villager if one is already approaching or buying
+        const alreadyTrading = this._agents.some(id => {
+            const ai = ecs.getComponent(id, 'AgentAI');
+            return ai && (ai.state === 'approaching_table' || ai.state === 'buying');
+        });
+        if (alreadyTrading) return;
+
         const front = this._agents
             .map(id => ({ id, ai: ecs.getComponent(id, 'AgentAI') }))
             .filter(({ ai }) => ai && ai.state === 'in_queue' && ai.queueSlot === 0)[0];
 
         if (!front) return;
         front.ai.state = 'approaching_table';
-        front.ai.target = TABLE_POSITION.clone();
+        front.ai.target = new THREE.Vector3(QUEUE_CONFIG.tableApproach.x, 0, QUEUE_CONFIG.tableApproach.z);
         this._advanceQueue(ecs);
     }
 
@@ -105,7 +111,7 @@ export class AgentAISystem {
         const agentAI = this._getAI(entityId);
         if (agentAI) {
             agentAI.state = 'exiting';
-            agentAI.target = EXIT_TARGET.clone();
+            agentAI.target = new THREE.Vector3(QUEUE_CONFIG.exitTarget.x, 0, QUEUE_CONFIG.exitTarget.z);
         }
     }
 
@@ -115,7 +121,16 @@ export class AgentAISystem {
         if (idx > -1) this._agents.splice(idx, 1);
         this._ecs.destroyEntity(exitedEntityId);
 
-        const slot = this._agents.length;
+        // Compact the queue first so existing agents have correct slots
+        this._advanceQueue(this._ecs);
+
+        // New villager goes to the back of the queue
+        const inQueueSlots = this._agents
+            .map(id => this._ecs.getComponent(id, 'AgentAI'))
+            .filter(ai => ai && ai.state === 'in_queue')
+            .map(ai => ai.queueSlot);
+        const slot = inQueueSlots.length > 0 ? Math.max(...inQueueSlots) + 1 : 0;
+
         const spawnPos = new THREE.Vector3(0, 0, -24);
         const newId = this._factory.create('villager', spawnPos);
         this.register(newId, slot);
@@ -123,9 +138,9 @@ export class AgentAISystem {
 
     _queueSlotPos(slot) {
         return new THREE.Vector3(
-            QUEUE_START.x,
-            QUEUE_START.y,
-            QUEUE_START.z + slot * QUEUE_SPACING
+            QUEUE_CONFIG.start.x,
+            0,
+            QUEUE_CONFIG.start.z - slot * QUEUE_CONFIG.spacing
         );
     }
 
