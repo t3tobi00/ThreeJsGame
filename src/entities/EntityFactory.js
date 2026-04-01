@@ -16,6 +16,7 @@ import { Component_WalkAnim } from '../ecs/components/Component_WalkAnim.js';
 import { Component_FlashAnim } from '../ecs/components/Component_FlashAnim.js';
 import { Component_SquashStretch } from '../ecs/components/Component_SquashStretch.js';
 import { Component_SpawnAnim } from '../ecs/components/Component_SpawnAnim.js';
+import { Component_UnlockZone } from '../ecs/components/Component_UnlockZone.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -36,6 +37,7 @@ const COMPONENT_MAP = {
     FlashAnim:       (d) => new Component_FlashAnim(d),
     SquashStretch:   (d) => new Component_SquashStretch(d),
     SpawnAnim:       (d) => new Component_SpawnAnim(d),
+    UnlockZone:      (d) => new Component_UnlockZone(d),
 };
 
 
