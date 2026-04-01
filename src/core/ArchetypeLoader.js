@@ -8,7 +8,8 @@
 
 const ARCHETYPE_NAMES = [
     'player', 'enemy', 'speeder', 'tank',
-    'villager', 'turret', 'wall', 'meat-table', 'coin-tray'
+    'villager', 'turret', 'wall', 'meat-table', 'coin-tray',
+    'unlock-turret'
 ];
 
 /** @type {Map<string, object>} name → resolved archetype */
