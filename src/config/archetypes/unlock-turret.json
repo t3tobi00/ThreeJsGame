@@ -1,0 +1,14 @@
+{
+    "type": "UnlockZone",
+    "mesh": { "preset": "unlock-zone", "color": "0x00aaff", "size": 1.6 },
+    "components": {
+        "UnlockZone": {
+            "type": "build",
+            "cost": { "meat": 20 },
+            "drainRate": 0.15,
+            "range": 3.0,
+            "builds": "turret"
+        },
+        "Tag": { "tags": ["unlock-zone"] }
+    }
+}
