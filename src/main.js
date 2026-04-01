@@ -27,7 +27,7 @@ import { VillagerSystem } from './systems/VillagerSystem.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
 import { DrainSystem } from './systems/DrainSystem.js';
 import { LevelSystem } from './systems/LevelSystem.js';
-import { SellingSystem } from './systems/SellingSystem.js';
+import { DepositorSystem } from './systems/DepositorSystem.js';
 import { CoinSystem } from './systems/CoinSystem.js';
 import { StorageNode } from './entities/StorageNode.js';
 import { ObjectPool } from './utils/ObjectPool.js';
@@ -119,7 +119,7 @@ class Game {
 
         // 7. Initialize Storage Nodes
         const tablePos = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
-        const meatTableNode = new StorageNode(this.scene.instance, tablePos, {
+        this.meatTableNode = new StorageNode(this.scene.instance, tablePos, {
             size: new THREE.Vector3(2, 0.6, 1),
             color: 0x8B4513,
             maxCapacity: SELLING_CONFIG.tableCapacity || 50,
@@ -140,20 +140,32 @@ class Game {
             idleWobble: true
         });
 
-        // Bridge for Selling system logic (Still needed for VillagerSystem to know table inventory)
         this.coinSystem = new CoinSystem(coinTrayNode);
-        this.sellingSystem = new SellingSystem(this.scene.instance, {
-            getCount: () => {
-                const inv = this.ecs.getComponent(this.playerId, 'InventoryStack');
+
+        // Create ECS table entity so DepositorSystem can find it by Tag
+        const tablePos3 = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
+        this.meatTableEntityId = this.factory.create('meat-table', tablePos3);
+
+        // Create and register DepositorSystem
+        this.depositorSystem = new DepositorSystem(this.scene.instance);
+        this.ecs.registerSystem(this.depositorSystem, ['Transform', 'Depositor', 'InventoryStack']);
+
+        // Temporary shim: VillagerSystem still needs table inventory access
+        this.sellingSystemShim = {
+            getMeatOnTable: () => {
+                const inv = this.ecs.getComponent(this.meatTableEntityId, 'InventoryStack');
                 return inv ? inv.stack.getCount() : 0;
             },
-            popDisk: () => this.stackSystem.popDisk(this.playerId)
-        }, meatTableNode);
+            popMeatMeshFromTable: () => {
+                const inv = this.ecs.getComponent(this.meatTableEntityId, 'InventoryStack');
+                return inv ? inv.stack.pop() : null;
+            }
+        };
 
-        this.villagerSystem = new VillagerSystem(this.scene.instance, this.coinSystem, this.sellingSystem);
+        this.villagerSystem = new VillagerSystem(this.scene.instance, this.coinSystem, this.sellingSystemShim);
 
-        // Disable generic ECS table so we don't have overlapping visual tables
-        // this.factory.createTable(tablePos, 'meat');
+        // Note: ECS meat-table entity (meatTableEntityId) provides Tag+InventoryStack for DepositorSystem.
+        // meatTableNode (StorageNode) provides the visual table mesh. Two visual objects co-exist at same position.
 
         // Connect Systems
         EventBus.on('stack:changed', ({ entityId, count }) => {
@@ -180,7 +192,7 @@ class Game {
         this.particleSystem.update(deltaTime);
         this.floatingUI.update();
         this.levelSystem.update(deltaTime, this.enemySystem.enemies);
-        this.sellingSystem.update(deltaTime, this.playerBridge ? this.playerBridge.position : new THREE.Vector3());
+        this.meatTableNode.update(deltaTime);
         this.villagerSystem.update(deltaTime);
         this.coinSystem.update(deltaTime);
 
