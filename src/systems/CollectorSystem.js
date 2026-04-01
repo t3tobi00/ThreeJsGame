@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ObjectPool } from '../utils/ObjectPool.js';
 import EventBus from '../core/EventBus.js';
+import ResourceRegistry from '../core/ResourceRegistry.js';
 
 /**
  * CollectorSystem — ECS-driven replacement for HarvestSystem.
@@ -15,7 +16,7 @@ export class CollectorSystem {
     constructor(scene) {
         this.scene = scene;
         this._disks = [];
-        this._pool = new ObjectPool(() => this._makeDiskMesh(), 60, 'CollectorDiskPool');
+        this._pool = new ObjectPool(() => ResourceRegistry.createMesh('meat'), 60, 'CollectorDiskPool');
 
         EventBus.on('entity:died', ({ position, drops }) => {
             if (drops && drops.includes('meat')) {
@@ -122,11 +123,4 @@ export class CollectorSystem {
         }
     }
 
-    _makeDiskMesh() {
-        const geo = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 12);
-        const mat = new THREE.MeshStandardMaterial({ color: 0xff3333, roughness: 0.6, metalness: 0.1 });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.castShadow = true;
-        return mesh;
-    }
 }

@@ -5,6 +5,7 @@ import { Scene } from './core/Scene.js';
 import { Lighting } from './core/Lighting.js';
 import EventBus from './core/EventBus.js';
 import { loadArchetypes } from './core/ArchetypeLoader.js';
+import ResourceRegistry from './core/ResourceRegistry.js';
 import { Environment } from './entities/Environment.js';
 import { Road } from './entities/Road.js';
 import { Joystick } from './ui/Joystick.js';
@@ -28,10 +29,9 @@ import { ParticleSystem } from './systems/ParticleSystem.js';
 import { DrainSystem } from './systems/DrainSystem.js';
 import { LevelSystem } from './systems/LevelSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
-import { StorageNode } from './entities/StorageNode.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
-import { SELLING_TABLE_POSITION, SELLING_CONFIG, TRAY_CONFIG } from './config/gameConfig.js';
+import { SELLING_TABLE_POSITION, TRAY_CONFIG } from './config/gameConfig.js';
 
 class Game {
     constructor() {
@@ -103,19 +103,7 @@ class Game {
         this.drainSystem = new DrainSystem(this.scene.instance, { position: playerTransform.mesh.position, group: playerTransform.mesh }, mockStackSystem, this.floatingUI);
         this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, { position: playerTransform.mesh.position, group: playerTransform.mesh });
 
-        // 7. Initialize Storage Nodes
-        const tablePos = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
-        this.meatTableNode = new StorageNode(this.scene.instance, tablePos, {
-            size: new THREE.Vector3(2, 0.6, 1),
-            color: 0x8B4513,
-            maxCapacity: SELLING_CONFIG.tableCapacity || 50,
-            stackOffset: 0.12,
-            stiffness: 0.8,
-            lerpFactor: 0.4,
-            idleWobble: false
-        });
-
-        // Create ECS table entity so DepositorSystem can find it by Tag
+        // 7. Initialize Storage Nodes (ECS-driven)
         const tablePos3 = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
         this.meatTableEntityId = this.factory.create('meat-table', tablePos3);
 
@@ -129,6 +117,7 @@ class Game {
 
         // Create AgentAISystem + TraderSystem
         this.agentAISystem = new AgentAISystem(this.factory, this.scene.instance);
+        this.agentAISystem.setECS(this.ecs);
         this.traderSystem = new TraderSystem(this.scene.instance, this.agentAISystem, this.coinTrayEntityId);
         this.traderSystem.setECS(this.ecs);
 
@@ -143,8 +132,7 @@ class Game {
             this.agentAISystem.register(villagerId, i);
         }
 
-        // Note: ECS meat-table entity (meatTableEntityId) provides Tag+InventoryStack for DepositorSystem.
-        // meatTableNode (StorageNode) provides the visual table mesh. Two visual objects co-exist at same position.
+        // ECS meat-table entity provides Tag+InventoryStack for DepositorSystem.
 
         // Connect Systems
         EventBus.on('stack:changed', ({ entityId, count }) => {
@@ -170,7 +158,6 @@ class Game {
         this.particleSystem.update(deltaTime);
         this.floatingUI.update();
         this.levelSystem.update(deltaTime, []);
-        this.meatTableNode.update(deltaTime);
 
         // 3. Render
         this.renderer.render(this.scene.instance, this.camera.instance);
@@ -180,5 +167,6 @@ class Game {
 // Start Game
 window.addEventListener('load', async () => {
     await loadArchetypes();
+    await ResourceRegistry.load();
     new Game();
 });

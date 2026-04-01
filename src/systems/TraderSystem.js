@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ResourceTransfer } from '../utils/ResourceTransfer.js';
 import EventBus from '../core/EventBus.js';
 import { COIN_CONFIG } from '../config/gameConfig.js';
+import ResourceRegistry from '../core/ResourceRegistry.js';
 
 export class TraderSystem {
     constructor(scene, agentAISystem, coinTrayEntityId) {
@@ -30,6 +31,27 @@ export class TraderSystem {
     update(entities, deltaTime, ecs) {
         this._transfer.update(deltaTime);
         this._ecs = ecs;
+
+        // Periodic check: if table has meat and nobody is trading, send next villager
+        this._checkTimer = (this._checkTimer || 0) + deltaTime;
+        if (this._checkTimer >= 1.0) {
+            this._checkTimer = 0;
+            this._tryNextTrade(ecs);
+        }
+    }
+
+    _tryNextTrade(ecs) {
+        const tables = ecs.queryEntities(['Tag', 'InventoryStack']);
+        const tableId = tables.find(id => {
+            const tag = ecs.getComponent(id, 'Tag');
+            return tag && tag.has('table');
+        });
+        if (!tableId) return;
+
+        const tableInv = ecs.getComponent(tableId, 'InventoryStack');
+        if (!tableInv || tableInv.stack.getCount() === 0) return;
+
+        this._agentAI.sendFrontToTable(ecs);
     }
 
     _executeTransaction(buyerId, ecs) {
@@ -38,17 +60,28 @@ export class TraderSystem {
             const tag = ecs.getComponent(id, 'Tag');
             return tag && tag.has('table');
         });
-        if (!tableId) return;
+        if (!tableId) {
+            // No table found — release the villager so it doesn't get stuck
+            setTimeout(() => EventBus.emit('trade:complete', { traderId: buyerId, gave: { type: 'coin', count: 0 }, received: { type: 'meat', count: 0 } }), 100);
+            return;
+        }
 
         const buyerInventory  = ecs.getComponent(buyerId, 'InventoryStack');
         const buyerTransform  = ecs.getComponent(buyerId, 'Transform');
         const tableInventory  = ecs.getComponent(tableId, 'InventoryStack');
         const tableTransform  = ecs.getComponent(tableId, 'Transform');
 
-        if (!buyerInventory || !tableInventory || !buyerTransform || !tableTransform) return;
+        if (!buyerInventory || !tableInventory || !buyerTransform || !tableTransform) {
+            setTimeout(() => EventBus.emit('trade:complete', { traderId: buyerId, gave: { type: 'coin', count: 0 }, received: { type: 'meat', count: 0 } }), 100);
+            return;
+        }
 
         const meatToBuy = Math.min(3, tableInventory.stack.getCount());
-        if (meatToBuy === 0) return;
+        if (meatToBuy === 0) {
+            // No meat available — release the villager
+            setTimeout(() => EventBus.emit('trade:complete', { traderId: buyerId, gave: { type: 'coin', count: 0 }, received: { type: 'meat', count: 0 } }), 100);
+            return;
+        }
 
         for (let i = 0; i < meatToBuy; i++) {
             const meatMesh = tableInventory.stack.pop();
@@ -66,7 +99,7 @@ export class TraderSystem {
         const coinTrayTransform = this._coinTrayId ? ecs.getComponent(this._coinTrayId, 'Transform') : null;
 
         for (let i = 0; i < coinsToGive; i++) {
-            const coinMesh = this._makeCoinMesh();
+            const coinMesh = ResourceRegistry.createMesh('coin');
             this.scene.add(coinMesh);
             coinMesh.position.copy(buyerTransform.mesh.position).add(new THREE.Vector3(0, 1.4, 0));
             const to = coinTrayTransform
@@ -87,9 +120,4 @@ export class TraderSystem {
         }, 600);
     }
 
-    _makeCoinMesh() {
-        const geo = new THREE.CylinderGeometry(0.15, 0.15, 0.05, 12);
-        const mat = new THREE.MeshStandardMaterial({ color: 0xffdd00, metalness: 0.6, roughness: 0.3 });
-        return new THREE.Mesh(geo, mat);
-    }
 }
