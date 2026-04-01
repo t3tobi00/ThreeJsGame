@@ -26,6 +26,7 @@ import { CollectorSystem } from './systems/CollectorSystem.js';
 import { AgentAISystem } from './systems/AgentAISystem.js';
 import { TraderSystem } from './systems/TraderSystem.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
+import { HealthSystem } from './systems/HealthSystem.js';
 import { DrainSystem } from './systems/DrainSystem.js';
 import { LevelSystem } from './systems/LevelSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
@@ -91,6 +92,8 @@ class Game {
         // --- Utility Systems ---
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
         this.particleSystem = new ParticleSystem(this.scene.instance);
+        this.healthSystem = new HealthSystem(this.scene.instance);
+        this.ecs.registerSystem(this.healthSystem, ['Transform', 'Health']);
         // Utility Systems
         this.collectorSystem = new CollectorSystem(this.scene.instance);
         this.ecs.registerSystem(this.collectorSystem, ['Transform', 'Collector', 'InventoryStack']);
