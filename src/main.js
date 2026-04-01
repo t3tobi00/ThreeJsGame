@@ -3,6 +3,7 @@ import { Renderer } from './core/Renderer.js';
 import { Camera } from './core/Camera.js';
 import { Scene } from './core/Scene.js';
 import { Lighting } from './core/Lighting.js';
+import EventBus from './core/EventBus.js';
 import { Environment } from './entities/Environment.js';
 import { Road } from './entities/Road.js';
 import { Joystick } from './ui/Joystick.js';
