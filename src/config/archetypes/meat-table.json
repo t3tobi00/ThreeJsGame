@@ -1,5 +1,6 @@
 {
   "type": "MeatTable",
+  "mesh": { "preset": "table", "color": "0x8B4513" },
   "behaviors": ["storage"],
   "components": {
     "InventoryStack": { "maxCapacity": 50, "anchorOffset": { "x": 0, "y": 0.6, "z": 0 }, "style": "rigid", "acceptsTypes": ["meat"] },

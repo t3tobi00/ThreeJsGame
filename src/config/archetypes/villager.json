@@ -1,5 +1,6 @@
 {
   "type": "Villager",
+  "mesh": { "preset": "character", "color": "0x44bb44" },
   "behaviors": ["agent", "trader", "stacker"],
   "components": {
     "Movement":        { "speed": 3, "controller": "agent_ai", "faction": "neutral" },

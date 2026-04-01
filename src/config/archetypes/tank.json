@@ -1,5 +1,6 @@
 {
   "extends": "enemy",
+  "mesh": { "preset": "character", "color": "0x880000" },
   "type": "Tank",
   "components": {
     "Movement": { "speed": 1.2 },

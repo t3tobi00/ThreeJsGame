@@ -1,5 +1,6 @@
 {
   "extends": "enemy",
+  "mesh": { "preset": "character", "color": "0xff6600" },
   "type": "Speeder",
   "components": {
     "Movement": { "speed": 6 },

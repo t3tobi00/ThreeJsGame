@@ -1,5 +1,6 @@
 {
   "type": "Player",
+  "mesh": { "preset": "character", "color": "0x3366ff" },
   "behaviors": ["shooter", "collector", "stacker", "depositor"],
   "components": {
     "Movement":        { "speed": 10, "controller": "joystick", "faction": "player" },

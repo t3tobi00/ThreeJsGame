@@ -16,6 +16,7 @@ import { Component_WalkAnim } from '../ecs/components/Component_WalkAnim.js';
 import { Component_FlashAnim } from '../ecs/components/Component_FlashAnim.js';
 import { Component_SquashStretch } from '../ecs/components/Component_SquashStretch.js';
 import { Component_SpawnAnim } from '../ecs/components/Component_SpawnAnim.js';
+import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
 // Map component name strings (from JSON) → constructor functions
@@ -37,15 +38,6 @@ const COMPONENT_MAP = {
     SpawnAnim:       (d) => new Component_SpawnAnim(d),
 };
 
-// Mesh colors per archetype type
-const MESH_COLORS = {
-    Player:    0x3366ff,
-    Enemy:     0xff3333,
-    Speeder:   0xff6600,
-    Tank:      0x880000,
-    Villager:  0x44bb44,
-    Turret:    0x888888,
-};
 
 export class EntityFactory {
     constructor(scene, ecs) {
@@ -65,7 +57,7 @@ export class EntityFactory {
         const id = this.ecs.createEntity();
 
         // Build the mesh
-        const mesh = this._createMesh(archetype.type, pos);
+        const mesh = this._createMesh(archetype, pos);
 
         // Always add Transform
         this.ecs.addComponent(id, 'Transform', new Component_Transform(mesh));
@@ -103,63 +95,22 @@ export class EntityFactory {
 
     // ─── Private ────────────────────────────────────────────────────────────────
 
-    _createMesh(type, pos) {
-        const isCharacter = ['Player', 'Enemy', 'Speeder', 'Tank', 'Villager'].includes(type);
-        const isTable = ['MeatTable', 'CoinTray'].includes(type);
-
+    _createMesh(archetype, pos) {
         let mesh;
-        if (isCharacter) {
-            mesh = this._createCharacterMesh(MESH_COLORS[type] ?? 0xaaaaaa);
-        } else if (isTable) {
-            mesh = this._createTableMesh();
+        if (archetype.mesh && archetype.mesh.preset) {
+            const opts = { ...archetype.mesh };
+            if (typeof opts.color === 'string') {
+                opts.color = parseInt(opts.color, 16);
+            }
+            mesh = MeshPresets.create(opts.preset, opts);
         } else {
-            // Generic box fallback for Turret, Wall, etc.
             const geo = new THREE.BoxGeometry(0.8, 1.2, 0.8);
-            const mat = new THREE.MeshStandardMaterial({ color: MESH_COLORS[type] ?? 0x999999 });
+            const mat = new THREE.MeshStandardMaterial({ color: 0x999999 });
             mesh = new THREE.Mesh(geo, mat);
         }
 
         mesh.position.copy(pos);
         this.scene.add(mesh);
         return mesh;
-    }
-
-    _createCharacterMesh(color) {
-        const group = new THREE.Group();
-
-        const bodyGeo = new THREE.CapsuleGeometry(0.25, 0.5, 4, 8);
-        const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.position.y = 0.5;
-        body.castShadow = true;
-        group.add(body);
-
-        const headGeo = new THREE.SphereGeometry(0.2, 8, 6);
-        const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.6 });
-        const head = new THREE.Mesh(headGeo, headMat);
-        head.position.y = 1.1;
-        head.castShadow = true;
-        group.add(head);
-
-        const eyeGeo = new THREE.SphereGeometry(0.05, 4, 4);
-        const eyeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-        const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-        leftEye.position.set(-0.08, 1.12, 0.18);
-        group.add(leftEye);
-        const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-        rightEye.position.set(0.08, 1.12, 0.18);
-        group.add(rightEye);
-
-        return group;
-    }
-
-    _createTableMesh() {
-        const group = new THREE.Group();
-        const boxGeo = new THREE.BoxGeometry(2, 0.6, 1);
-        const boxMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-        const top = new THREE.Mesh(boxGeo, boxMat);
-        top.position.y = 0.3;
-        group.add(top);
-        return group;
     }
 }

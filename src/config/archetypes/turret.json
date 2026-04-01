@@ -1,5 +1,6 @@
 {
   "type": "Turret",
+  "mesh": { "preset": "turret", "color": "0xaaaaaa" },
   "behaviors": ["shooter"],
   "components": {
     "Shooter":   { "fireRate": 0.4, "range": 12, "damage": 1, "faction": "player", "targetFactions": ["enemy"] },

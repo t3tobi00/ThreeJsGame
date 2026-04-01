@@ -1,5 +1,6 @@
 {
   "type": "Wall",
+  "mesh": { "preset": "wall", "color": "0x888888" },
   "behaviors": ["damageable"],
   "components": {
     "Health":    { "hp": 10, "maxHp": 10, "armor": 0 },

@@ -1,5 +1,6 @@
 {
   "type": "Enemy",
+  "mesh": { "preset": "character", "color": "0xff3333" },
   "behaviors": ["mover", "damageable"],
   "components": {
     "Movement":  { "speed": 2.5, "controller": "simple_steering", "faction": "enemy" },
