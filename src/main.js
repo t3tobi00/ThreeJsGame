@@ -26,8 +26,9 @@ import { AgentAISystem } from './systems/AgentAISystem.js';
 import { TraderSystem } from './systems/TraderSystem.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
 import { HealthSystem } from './systems/HealthSystem.js';
-import { DrainSystem } from './systems/DrainSystem.js';
-import { LevelSystem } from './systems/LevelSystem.js';
+import { UnlockZoneSystem } from './systems/UnlockZoneSystem.js';
+import { BuildSystem } from './systems/BuildSystem.js';
+import { Gate } from './entities/Gate.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
@@ -62,7 +63,6 @@ class Game {
 
         // Get player transform for camera following
         const playerTransform = this.ecs.getComponent(this.playerId, 'Transform');
-        const playerInventory = this.ecs.getComponent(this.playerId, 'InventoryStack');
 
         // 6. Define Systems
         // --- Shared Pools ---
@@ -95,13 +95,14 @@ class Game {
         this.collectorSystem = new CollectorSystem(this.scene.instance);
         this.ecs.registerSystem(this.collectorSystem, ['Transform', 'Collector', 'InventoryStack']);
 
-        // Mock StackSystem interface for DrainSystem
-        const mockStackSystem = {
-            stack: playerInventory.stack.items,
-            popDisk: () => this.stackSystem.popDisk(this.playerId)
-        };
-        this.drainSystem = new DrainSystem(this.scene.instance, { position: playerTransform.mesh.position, group: playerTransform.mesh }, mockStackSystem, this.floatingUI);
-        this.levelSystem = new LevelSystem(this.scene.instance, this.drainSystem, this.particleSystem, this.combatSystem, { position: playerTransform.mesh.position, group: playerTransform.mesh }, this.factory);
+        // Unlock Zone System (replaces DrainSystem)
+        this.unlockZoneSystem = new UnlockZoneSystem(this.scene.instance);
+        this.ecs.registerSystem(this.unlockZoneSystem, ['Transform', 'UnlockZone']);
+
+        // Build System (replaces LevelSystem structure spawning)
+        this.buildSystem = new BuildSystem(this.scene.instance, this.factory, this.particleSystem);
+        this.buildSystem.setECS(this.ecs);
+        this.ecs.registerSystem(this.buildSystem, ['Transform', 'Tag']);
 
         // 7. Initialize Storage Nodes (ECS-driven)
         const tablePos3 = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
@@ -139,8 +140,6 @@ class Game {
             if (entityId === this.playerId) this.hud.updateMeatCount(count);
         });
 
-        // Init Level 1 elements (Gates, Unlock Zones)
-        this.levelSystem.initLevel(1);
 
     }
 
@@ -148,6 +147,32 @@ class Game {
         const { grid, levelData } = await SceneLoader.load(path, this.scene.instance);
         this.grid = grid;
         this.levelData = levelData;
+
+        // Spawn unlock zones from level data
+        if (levelData.unlockZones) {
+            for (const zoneDef of levelData.unlockZones) {
+                const pos = new THREE.Vector3(zoneDef.position.x, zoneDef.position.y, zoneDef.position.z);
+                this.factory.create('unlock-turret', pos, {
+                    UnlockZone: {
+                        type: zoneDef.type,
+                        cost: zoneDef.cost,
+                        builds: zoneDef.builds || null,
+                        spawns: zoneDef.spawns || null,
+                        spawnCount: zoneDef.count || 1
+                    }
+                });
+            }
+        }
+
+        // Gate (still legacy Gate class for now)
+        if (levelData.gate) {
+            const gatePos = levelData.gate.position;
+            this.gate = new Gate(
+                this.scene.instance,
+                new THREE.Vector3(gatePos.x, gatePos.y, gatePos.z),
+                levelData.gate.width
+            );
+        }
     }
 
     animate() {
@@ -162,7 +187,10 @@ class Game {
         this.cameraSystem.update(deltaTime);
         this.particleSystem.update(deltaTime);
         this.floatingUI.update();
-        this.levelSystem.update(deltaTime, []);
+        if (this.gate) {
+            const playerTransform = this.ecs.getComponent(this.playerId, 'Transform');
+            if (playerTransform) this.gate.update(deltaTime, playerTransform.mesh.position);
+        }
 
         // 3. Render
         this.renderer.render(this.scene.instance, this.camera.instance);
