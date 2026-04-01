@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ENEMY_CONFIG, WORLD_CONFIG } from '../config/gameConfig.js';
 import { Enemy } from '../entities/Enemy.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
+import EventBus from '../core/EventBus.js';
 
 export class EnemySystem {
     constructor(scene, player) {
@@ -61,7 +62,14 @@ export class EnemySystem {
     }
 
     handleEnemyDeath(enemy, index) {
-        // Trigger event for CombatSystem to spawn disks
+        // EventBus emission (new ECS path)
+        EventBus.emit('entity:died', {
+            entityId: null,            // legacy enemies have no ECS ID yet
+            position: enemy.position.clone(),
+            drops: ['meat']
+        });
+
+        // Legacy callback (kept during migration — remove in Task 9)
         if (this.onEnemyDeath) {
             this.onEnemyDeath(enemy.position.clone());
         }

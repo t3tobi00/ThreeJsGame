@@ -22,7 +22,7 @@ import { StackSystem } from './systems/StackSystem.js';
 // --- Existing Juiced Systems ---
 import { CameraSystem } from './systems/CameraSystem.js';
 import { EnemySystem } from './systems/EnemySystem.js';
-import { HarvestSystem } from './systems/HarvestSystem.js';
+import { CollectorSystem } from './systems/CollectorSystem.js';
 import { VillagerSystem } from './systems/VillagerSystem.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
 import { DrainSystem } from './systems/DrainSystem.js';
@@ -106,7 +106,8 @@ class Game {
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
         this.particleSystem = new ParticleSystem(this.scene.instance);
         // Utility Systems
-        this.harvestSystem = new HarvestSystem(this.scene.instance, this.playerBridge, this.enemySystem);
+        this.collectorSystem = new CollectorSystem(this.scene.instance);
+        this.ecs.registerSystem(this.collectorSystem, ['Transform', 'Collector', 'InventoryStack']);
 
         // Mock StackSystem interface for DrainSystem
         const mockStackSystem = {
@@ -155,11 +156,6 @@ class Game {
         // this.factory.createTable(tablePos, 'meat');
 
         // Connect Systems
-        this.harvestSystem.onCollected = (disk) => {
-            const newDisk = disk.clone();
-            // Emit item:collected so StackSystem handles it via EventBus
-            EventBus.emit('item:collected', { collectorId: this.playerId, mesh: newDisk });
-        };
         EventBus.on('stack:changed', ({ entityId, count }) => {
             if (entityId === this.playerId) this.hud.updateMeatCount(count);
         });
@@ -181,7 +177,6 @@ class Game {
         // 2. Update Legacy/Visual Systems
         this.cameraSystem.update(deltaTime);
         this.enemySystem.update(deltaTime);
-        this.harvestSystem.update(deltaTime);
         this.particleSystem.update(deltaTime);
         this.floatingUI.update();
         this.levelSystem.update(deltaTime, this.enemySystem.enemies);
