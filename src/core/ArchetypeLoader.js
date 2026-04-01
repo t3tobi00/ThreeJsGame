@@ -48,13 +48,18 @@ export function getArchetype(name) {
     return a;
 }
 
-function _resolve(name, raw) {
+function _resolve(name, raw, visited = new Set()) {
+    if (visited.has(name)) {
+        throw new Error(`ArchetypeLoader: circular extends detected: ${[...visited, name].join(' → ')}`);
+    }
+    visited.add(name);
+
     const archetype = raw.get(name);
     if (!archetype) throw new Error(`ArchetypeLoader: '${name}' not in raw map`);
 
     if (!archetype.extends) return _deepClone(archetype);
 
-    const parent = _resolve(archetype.extends, raw);
+    const parent = _resolve(archetype.extends, raw, visited);
     return {
         ...parent,
         ...archetype,
