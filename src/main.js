@@ -6,8 +6,7 @@ import { Lighting } from './core/Lighting.js';
 import EventBus from './core/EventBus.js';
 import { loadArchetypes } from './core/ArchetypeLoader.js';
 import ResourceRegistry from './core/ResourceRegistry.js';
-import { Environment } from './entities/Environment.js';
-import { Road } from './entities/Road.js';
+import { SceneLoader } from './core/SceneLoader.js';
 import { Joystick } from './ui/Joystick.js';
 import { HUD } from './ui/HUD.js';
 import { FloatingUI } from './ui/FloatingUI.js';
@@ -56,9 +55,7 @@ class Game {
         this.ecs = new ECSManager();
         this.factory = new EntityFactory(this.scene.instance, this.ecs);
 
-        // 4. World Environment
-        this.environment = new Environment(this.scene.instance);
-        this.road = new Road(this.scene.instance);
+        // 4. World Environment — loaded async via loadLevel()
 
         // 5. Spawn Entities via Factory
         this.playerId = this.factory.createPlayer(new THREE.Vector3(0, 0, 0));
@@ -145,7 +142,12 @@ class Game {
         // Init Level 1 elements (Gates, Unlock Zones)
         this.levelSystem.initLevel(1);
 
-        this.animate();
+    }
+
+    async loadLevel(path) {
+        const { grid, levelData } = await SceneLoader.load(path, this.scene.instance);
+        this.grid = grid;
+        this.levelData = levelData;
     }
 
     animate() {
@@ -171,5 +173,7 @@ class Game {
 window.addEventListener('load', async () => {
     await loadArchetypes();
     await ResourceRegistry.load();
-    new Game();
+    const game = new Game();
+    await game.loadLevel('./src/config/levels/level-1.json');
+    game.animate();
 });

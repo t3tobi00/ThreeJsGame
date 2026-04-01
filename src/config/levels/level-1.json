@@ -1,0 +1,68 @@
+{
+    "name": "Lone Outpost",
+    "grid": {
+        "origin": { "x": -9, "z": -9 },
+        "cellSize": 2,
+        "cols": 9,
+        "rows": 9
+    },
+    "ground": {
+        "safeZone": {
+            "size": 18,
+            "color": "0x66cc66",
+            "texture": "turf"
+        },
+        "dangerZone": {
+            "size": 100,
+            "color": "0xe6c280"
+        }
+    },
+    "props": {
+        "rocks": 20,
+        "deadTrees": 20,
+        "spawnRadius": { "min": 12.6, "max": 37.6 }
+    },
+    "fence": {
+        "enabled": true,
+        "halfSize": 9,
+        "gapFractions": {
+            "top": { "start": 0.33, "end": 0.67 },
+            "bottom": { "start": 0.4, "end": 0.6 }
+        }
+    },
+    "entities": [
+        { "archetype": "meat-table", "position": { "x": 0, "y": 0.3, "z": -9.2 } },
+        { "archetype": "coin-tray", "position": { "x": -3, "y": 0, "z": -11.2 } }
+    ],
+    "spawners": {
+        "player": { "position": { "x": 0, "y": 0, "z": 0 } },
+        "villagers": {
+            "spawnPoint": { "x": 0, "z": -24 },
+            "initialCount": 4
+        },
+        "enemies": {
+            "spawnDistance": 35,
+            "spawnInterval": 2
+        }
+    },
+    "unlockZones": [
+        {
+            "position": { "x": -5, "y": 0, "z": 7 },
+            "type": "build",
+            "cost": { "meat": 20 },
+            "builds": "turret"
+        }
+    ],
+    "gate": {
+        "position": { "x": 0, "y": 0, "z": 9 },
+        "width": 3.0
+    },
+    "road": {
+        "position": { "x": 0, "z": -16.7 },
+        "width": 3.0,
+        "length": 15
+    },
+    "debug": {
+        "showGrid": false
+    }
+}
