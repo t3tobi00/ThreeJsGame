@@ -151,3 +151,111 @@ src/
 - Wall repair mechanic
 - Player upgrade zones
 - Level progression (Lone Outpost -> Dusty Junction -> Neon Oasis -> Sandstorm Siege)
+
+---
+
+## ECS Feature Development Guide
+
+Every new feature follows the same 3-step pattern:
+
+```
+1. Define the data     → Add a Component (or reuse existing ones)
+2. Define the behavior → Write a System that queries those components
+3. Define the entity   → Add a JSON archetype that composes the components
+```
+
+Nothing else changes. No rewiring main.js, no touching other systems. Systems never know about each other — they only know about **components** and **events**.
+
+### Adding New Entity Types (Zero Code)
+
+Any entity variant = a JSON file in `src/config/archetypes/`. Example:
+
+```json
+// archetypes/ranged-enemy.json — enemy that shoots back at the player
+{
+  "extends": "enemy",
+  "type": "RangedEnemy",
+  "components": {
+    "Shooter": { "fireRate": 1.5, "range": 8, "damage": 1, "faction": "enemy", "targetFactions": ["player"] }
+  }
+}
+```
+
+CombatSystem already queries `['Transform', 'Shooter']` and targets by faction — so ranged enemies work immediately with no code changes.
+
+### Enemies Shooting Player
+
+Player archetype already has `Health` component. Enemies just need `Shooter` added (see above). CombatSystem handles targeting via `targetFactions`. For game-over when player dies, add a small `HealthSystem` that:
+- Listens to `entity:damaged` events
+- Checks if player HP <= 0
+- Emits `player:died` → triggers game over screen
+
+### Unlock Zones (Buildings / NPC Spawning)
+
+DrainSystem already drains resources from the player's stack into zones. Extend it:
+- When a zone is fully funded, emit `zone:unlocked { zoneId, type }`
+- A `BuildSystem` listens and calls `factory.create('turret', pos)` or `factory.create('villager-hut', pos)`
+- New building types = new JSON archetypes. Zero code.
+
+### Storage System
+
+Already built — any entity with `InventoryStack` + `Tag` is a storage node. DepositorSystem auto-detects targets by tag. New storage types are just JSON:
+
+```json
+// archetypes/wood-chest.json
+{
+  "type": "WoodChest",
+  "components": {
+    "InventoryStack": { "maxCapacity": 30, "acceptsTypes": ["wood"] },
+    "Tag": { "tags": ["chest", "storage"] }
+  }
+}
+```
+
+### New Transaction Types
+
+`Trader` component supports `accepts`/`gives`/`rate`. A blacksmith that converts iron to swords:
+
+```json
+{ "Trader": { "accepts": "iron", "gives": "sword", "rate": 3, "minStock": 3 } }
+```
+
+TraderSystem handles the rest.
+
+### Modular Environment / Scene Design (Future Architecture)
+
+Currently the environment is hardcoded in `Environment.js`. Future approach:
+
+1. Create a `SceneLoader` that reads a **level JSON** file
+2. Level JSON lists entity placements:
+   ```json
+   {
+     "level": "Dusty Junction",
+     "entities": [
+       { "archetype": "tree", "pos": [5, 0, 3] },
+       { "archetype": "wall", "pos": [0, 0, -5], "overrides": { "Health": { "hp": 20 } } },
+       { "archetype": "turret-slot", "pos": [-3, 0, 2] }
+     ]
+   }
+   ```
+3. Trees, rocks, walls, buildings = archetypes with a `Static` tag
+4. Each level file = a different scene layout
+5. `EntityFactory.create()` already supports `overrides` parameter for per-instance customization
+
+### Expandable Walls and Area
+
+Walls are already an archetype (`wall.json`). To make them expandable:
+- Add a `Buildable` component: `{ "upgradeStages": [{ "hp": 10 }, { "hp": 25 }, { "hp": 50 }], "currentStage": 0 }`
+- A `UpgradeSystem` listens to `zone:unlocked` or a new `upgrade:requested` event
+- Each upgrade stage can change mesh scale, HP, and visual appearance
+- Expanding the base area = unlocking new zones that push the buildable perimeter outward
+
+### The Mental Model
+
+```
+Want new entity?     → Write a .json archetype file
+Want new behavior?   → Write a System that queries components
+Want new data shape? → Write a Component class
+Want new level?      → Write a level .json with entity placements
+Want to tune values? → Edit the .json archetype (no code changes)
+```
