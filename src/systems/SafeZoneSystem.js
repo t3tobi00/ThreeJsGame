@@ -124,7 +124,7 @@ export class SafeZoneSystem {
         EventBus.emit(inside ? 'zone:player_entered' : 'zone:player_exited');
     }
 
-    /** Drain zone health while hostile entities are on the boundary ring. */
+    /** Drain zone health while hostile entities are pressing against the fence from outside. */
     _damageFromEnemies(zone, wb, zoneAware, deltaTime, ecs) {
         for (const id of zoneAware) {
             const movement = ecs.getComponent(id, 'Movement');
@@ -133,8 +133,8 @@ export class SafeZoneSystem {
             const t = ecs.getComponent(id, 'Transform');
             if (!t) continue;
 
-            if (this._isOnBoundary(t.mesh.position, zone.bounds)) {
-                zone.health -= 10 * deltaTime; // 10 HP/sec per enemy on boundary
+            if (this._isNearBoundaryFromOutside(t.mesh.position, wb)) {
+                zone.health -= 10 * deltaTime; // 10 HP/sec per enemy pressing the fence
             }
         }
         zone.health = Math.max(zone.health, 0);
@@ -177,15 +177,21 @@ export class SafeZoneSystem {
 
     // ─── Grid helpers (internal — not exposed to other systems) ─────────────────
 
-    _isOnBoundary(pos, bounds) {
-        const { origin, cellSize } = this._grid;
-        const col = Math.floor((pos.x - origin.x) / cellSize);
-        const row = Math.floor((pos.z - origin.z) / cellSize);
-        const inZone = row >= bounds.minRow && row <= bounds.maxRow
-                    && col >= bounds.minCol && col <= bounds.maxCol;
-        if (!inZone) return false;
-        return row === bounds.minRow || row === bounds.maxRow
-            || col === bounds.minCol || col === bounds.maxCol;
+    /**
+     * True if pos is outside the zone and within REACH units of the nearest fence edge.
+     * Uses world-space distance — works correctly because enemies are always pushed
+     * outside the zone boundary by CollisionSystem before this check runs.
+     */
+    _isNearBoundaryFromOutside(pos, wb) {
+        const REACH = 1.5; // world units — covers fence thickness + enemy radius with margin
+        const inside = pos.x >= wb.minX && pos.x <= wb.maxX
+                    && pos.z >= wb.minZ && pos.z <= wb.maxZ;
+        if (inside) return false; // enemy somehow inside — don't double-count damage
+
+        // Distance from pos to nearest point on the zone rectangle
+        const dx = Math.max(wb.minX - pos.x, 0, pos.x - wb.maxX);
+        const dz = Math.max(wb.minZ - pos.z, 0, pos.z - wb.maxZ);
+        return (dx * dx + dz * dz) <= REACH * REACH;
     }
 
     _pushOutside(pos, wb) {
