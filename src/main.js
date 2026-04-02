@@ -31,6 +31,7 @@ import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ContactDamageSystem } from './systems/ContactDamageSystem.js';
 import { MarketSystem } from './systems/MarketSystem.js';
+import { ShopSystem } from './systems/ShopSystem.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
 
@@ -77,6 +78,9 @@ class Game {
 
         this.marketSystem = new MarketSystem(this.scene.instance);
         this.ecs.registerSystem(this.marketSystem, ['Transform', 'Market']);
+
+        this.shopSystem = new ShopSystem(this.scene.instance);
+        this.ecs.registerSystem(this.shopSystem, ['Transform', 'Shop']);
 
         this.collectorSystem = new CollectorSystem(this.scene.instance);
         this.ecs.registerSystem(this.collectorSystem, ['Transform', 'Collector', 'InventoryStack']);

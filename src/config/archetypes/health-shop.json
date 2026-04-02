@@ -1,0 +1,17 @@
+{
+  "type": "HealthShop",
+  "mesh": { "preset": "stall", "color": "0x44aa44", "width": 2.0, "depth": 1.2 },
+  "behaviors": ["shop"],
+  "components": {
+    "Shop": {
+      "cost": 5,
+      "effect": "heal",
+      "effectValue": 10,
+      "range": 3.0,
+      "drainRate": 0.25,
+      "cooldown": 2.0,
+      "label": "Health"
+    },
+    "Tag": { "tags": ["shop", "health-shop"] }
+  }
+}
