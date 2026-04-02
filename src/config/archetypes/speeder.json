@@ -3,8 +3,8 @@
   "mesh": { "preset": "character", "color": "0xff6600" },
   "type": "Speeder",
   "components": {
-    "Movement": { "speed": 6 },
-    "Health":   { "hp": 1, "maxHp": 1 },
-    "ContactDamage": { "damage": 1, "cooldown": 0.8, "range": 1.0, "targetFactions": ["player", "structure"] }
+    "Movement": { "speed": 7 },
+    "Health":   { "hp": 3, "maxHp": 3 },
+    "ContactDamage": { "damage": 1, "cooldown": 0.5, "range": 1.0, "targetFactions": ["player", "structure"] }
   }
 }
