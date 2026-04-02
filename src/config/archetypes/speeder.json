@@ -3,12 +3,12 @@
   "mesh": { "preset": "character", "color": "0xff6600" },
   "type": "Speeder",
   "components": {
-    "Movement": { "speed": 7 },
+    "Movement": { "speed": 3.5 },
     "Health":   { "hp": 2, "maxHp": 2 },
     "ContactDamage": { "damage": 1, "cooldown": 0.5, "range": 1.0, "targetFactions": ["player", "structure"] },
     "Drops": { "table": [
-      { "type": "bio-matter", "chance": 1.0, "min": 1, "max": 2 },
-      { "type": "zombie-teeth", "chance": 0.3, "min": 1, "max": 1 }
+      { "type": "bio-matter", "chance": 1.0, "min": 1, "max": 1 },
+      { "type": "zombie-teeth", "chance": 0.15, "min": 1, "max": 1 }
     ]}
   }
 }

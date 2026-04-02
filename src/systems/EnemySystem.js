@@ -78,7 +78,7 @@ export class EnemySystem {
     }
 
     _spawnEnemy() {
-        const count = 2 + Math.floor(Math.random() * 2); // 2-3 per wave
+        const count = 4 + Math.floor(Math.random() * 2); // 4-5 per wave
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const dist = ENEMY_CONFIG.spawnDistance + Math.random() * 5;

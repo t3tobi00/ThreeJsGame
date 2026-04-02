@@ -3,14 +3,14 @@
   "mesh": { "preset": "character", "color": "0xff3333" },
   "behaviors": ["mover", "damageable"],
   "components": {
-    "Movement":  { "speed": 3.8, "controller": "simple_steering", "faction": "enemy" },
+    "Movement":  { "speed": 2.0, "controller": "simple_steering", "faction": "enemy" },
     "Health":    { "hp": 4, "maxHp": 4, "armor": 0 },
     "Tag":       { "tags": ["enemy"] },
     "WalkAnim":  { "bobHeight": 0.06, "bobFreq": 7, "tiltAngle": 0.05 },
     "FlashAnim": { "color": "#ffffff", "duration": 0.1, "onEvent": "entity:damaged" },
     "ContactDamage": { "damage": 1, "cooldown": 0.8, "range": 1.2, "targetFactions": ["player", "structure"] },
     "Drops": { "table": [
-      { "type": "bio-matter", "chance": 1.0, "min": 2, "max": 4 }
+      { "type": "bio-matter", "chance": 1.0, "min": 1, "max": 1 }
     ]}
   }
 }
