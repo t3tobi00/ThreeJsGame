@@ -238,4 +238,44 @@ MeshPresets.register('unlock-zone', ({ color = 0x00aaff, size = 4.0 } = {}) => {
     return group;
 });
 
+MeshPresets.register('stall', ({ color = 0x8b6914, width = 2.5, depth = 1.5 } = {}) => {
+    const group = new THREE.Group();
+
+    // Counter
+    const counterGeo = new THREE.BoxGeometry(width, 0.6, depth);
+    const counterMat = new THREE.MeshStandardMaterial({ color, roughness: 0.8 });
+    const counter = new THREE.Mesh(counterGeo, counterMat);
+    counter.position.y = 0.3;
+    counter.castShadow = true;
+    counter.receiveShadow = true;
+    group.add(counter);
+
+    // Awning posts (4 corners)
+    const postGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.8, 6);
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x5d4037 });
+    const positions = [
+        [-width / 2 + 0.1, 0.9, -depth / 2 + 0.1],
+        [width / 2 - 0.1, 0.9, -depth / 2 + 0.1],
+        [-width / 2 + 0.1, 0.9, depth / 2 - 0.1],
+        [width / 2 - 0.1, 0.9, depth / 2 - 0.1]
+    ];
+    for (const [x, y, z] of positions) {
+        const post = new THREE.Mesh(postGeo, postMat);
+        post.position.set(x, y, z);
+        post.castShadow = true;
+        group.add(post);
+    }
+
+    // Awning (flat roof)
+    const awningGeo = new THREE.BoxGeometry(width + 0.4, 0.08, depth + 0.4);
+    const awningMat = new THREE.MeshStandardMaterial({ color: 0xcc4444, roughness: 0.9 });
+    const awning = new THREE.Mesh(awningGeo, awningMat);
+    awning.position.y = 1.8;
+    awning.castShadow = true;
+    awning.receiveShadow = true;
+    group.add(awning);
+
+    return group;
+});
+
 export default MeshPresets;

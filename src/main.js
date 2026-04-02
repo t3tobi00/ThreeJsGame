@@ -30,6 +30,7 @@ import { BuildSystem } from './systems/BuildSystem.js';
 import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ContactDamageSystem } from './systems/ContactDamageSystem.js';
+import { MarketSystem } from './systems/MarketSystem.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
 
@@ -73,6 +74,9 @@ class Game {
 
         this.contactDamageSystem = new ContactDamageSystem();
         this.ecs.registerSystem(this.contactDamageSystem, ['Transform', 'ContactDamage']);
+
+        this.marketSystem = new MarketSystem(this.scene.instance);
+        this.ecs.registerSystem(this.marketSystem, ['Transform', 'Market']);
 
         this.collectorSystem = new CollectorSystem(this.scene.instance);
         this.ecs.registerSystem(this.collectorSystem, ['Transform', 'Collector', 'InventoryStack']);
