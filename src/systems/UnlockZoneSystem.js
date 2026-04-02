@@ -128,7 +128,7 @@ export class UnlockZoneSystem {
         if (this._uiMap.has(zoneId)) return this._uiMap.get(zoneId);
 
         const group = transform.mesh;
-        const outputType = zone.builds || zone.spawns || 'unknown';
+        const outputType = zone.builds || zone.spawns || zone.output || 'unknown';
 
         // Read size from the mesh preset (base plane child)
         let size = 4;

@@ -138,7 +138,10 @@ class Game {
                         cost: zoneDef.cost,
                         builds: zoneDef.builds || null,
                         spawns: zoneDef.spawns || null,
-                        spawnCount: zoneDef.count || 1
+                        spawnCount: zoneDef.count || 1,
+                        output: zoneDef.output || null,
+                        outputTag: zoneDef.outputTag || null,
+                        outputCount: zoneDef.outputCount || 1
                     }
                 });
             }

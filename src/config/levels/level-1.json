@@ -37,8 +37,7 @@
     "entities": [
         { "archetype": "meat-table", "cell": [10, 14], "gridSpan": [1, 2], "position": { "x": 0, "y": 0.3, "z": -9 } },
         { "archetype": "coin-tray", "cell": [9, 13], "position": { "x": -3, "y": 0, "z": -11 } },
-
-
+        { "archetype": "coin-tray", "position": { "x": 3, "y": 0, "z": 14 } }
     ],
     "spawners": {
         "player": { "cell": [14, 14], "position": { "x": 0, "y": 0, "z": 0 } },
@@ -59,6 +58,14 @@
             "type": "build",
             "cost": { "meat": 10, "coin": 10 },
             "builds": "turret"
+        },
+        {
+            "position": { "x": 0, "y": 0, "z": 14 },
+            "type": "convert",
+            "cost": { "meat": 10 },
+            "output": "coin",
+            "outputTag": "tray",
+            "outputCount": 5
         }
     ],
     "gate": {
