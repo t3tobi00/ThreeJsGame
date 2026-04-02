@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import { ResourceTransfer } from '../utils/ResourceTransfer.js';
 import EventBus from '../core/EventBus.js';
+import { ShopUI } from '../ui/ShopUI.js';
 
 /**
  * ShopSystem — Drains coins from nearby players, applies effects on purchase.
  *
  * Queries: ['Transform', 'Shop']
  * Finds nearby carriers with ['Transform', 'InventoryStack', 'Tag'] (player tag)
+ * Creates flat-on-ground UI (like unlock zones) showing cost → effect.
  *
  * Effects:
  *   "heal" — restores effectValue HP to the buyer
@@ -17,6 +19,7 @@ export class ShopSystem {
     constructor(scene) {
         this.scene = scene;
         this._transfer = new ResourceTransfer();
+        this._uiMap = new Map(); // shopId → ShopUI
     }
 
     update(entities, deltaTime, ecs) {
@@ -24,18 +27,34 @@ export class ShopSystem {
 
         const players = ecs.queryEntities(['Transform', 'InventoryStack', 'Tag']);
 
+        // Clean up UIs for shops that no longer exist
+        for (const [id] of this._uiMap) {
+            if (!entities.includes(id)) {
+                this._destroyUI(id);
+            }
+        }
+
         for (const shopId of entities) {
             const shopTransform = ecs.getComponent(shopId, 'Transform');
             const shop = ecs.getComponent(shopId, 'Shop');
             if (!shopTransform || !shop) continue;
 
+            // Create UI on first encounter
+            const ui = this._ensureUI(shopId, shopTransform, shop);
+
             shop.timeSinceLastDrain += deltaTime;
+
+            // Animate UI
+            if (ui) ui.animate(deltaTime);
 
             // Cooldown after a completed purchase
             if (shop.cooldownTimer > 0) {
                 shop.cooldownTimer -= deltaTime;
+                if (ui) ui.setActive(false);
                 continue;
             }
+
+            let anyPlayerInRange = false;
 
             for (const playerId of players) {
                 const playerTag = ecs.getComponent(playerId, 'Tag');
@@ -47,6 +66,8 @@ export class ShopSystem {
 
                 const dist = playerTransform.mesh.position.distanceTo(shopTransform.mesh.position);
                 if (dist > shop.range) continue;
+
+                anyPlayerInRange = true;
 
                 // Check if player has coins
                 if (playerInventory.getCountByType('coin') === 0) continue;
@@ -102,6 +123,26 @@ export class ShopSystem {
 
                 break; // one coin per tick
             }
+
+            // Update active state (glow when player nearby)
+            if (ui) ui.setActive(anyPlayerInRange);
+        }
+    }
+
+    _ensureUI(shopId, transform, shop) {
+        if (this._uiMap.has(shopId)) return this._uiMap.get(shopId);
+
+        const group = transform.mesh;
+        const ui = new ShopUI(group, shop, 4);
+        this._uiMap.set(shopId, ui);
+        return ui;
+    }
+
+    _destroyUI(shopId) {
+        const ui = this._uiMap.get(shopId);
+        if (ui) {
+            ui.destroy();
+            this._uiMap.delete(shopId);
         }
     }
 

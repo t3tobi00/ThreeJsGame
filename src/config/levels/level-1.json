@@ -37,8 +37,13 @@
     "entities": [
         { "archetype": "meat-table", "cell": [10, 14], "gridSpan": [1, 2], "position": { "x": 0, "y": 0.3, "z": -9 } },
         { "archetype": "coin-tray", "cell": [9, 13], "position": { "x": -3, "y": 0, "z": -11 } },
-        { "archetype": "market", "cell": [15, 14], "position": { "x": 2, "y": 0, "z": 2 } },
-        { "archetype": "health-shop", "cell": [16, 12], "position": { "x": -4, "y": 0, "z": 4 } }
+
+        { "archetype": "market-stall", "position": { "x": 0, "y": 0, "z": 15 } },
+        { "archetype": "market", "position": { "x": 0, "y": 0, "z": 13 } },
+        { "archetype": "market-tray", "position": { "x": 3, "y": 0, "z": 13 } },
+
+        { "archetype": "shop-stall", "position": { "x": -5, "y": 0, "z": 15 } },
+        { "archetype": "health-shop", "position": { "x": -5, "y": 0, "z": 13 } }
     ],
     "spawners": {
         "player": { "cell": [14, 14], "position": { "x": 0, "y": 0, "z": 0 } },

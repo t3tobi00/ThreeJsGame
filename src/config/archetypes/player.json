@@ -4,10 +4,10 @@
   "behaviors": ["shooter", "collector", "stacker", "depositor"],
   "components": {
     "Movement":        { "speed": 8, "controller": "joystick", "faction": "player" },
-    "Shooter":         { "fireRate": 0.6, "range": 8, "damage": 2, "faction": "player", "targetFactions": ["enemy"] },
+    "Shooter":         { "fireRate": 0.3, "range": 8, "damage": 2, "faction": "player", "targetFactions": ["enemy"] },
     "Collector":       { "radius": 5, "resourceTypes": ["meat", "bio-matter", "zombie-teeth", "mutant-core", "coin", "wood"], "pullForce": 1.0, "collectFromTags": ["tray"], "pickupRate": 0.25 },
     "InventoryStack":  { "maxSlots": 3, "slotCapacity": 10, "anchorOffset": { "x": 0, "y": 1.2, "z": -0.25 }, "slotSpacing": 0.45, "style": "wobble" },
-    "Depositor":       { "range": 4, "targetTag": "table", "transferRate": 0.3 },
+    "Depositor":       { "range": 4, "targetTag": "table", "transferRate": 0.15 },
     "FlyToAnim":       { "arcHeight": 2.5, "speed": 8, "easing": "quadOut" },
     "SpringStackAnim": { "wobble": 0.3, "squash": 0.15, "lag": 0.15 },
     "SquashStretch":   { "intensity": 0.2, "frequency": 8, "trigger": "move" },
