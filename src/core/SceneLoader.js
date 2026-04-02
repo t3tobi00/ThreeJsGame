@@ -1,11 +1,9 @@
 import * as THREE from 'three';
 import { GridSystem } from './GridSystem.js';
 import MeshPresets from './MeshPresets.js';
-import { Component_Transform } from '../ecs/components/Component_Transform.js';
-import { Component_Collider } from '../ecs/components/Component_Collider.js';
 
 export class SceneLoader {
-    static async load(path, scene, ecs = null) {
+    static async load(path, scene) {
         const response = await fetch(path);
         const levelData = await response.json();
 
@@ -13,18 +11,17 @@ export class SceneLoader {
 
         SceneLoader._buildGround(scene, levelData.ground);
 
-        let fenceGroup       = null;
-        let fenceColliderIds = [];
+        let fenceGroup = null;
+        let fenceEdges = []; // plain { x, z, width, depth } — main.js creates ECS colliders
         if (levelData.fence) {
-            const result = SceneLoader._buildFence(scene, levelData.fence, grid, ecs);
-            fenceGroup       = result.fenceGroup;
-            fenceColliderIds = result.fenceColliderIds;
+            const result = SceneLoader._buildFence(scene, levelData.fence, grid);
+            fenceGroup = result.fenceGroup;
+            fenceEdges = result.fenceEdges;
         }
 
         if (levelData.props) SceneLoader._buildProps(scene, levelData.props);
         if (levelData.road)  SceneLoader._buildRoad(scene, levelData.road);
 
-        // Always create grid overlay, control visibility via toggle
         let gridOverlay = null;
         if (grid) {
             gridOverlay = grid.createDebugOverlay();
@@ -32,7 +29,7 @@ export class SceneLoader {
             scene.add(gridOverlay);
         }
 
-        return { grid, levelData, gridOverlay, fenceGroup, fenceColliderIds };
+        return { grid, levelData, gridOverlay, fenceGroup, fenceEdges };
     }
 
     static _buildGround(scene, ground) {
@@ -83,8 +80,8 @@ export class SceneLoader {
         }
     }
 
-    static _buildFence(scene, fence, grid, ecs = null) {
-        if (!grid || !fence.cells) return { fenceGroup: null, fenceColliderIds: [] };
+    static _buildFence(scene, fence, grid) {
+        if (!grid || !fence.cells) return { fenceGroup: null, fenceEdges: [] };
 
         const toKey = (r, c) => `${r},${c}`;
         const fenceSet  = new Set(fence.cells.map(([r, c]) => toKey(r, c)));
@@ -104,7 +101,7 @@ export class SceneLoader {
         const THICKNESS  = 0.15; // half-depth of each fence edge collider
         const fenceGroup = new THREE.Group();
         const half       = grid.cellSize / 2; // 1.0 for cellSize=2
-        const fenceColliderIds = [];
+        const fenceEdges = []; // plain data — main.js turns these into ECS collider entities
 
         const spawnLogsAlongEdge = (start, end) => {
             const dist = start.distanceTo(end);
@@ -120,22 +117,15 @@ export class SceneLoader {
             }
         };
 
-        // Creates a thin box collider centred on the edge segment.
-        // isHorizontal=true → edge runs along X, so width=half, depth=THICKNESS
-        // isHorizontal=false → edge runs along Z, so width=THICKNESS, depth=half
-        const spawnEdgeCollider = (start, end, isHorizontal) => {
-            if (!ecs) return;
-            const obj = new THREE.Object3D();
-            obj.position.set((start.x + end.x) / 2, 0, (start.z + end.z) / 2);
-            const id = ecs.createEntity();
-            ecs.addComponent(id, 'Transform', new Component_Transform(obj));
-            ecs.addComponent(id, 'Collider', new Component_Collider({
-                shape:    'box',
-                width:    isHorizontal ? half : THICKNESS,
-                depth:    isHorizontal ? THICKNESS : half,
-                isStatic: true
-            }));
-            fenceColliderIds.push(id);
+        // Records the world-space centre and half-extents of each fence edge.
+        // SceneLoader stays visual-only; main.js creates ECS collider entities from this data.
+        const recordEdge = (start, end, isHorizontal) => {
+            fenceEdges.push({
+                x:     (start.x + end.x) / 2,
+                z:     (start.z + end.z) / 2,
+                width: isHorizontal ? half : THICKNESS,
+                depth: isHorizontal ? THICKNESS : half,
+            });
         };
 
         for (const [row, col] of fence.cells) {
@@ -156,7 +146,7 @@ export class SceneLoader {
                 const start = new THREE.Vector3(x1, 0, z1);
                 const end   = new THREE.Vector3(x2, 0, z2);
                 spawnLogsAlongEdge(start, end);
-                spawnEdgeCollider(start, end, isHorizontal);
+                recordEdge(start, end, isHorizontal);
             };
 
             // Top edge (−Z), Bottom edge (+Z), Left edge (−X), Right edge (+X)
@@ -167,7 +157,7 @@ export class SceneLoader {
         }
 
         scene.add(fenceGroup);
-        return { fenceGroup, fenceColliderIds };
+        return { fenceGroup, fenceEdges };
     }
 
     static _buildProps(scene, props) {

@@ -35,19 +35,15 @@ export class EnemySystem {
         this._aiState = new Map();
 
         // Spawn config — set from level JSON via setSpawnConfig()
-        this._countMin = 4;
-        this._countMax = 5;
-        this._grid = null;
-        this._zone = null;
+        this._countMin  = 4;
+        this._countMax  = 5;
+        this._playerId  = null; // set via setPlayerEntityId() for ZoneStatus lookup
     }
 
     setECS(ecs) { this._ecs = ecs; }
 
-    /** Called from main.js after safe zone entity is created. */
-    setSafeZone(grid, zone) {
-        this._grid = grid;
-        this._zone = zone;
-    }
+    /** Player entity ID — used to read ZoneStatus and redirect chase target. */
+    setPlayerEntityId(id) { this._playerId = id; }
 
     /** Called from main.js after level load to pass level-specific spawn config. */
     setSpawnConfig({ countMin, countMax } = {}) {
@@ -121,12 +117,17 @@ export class EnemySystem {
             }
         }
 
+        // Read player's ZoneStatus once — if player is inside an active zone,
+        // redirect each chasing enemy to the nearest point on the zone boundary
+        // instead of the player position (prevents gate-pathfinding exploit).
+        const playerZoneStatus = this._playerId != null
+            ? ecs.getComponent(this._playerId, 'ZoneStatus') : null;
+
         // --- Pass 3: Movement ---
         for (const { transform, movement, pos, ai, aiComp } of alive) {
             if (ai.state === 'chase') {
-                // Each enemy targets the point on the boundary nearest to itself
-                const target = (this._zone?.active && this._isPlayerInsideZone(playerPos))
-                    ? this._nearestBoundaryPoint(pos)
+                const target = (playerZoneStatus?.insideZone && playerZoneStatus.zoneBoundsWorld)
+                    ? this._nearestBoundaryPoint(pos, playerZoneStatus.zoneBoundsWorld)
                     : playerPos;
                 const dir = new THREE.Vector3().subVectors(target, pos);
                 if (dir.length() > 0.5) {
@@ -177,29 +178,16 @@ export class EnemySystem {
         transform.mesh.rotation.y = Math.atan2(dir.x, dir.z);
     }
 
-    /** True if pos is within the safe zone grid bounds (inclusive of fence cells). */
-    _isPlayerInsideZone(pos) {
-        const b = this._zone.bounds;
-        const col = Math.floor((pos.x - this._grid.origin.x) / this._grid.cellSize);
-        const row = Math.floor((pos.z - this._grid.origin.z) / this._grid.cellSize);
-        return row >= b.minRow && row <= b.maxRow && col >= b.minCol && col <= b.maxCol;
-    }
-
     /**
-     * Returns the nearest point on the zone's outer boundary rectangle to enemyPos.
-     * Enemies outside the zone will get a point on the closest fence edge.
+     * Nearest point on the zone boundary rectangle to enemyPos.
+     * wb (zoneBoundsWorld) is provided by the player's ZoneStatus component —
+     * EnemySystem needs no grid or zone reference of its own.
      */
-    _nearestBoundaryPoint(enemyPos) {
-        const { origin, cellSize } = this._grid;
-        const b    = this._zone.bounds;
-        const minX = origin.x + b.minCol * cellSize;
-        const maxX = origin.x + (b.maxCol + 1) * cellSize;
-        const minZ = origin.z + b.minRow * cellSize;
-        const maxZ = origin.z + (b.maxRow + 1) * cellSize;
+    _nearestBoundaryPoint(enemyPos, wb) {
         return new THREE.Vector3(
-            Math.max(minX, Math.min(enemyPos.x, maxX)),
+            Math.max(wb.minX, Math.min(enemyPos.x, wb.maxX)),
             0,
-            Math.max(minZ, Math.min(enemyPos.z, maxZ))
+            Math.max(wb.minZ, Math.min(enemyPos.z, wb.maxZ))
         );
     }
 

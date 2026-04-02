@@ -22,6 +22,7 @@ import { Component_ContactDamage } from '../ecs/components/Component_ContactDama
 import { Component_Drops } from '../ecs/components/Component_Drops.js';
 import { Component_EnemyAI } from '../ecs/components/Component_EnemyAI.js';
 import { Component_Collider } from '../ecs/components/Component_Collider.js';
+import { Component_ZoneStatus } from '../ecs/components/Component_ZoneStatus.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -48,6 +49,7 @@ const COMPONENT_MAP = {
     Drops:           (d) => new Component_Drops(d),
     EnemyAI:         (d) => new Component_EnemyAI(d),
     Collider:        (d) => new Component_Collider(d),
+    ZoneStatus:      ()  => new Component_ZoneStatus(),
 };
 
 

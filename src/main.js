@@ -33,6 +33,8 @@ import { ContactDamageSystem } from './systems/ContactDamageSystem.js';
 import { CollisionSystem } from './systems/CollisionSystem.js';
 import { SafeZoneSystem } from './systems/SafeZoneSystem.js';
 import { Component_SafeZone } from './ecs/components/Component_SafeZone.js';
+import { Component_Transform } from './ecs/components/Component_Transform.js';
+import { Component_Collider } from './ecs/components/Component_Collider.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
 
@@ -101,8 +103,8 @@ class Game {
      * No hardcoded positions or entity references in main.js.
      */
     async loadLevel(path) {
-        const { grid, levelData, gridOverlay, fenceGroup, fenceColliderIds } =
-            await SceneLoader.load(path, this.scene.instance, this.ecs);
+        const { grid, levelData, gridOverlay, fenceGroup, fenceEdges } =
+            await SceneLoader.load(path, this.scene.instance);
         this.grid = grid;
 
         // --- Grid toggle ---
@@ -117,6 +119,7 @@ class Game {
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
         this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
         this.enemySystem.setECS(this.ecs);
+        this.enemySystem.setPlayerEntityId(this.playerId);
         if (levelData.spawners?.enemies) {
             this.enemySystem.setSpawnConfig(levelData.spawners.enemies);
         }
@@ -125,7 +128,7 @@ class Game {
 
         // SafeZoneSystem — after enemies move, before collision resolution
         this.safeZoneSystem = new SafeZoneSystem(this.grid);
-        this.safeZoneSystem.setPlayer(this.playerId, playerTransform);
+        this.safeZoneSystem.setPlayer(this.playerId);
         this.ecs.registerSystem(this.safeZoneSystem, ['SafeZone']);
 
         // CollisionSystem — runs last, after all movement and zone logic
@@ -174,17 +177,28 @@ class Game {
             });
         }
 
+        // --- Fence collider entities (created here, not in SceneLoader) ---
+        // SceneLoader returns plain edge data; main.js turns it into ECS entities.
+        const fenceColliderIds = [];
+        for (const edge of fenceEdges) {
+            const obj = new THREE.Object3D();
+            obj.position.set(edge.x, 0, edge.z);
+            const id = this.ecs.createEntity();
+            this.ecs.addComponent(id, 'Transform', new Component_Transform(obj));
+            this.ecs.addComponent(id, 'Collider', new Component_Collider({
+                shape: 'box', width: edge.width, depth: edge.depth, isStatic: true
+            }));
+            fenceColliderIds.push(id);
+        }
+
         // --- Safe Zone ---
         if (levelData.safeZone) {
             const szId = this.ecs.createEntity();
             const zone = new Component_SafeZone(levelData.safeZone);
-            zone.fenceGroup       = fenceGroup;
             zone.fenceColliderIds = fenceColliderIds;
             this.ecs.addComponent(szId, 'SafeZone', zone);
 
-            // Give other systems a direct reference — they check zone.active each frame
-            this.contactDamageSystem.setSafeZone(this.grid, zone);
-            this.enemySystem.setSafeZone(this.grid, zone);
+            this.safeZoneSystem.setFenceGroup(fenceGroup); // rendering ref lives in the system, not the component
         }
 
         // --- Villager trading systems (discover targets by tag, no IDs needed) ---

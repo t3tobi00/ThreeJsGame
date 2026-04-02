@@ -61,6 +61,7 @@
         }
       ]
     },
-    "Collider": { "shape": "circle", "radius": 0.4, "isStatic": false }
+    "Collider":   { "shape": "circle", "radius": 0.4, "isStatic": false },
+    "ZoneStatus": {}
   }
 }

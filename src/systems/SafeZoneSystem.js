@@ -1,44 +1,60 @@
 import EventBus from '../core/EventBus.js';
 
 /**
- * SafeZoneSystem — Manages the safe zone boundary, health, and rules.
+ * SafeZoneSystem — Single source of truth for safe zone state.
  *
  * Queries: ['SafeZone']
  *
- * Rules while zone is active (health > 0):
- *   - Player inside zone  → Shooter.enabled = false (can't fire outward)
- *   - Player outside zone → Shooter.enabled = true
- *   - Enemy on boundary cell → zone health drains (10 HP/sec per enemy)
- *   - Enemy strictly inside zone → hard push back outside
+ * Each frame (while zone active):
+ *   1. Computes world-space bounds from grid + zone.bounds (once per frame).
+ *   2. Updates ZoneStatus component on every zone-aware entity (player, enemies).
+ *      — ZoneStatus.insideZone      true/false
+ *      — ZoneStatus.zoneBoundsWorld { minX, maxX, minZ, maxZ }
+ *   3. Reads player's ZoneStatus to toggle Shooter.enabled on transition.
+ *   4. Drains zone health while enemies are on the boundary.
+ *   5. Hard-pushes any enemy that somehow enters the interior back outside.
+ *   6. Destroys zone when health reaches 0.
  *
- * When health reaches 0:
- *   - Fence logs hidden, fence colliders disabled
- *   - Zone deactivated permanently (until rebuilt — future feature)
- *   - Player shooter re-enabled unconditionally
+ * Other systems (EnemySystem, ContactDamageSystem) read ZoneStatus only —
+ * they have zero direct knowledge of zones, grids, or bounds.
  */
 export class SafeZoneSystem {
     constructor(grid) {
         this._grid            = grid;
-        this._playerTransform = null;
         this._playerId        = null;
-        this._playerWasInside = null; // null = not yet determined
+        this._playerWasInside = null;
+        this._fenceGroup      = null; // THREE.Group — set via setFenceGroup()
     }
 
-    setPlayer(playerId, playerTransform) {
-        this._playerId        = playerId;
-        this._playerTransform = playerTransform;
+    setPlayer(playerId) {
+        this._playerId = playerId;
+    }
+
+    /** Called from main.js after SceneLoader returns the fence group. */
+    setFenceGroup(group) {
+        this._fenceGroup = group;
     }
 
     update(entities, deltaTime, ecs) {
-        if (!this._playerTransform) return;
+        // All entities that participate in zone status tracking
+        const zoneAware = ecs.queryEntities(['Transform', 'ZoneStatus']);
 
         for (const zoneId of entities) {
             const zone = ecs.getComponent(zoneId, 'SafeZone');
-            if (!zone || !zone.active) continue;
+            if (!zone) continue;
 
-            this._checkPlayerTransition(zone, ecs);
-            this._damageFromEnemies(zone, deltaTime, ecs);
-            this._blockEnemies(zone, ecs);
+            if (!zone.active) {
+                // Zone is dead — make sure all statuses are cleared
+                this._clearZoneStatuses(zoneAware, ecs);
+                continue;
+            }
+
+            const wb = this._worldBounds(zone.bounds);
+
+            this._updateZoneStatuses(wb, zoneAware, ecs);
+            this._checkPlayerTransition(ecs);
+            this._damageFromEnemies(zone, wb, zoneAware, deltaTime, ecs);
+            this._blockEnemies(wb, zoneAware, ecs);
 
             if (zone.health <= 0) {
                 this._destroyZone(zone, ecs);
@@ -48,23 +64,65 @@ export class SafeZoneSystem {
 
     // ─── Private ────────────────────────────────────────────────────────────────
 
-    _checkPlayerTransition(zone, ecs) {
-        const inside = this._isInside(this._playerTransform.mesh.position, zone.bounds);
-        if (inside === this._playerWasInside) return; // no change
+    /** Compute world-space AABB of zone bounds. Called once per frame. */
+    _worldBounds(bounds) {
+        const { origin, cellSize } = this._grid;
+        return {
+            minX: origin.x + bounds.minCol * cellSize,
+            maxX: origin.x + (bounds.maxCol + 1) * cellSize,
+            minZ: origin.z + bounds.minRow * cellSize,
+            maxZ: origin.z + (bounds.maxRow + 1) * cellSize,
+        };
+    }
+
+    /**
+     * Set ZoneStatus.insideZone and ZoneStatus.zoneBoundsWorld for every
+     * zone-aware entity. Consumers (EnemySystem, ContactDamageSystem) read these.
+     */
+    _updateZoneStatuses(wb, zoneAware, ecs) {
+        for (const id of zoneAware) {
+            const t      = ecs.getComponent(id, 'Transform');
+            const status = ecs.getComponent(id, 'ZoneStatus');
+            if (!t || !status) continue;
+            const p = t.mesh.position;
+            status.insideZone      = p.x >= wb.minX && p.x <= wb.maxX
+                                  && p.z >= wb.minZ && p.z <= wb.maxZ;
+            status.zoneBoundsWorld = wb; // same object — consumers should not mutate it
+        }
+    }
+
+    _clearZoneStatuses(zoneAware, ecs) {
+        for (const id of zoneAware) {
+            const status = ecs.getComponent(id, 'ZoneStatus');
+            if (status) { status.insideZone = false; status.zoneBoundsWorld = null; }
+        }
+    }
+
+    /** Toggle player Shooter.enabled on zone entry/exit transitions. */
+    _checkPlayerTransition(ecs) {
+        if (this._playerId == null) return;
+        const status = ecs.getComponent(this._playerId, 'ZoneStatus');
+        if (!status) return;
+
+        const inside = status.insideZone;
+        if (inside === this._playerWasInside) return;
         this._playerWasInside = inside;
 
-        const shooter = this._playerId != null
-            ? ecs.getComponent(this._playerId, 'Shooter') : null;
-        if (shooter) shooter.enabled = !inside; // disable shooting while inside safe zone
+        const shooter = ecs.getComponent(this._playerId, 'Shooter');
+        if (shooter) shooter.enabled = !inside;
 
         EventBus.emit(inside ? 'zone:player_entered' : 'zone:player_exited');
     }
 
-    _damageFromEnemies(zone, deltaTime, ecs) {
-        const enemies = ecs.queryEntities(['Transform', 'EnemyAI']);
-        for (const id of enemies) {
+    /** Drain zone health while hostile entities are on the boundary ring. */
+    _damageFromEnemies(zone, wb, zoneAware, deltaTime, ecs) {
+        for (const id of zoneAware) {
+            const movement = ecs.getComponent(id, 'Movement');
+            if (!movement || movement.faction !== 'enemy') continue;
+
             const t = ecs.getComponent(id, 'Transform');
             if (!t) continue;
+
             if (this._isOnBoundary(t.mesh.position, zone.bounds)) {
                 zone.health -= 10 * deltaTime; // 10 HP/sec per enemy on boundary
             }
@@ -72,14 +130,18 @@ export class SafeZoneSystem {
         zone.health = Math.max(zone.health, 0);
     }
 
-    /** Hard push-back for any enemy that somehow enters the zone interior. */
-    _blockEnemies(zone, ecs) {
-        const enemies = ecs.queryEntities(['Transform', 'EnemyAI']);
-        for (const id of enemies) {
+    /** Hard push-back for hostile entities that breach the zone interior. */
+    _blockEnemies(wb, zoneAware, ecs) {
+        for (const id of zoneAware) {
+            const movement = ecs.getComponent(id, 'Movement');
+            if (!movement || movement.faction !== 'enemy') continue;
+
             const t = ecs.getComponent(id, 'Transform');
             if (!t) continue;
-            if (this._isStrictlyInside(t.mesh.position, zone.bounds)) {
-                this._pushOutside(t.mesh.position, zone.bounds);
+
+            const status = ecs.getComponent(id, 'ZoneStatus');
+            if (status?.insideZone) {
+                this._pushOutside(t.mesh.position, wb);
             }
         }
     }
@@ -87,68 +149,45 @@ export class SafeZoneSystem {
     _destroyZone(zone, ecs) {
         zone.active = false;
 
-        // Hide visual fence
-        if (zone.fenceGroup) zone.fenceGroup.visible = false;
+        if (this._fenceGroup) this._fenceGroup.visible = false;
 
-        // Disable all fence edge colliders
         for (const colId of zone.fenceColliderIds) {
             const col = ecs.getComponent(colId, 'Collider');
             if (col) col.disabled = true;
         }
 
-        // Always re-enable player shooting when zone dies
-        const shooter = this._playerId != null
-            ? ecs.getComponent(this._playerId, 'Shooter') : null;
-        if (shooter) shooter.enabled = true;
+        // Re-enable player shooting unconditionally
+        if (this._playerId != null) {
+            const shooter = ecs.getComponent(this._playerId, 'Shooter');
+            if (shooter) shooter.enabled = true;
+        }
 
         EventBus.emit('zone:destroyed');
     }
 
-    // ─── Grid cell helpers ───────────────────────────────────────────────────────
+    // ─── Grid helpers (internal — not exposed to other systems) ─────────────────
 
-    _getCell(pos) {
-        const col = Math.floor((pos.x - this._grid.origin.x) / this._grid.cellSize);
-        const row = Math.floor((pos.z - this._grid.origin.z) / this._grid.cellSize);
-        return { row, col };
-    }
-
-    /** True if pos maps to any cell within the zone boundary (inclusive). */
-    _isInside(pos, b) {
-        const { row, col } = this._getCell(pos);
-        return row >= b.minRow && row <= b.maxRow && col >= b.minCol && col <= b.maxCol;
-    }
-
-    /** True if pos maps to a cell strictly interior (not on the boundary ring). */
-    _isStrictlyInside(pos, b) {
-        const { row, col } = this._getCell(pos);
-        return row > b.minRow && row < b.maxRow && col > b.minCol && col < b.maxCol;
-    }
-
-    /** True if pos is inside the zone AND on the outermost ring of cells (fence cells). */
-    _isOnBoundary(pos, b) {
-        const { row, col } = this._getCell(pos);
-        const inZone = row >= b.minRow && row <= b.maxRow && col >= b.minCol && col <= b.maxCol;
-        if (!inZone) return false;
-        return row === b.minRow || row === b.maxRow || col === b.minCol || col === b.maxCol;
-    }
-
-    /** Push pos to just outside the nearest zone boundary edge. */
-    _pushOutside(pos, b) {
+    _isOnBoundary(pos, bounds) {
         const { origin, cellSize } = this._grid;
-        const minX = origin.x + b.minCol * cellSize;
-        const maxX = origin.x + (b.maxCol + 1) * cellSize;
-        const minZ = origin.z + b.minRow * cellSize;
-        const maxZ = origin.z + (b.maxRow + 1) * cellSize;
+        const col = Math.floor((pos.x - origin.x) / cellSize);
+        const row = Math.floor((pos.z - origin.z) / cellSize);
+        const inZone = row >= bounds.minRow && row <= bounds.maxRow
+                    && col >= bounds.minCol && col <= bounds.maxCol;
+        if (!inZone) return false;
+        return row === bounds.minRow || row === bounds.maxRow
+            || col === bounds.minCol || col === bounds.maxCol;
+    }
 
-        const dMinX = pos.x - minX;
-        const dMaxX = maxX - pos.x;
-        const dMinZ = pos.z - minZ;
-        const dMaxZ = maxZ - pos.z;
-        const minDist = Math.min(dMinX, dMaxX, dMinZ, dMaxZ);
+    _pushOutside(pos, wb) {
+        const dMinX = pos.x - wb.minX;
+        const dMaxX = wb.maxX - pos.x;
+        const dMinZ = pos.z - wb.minZ;
+        const dMaxZ = wb.maxZ - pos.z;
+        const min   = Math.min(dMinX, dMaxX, dMinZ, dMaxZ);
 
-        if      (minDist === dMinX) pos.x = minX - 0.1;
-        else if (minDist === dMaxX) pos.x = maxX + 0.1;
-        else if (minDist === dMinZ) pos.z = minZ - 0.1;
-        else                        pos.z = maxZ + 0.1;
+        if      (min === dMinX) pos.x = wb.minX - 0.1;
+        else if (min === dMaxX) pos.x = wb.maxX + 0.1;
+        else if (min === dMinZ) pos.z = wb.minZ - 0.1;
+        else                    pos.z = wb.maxZ + 0.1;
     }
 }

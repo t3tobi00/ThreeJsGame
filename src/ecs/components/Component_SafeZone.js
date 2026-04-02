@@ -12,8 +12,11 @@ export class Component_SafeZone {
         this.bounds    = { minRow: 0, maxRow: 0, minCol: 0, maxCol: 0, ...bounds };
         this.active    = true;
 
-        // Set externally after level load
-        this.fenceGroup       = null;  // THREE.Group — hidden when zone dies
-        this.fenceColliderIds = [];    // ECS entity IDs of fence edge colliders
+        // fenceColliderIds: ECS entity IDs of fence edge colliders — disabled on zone death.
+        // Set by main.js after SceneLoader returns fence edge data.
+        this.fenceColliderIds = [];
+
+        // Note: fenceGroup (THREE.Group) is intentionally NOT stored here.
+        // Rendering references don't belong in components. SafeZoneSystem holds it directly.
     }
 }
