@@ -2,29 +2,25 @@ import * as THREE from 'three';
 import EventBus from '../core/EventBus.js';
 
 /**
- * StackSystem — ECS-driven.
- * Queries all entities with Transform + InventoryStack.
- * For each, calls stack.update(basePos) every frame to drive spring physics.
- * Also provides addDisk(entityId) and popDisk(entityId) for other systems.
+ * StackSystem — ECS-driven multi-slot stacking.
  *
- * Listens to:  'item:collected' → addDisk(collectorId, mesh)
- * Emits:       'stack:changed' → { entityId, count }
+ * Queries all entities with Transform + InventoryStack.
+ * For each entity, updates every slot's spring physics.
+ * Multi-slot entities get side-by-side stacks.
+ *
+ * Listens:  'item:collected' → addToSlot(collectorId, resourceType, mesh)
+ * Emits:    'stack:changed' → { entityId, type, count, totalCount }
  */
 export class StackSystem {
     constructor(scene) {
         this.scene = scene;
         this._ecs = null;
 
-        // Listen for items arriving at a collector entity
-        EventBus.on('item:collected', ({ collectorId, mesh }) => {
-            this._addMeshToStack(collectorId, mesh);
+        EventBus.on('item:collected', ({ collectorId, itemType, mesh }) => {
+            this._addToSlot(collectorId, itemType || 'meat', mesh);
         });
     }
 
-    /**
-     * Called by ECS every frame.
-     * @param {number[]} entities IDs with ['Transform', 'InventoryStack']
-     */
     update(entities, deltaTime, ecs) {
         this._ecs = ecs;
 
@@ -34,47 +30,80 @@ export class StackSystem {
             if (!transform || !inventory) continue;
 
             const anchor = inventory.anchorOffset;
-            const basePos = new THREE.Vector3(
-                transform.mesh.position.x + anchor.x,
-                transform.mesh.position.y + anchor.y,
-                transform.mesh.position.z + anchor.z
-            );
-            inventory.stack.update(basePos);
+            const entityPos = transform.mesh.position;
+            const numSlots = inventory.slots.length;
+
+            for (let i = 0; i < numSlots; i++) {
+                const slot = inventory.slots[i];
+                // Side-by-side offset: centered around the anchor
+                const xOffset = (i - (numSlots - 1) / 2) * inventory.slotSpacing;
+                const basePos = new THREE.Vector3(
+                    entityPos.x + anchor.x + xOffset,
+                    entityPos.y + anchor.y,
+                    entityPos.z + anchor.z
+                );
+                slot.stack.update(basePos);
+            }
         }
     }
 
-    /**
-     * Add a pre-existing mesh to an entity's inventory stack.
-     * @param {number} entityId
-     * @param {THREE.Mesh} mesh
-     */
-    _addMeshToStack(entityId, mesh) {
+    _addToSlot(entityId, resourceType, mesh) {
         if (!this._ecs) return;
         const inventory = this._ecs.getComponent(entityId, 'InventoryStack');
         if (!inventory) return;
 
         this.scene.add(mesh);
-        inventory.stack.add(mesh, { animate: true });
-        EventBus.emit('stack:changed', { entityId, count: inventory.stack.getCount() });
+        const added = inventory.addToSlot(resourceType, mesh, { animate: true });
+        if (added) {
+            EventBus.emit('stack:changed', {
+                entityId,
+                type: resourceType,
+                count: inventory.getCountByType(resourceType),
+                totalCount: inventory.getTotalCount()
+            });
+        }
     }
 
     /**
-     * Exposed for DepositorSystem: pop the top item from an entity's stack.
-     * @param {number} entityId
+     * Pop one item of a specific type from an entity's inventory.
      * @returns {THREE.Mesh|null}
      */
-    popDisk(entityId) {
+    popFromSlot(entityId, resourceType) {
         if (!this._ecs) return null;
         const inventory = this._ecs.getComponent(entityId, 'InventoryStack');
-        if (!inventory || inventory.stack.getCount() === 0) return null;
-        const disk = inventory.stack.pop();
-        EventBus.emit('stack:changed', { entityId, count: inventory.stack.getCount() });
-        return disk;
+        if (!inventory) return null;
+
+        const mesh = inventory.popFromSlot(resourceType);
+        if (mesh) {
+            EventBus.emit('stack:changed', {
+                entityId,
+                type: resourceType,
+                count: inventory.getCountByType(resourceType),
+                totalCount: inventory.getTotalCount()
+            });
+        }
+        return mesh;
     }
 
     /**
-     * main.js must call this after creating StackSystem so it can access ECS.
+     * Pop any item from an entity's inventory.
+     * @returns {THREE.Mesh|null}
      */
+    popAny(entityId) {
+        if (!this._ecs) return null;
+        const inventory = this._ecs.getComponent(entityId, 'InventoryStack');
+        if (!inventory) return null;
+
+        const mesh = inventory.popAny();
+        if (mesh) {
+            EventBus.emit('stack:changed', {
+                entityId,
+                totalCount: inventory.getTotalCount()
+            });
+        }
+        return mesh;
+    }
+
     setECS(ecs) {
         this._ecs = ecs;
     }

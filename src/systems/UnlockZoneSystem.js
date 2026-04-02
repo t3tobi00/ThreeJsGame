@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ResourceTransfer } from '../utils/ResourceTransfer.js';
+import { UnlockZoneUI } from '../ui/UnlockZoneUI.js';
 import EventBus from '../core/EventBus.js';
 
 /**
@@ -14,6 +15,12 @@ export class UnlockZoneSystem {
         this.scene = scene;
         this._transfer = new ResourceTransfer();
         this._ecs = null;
+        this._uiMap = new Map(); // zoneId -> UnlockZoneUI
+
+        // Clean up UI when a build zone is destroyed
+        EventBus.on('zone:built', ({ zoneId }) => {
+            this._destroyUI(zoneId);
+        });
     }
 
     update(entities, deltaTime, ecs) {
@@ -22,14 +29,33 @@ export class UnlockZoneSystem {
 
         const carriers = ecs.queryEntities(['Transform', 'InventoryStack']);
 
+        // Clean up UIs for zones that no longer exist
+        for (const [id] of this._uiMap) {
+            if (!entities.includes(id)) {
+                this._destroyUI(id);
+            }
+        }
+
         for (const zoneId of entities) {
             const zoneTransform = ecs.getComponent(zoneId, 'Transform');
             const zone = ecs.getComponent(zoneId, 'UnlockZone');
             if (!zoneTransform || !zone) continue;
 
+            // Create UI on first encounter
+            const ui = this._ensureUI(zoneId, zoneTransform, zone);
+
             zone.timeSinceLastDrain += deltaTime;
 
+            // Animate UI each frame
+            if (ui) {
+                ui.animate(deltaTime);
+                ui.updateProgress(zone.progress);
+            }
+
             if (this._isFunded(zone)) continue;
+
+            // Track if any carrier is in range this frame
+            let anyCarrierInRange = false;
 
             for (const carrierId of carriers) {
                 const carrierTransform = ecs.getComponent(carrierId, 'Transform');
@@ -38,16 +64,17 @@ export class UnlockZoneSystem {
 
                 const dist = zoneTransform.mesh.position.distanceTo(carrierTransform.mesh.position);
                 if (dist > zone.range) continue;
+
+                anyCarrierInRange = true;
+
                 if (zone.timeSinceLastDrain < zone.drainRate) continue;
 
                 let drained = false;
                 for (const [resourceType, needed] of Object.entries(zone.cost)) {
                     if (zone.progress[resourceType] >= needed) continue;
+                    if (carrierInventory.getCountByType(resourceType) === 0) continue;
 
-                    const meshIndex = this._findResourceInStack(carrierInventory.stack, resourceType);
-                    if (meshIndex === -1) continue;
-
-                    const mesh = this._popResourceAtIndex(carrierInventory.stack, meshIndex);
+                    const mesh = carrierInventory.popFromSlot(resourceType);
                     if (!mesh) continue;
 
                     drained = true;
@@ -69,7 +96,9 @@ export class UnlockZoneSystem {
 
                     EventBus.emit('stack:changed', {
                         entityId: carrierId,
-                        count: carrierInventory.stack.getCount()
+                        type: resourceType,
+                        count: carrierInventory.getCountByType(resourceType),
+                        totalCount: carrierInventory.getTotalCount()
                     });
                 }
 
@@ -87,6 +116,39 @@ export class UnlockZoneSystem {
                     });
                 }
             }
+
+            // Update active state (glow when player nearby)
+            if (ui) {
+                ui.setActive(anyCarrierInRange);
+            }
+        }
+    }
+
+    _ensureUI(zoneId, transform, zone) {
+        if (this._uiMap.has(zoneId)) return this._uiMap.get(zoneId);
+
+        const group = transform.mesh;
+        const outputType = zone.builds || zone.spawns || 'unknown';
+
+        // Read size from the mesh preset (base plane child)
+        let size = 4;
+        if (group.children && group.children.length > 0) {
+            const basePlane = group.children[0];
+            if (basePlane.geometry && basePlane.geometry.parameters) {
+                size = basePlane.geometry.parameters.width || 4;
+            }
+        }
+
+        const ui = new UnlockZoneUI(group, zone.cost, outputType, size);
+        this._uiMap.set(zoneId, ui);
+        return ui;
+    }
+
+    _destroyUI(zoneId) {
+        const ui = this._uiMap.get(zoneId);
+        if (ui) {
+            ui.destroy();
+            this._uiMap.delete(zoneId);
         }
     }
 
@@ -97,18 +159,4 @@ export class UnlockZoneSystem {
         return true;
     }
 
-    _findResourceInStack(stack, resourceType) {
-        for (let i = stack.items.length - 1; i >= 0; i--) {
-            if (stack.items[i].userData && stack.items[i].userData.resourceType === resourceType) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    _popResourceAtIndex(stack, index) {
-        if (index < 0 || index >= stack.items.length) return null;
-        const [mesh] = stack.items.splice(index, 1);
-        return mesh;
-    }
 }

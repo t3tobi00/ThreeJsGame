@@ -51,10 +51,11 @@
     },
     "unlockZones": [
         {
-            "cell": [18, 12],
-            "position": { "x": -5, "y": 0, "z": 7 },
+            "cell": [17, 11],
+            "gridSpan": [2, 2],
+            "position": { "x": -6, "y": 0, "z": 6 },
             "type": "build",
-            "cost": { "meat": 20 },
+            "cost": { "meat": 10, "coin": 10 },
             "builds": "turret"
         }
     ],

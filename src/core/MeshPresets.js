@@ -183,39 +183,57 @@ MeshPresets.register('turret', ({ color = 0xaaaaaa } = {}) => {
     return group;
 });
 
-MeshPresets.register('unlock-zone', ({ color = 0x00aaff, size = 2.0 } = {}) => {
+MeshPresets.register('gate', ({ width = 8.0 } = {}) => {
+    const group = new THREE.Group();
+
+    const postGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.8, 6);
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+
+    const postLeft = new THREE.Mesh(postGeo, postMat);
+    postLeft.position.set(-width / 2, 0.4, 0);
+    postLeft.castShadow = true;
+    group.add(postLeft);
+
+    const postRight = new THREE.Mesh(postGeo, postMat);
+    postRight.position.set(width / 2, 0.4, 0);
+    postRight.castShadow = true;
+    group.add(postRight);
+
+    const doorGeo = new THREE.BoxGeometry(width, 0.15, 0.08);
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0xac7339 });
+    const door = new THREE.Mesh(doorGeo, doorMat);
+
+    const doorGroup = new THREE.Group();
+    doorGroup.name = 'doorGroup';
+    doorGroup.position.set(-width / 2, 0.5, 0);
+    door.position.set(width / 2, 0, 0);
+
+    const plankGeo = new THREE.BoxGeometry(0.1, 0.4, 0.05);
+    for (let i = 0; i < 3; i++) {
+        const plank = new THREE.Mesh(plankGeo, doorMat);
+        plank.position.set((i * (width / 2)) - (width / 2) + 0.1, -0.1, 0.05);
+        door.add(plank);
+    }
+
+    doorGroup.add(door);
+    group.add(doorGroup);
+
+    return group;
+});
+
+MeshPresets.register('unlock-zone', ({ color = 0x00aaff, size = 4.0 } = {}) => {
     const group = new THREE.Group();
 
     const baseGeo = new THREE.PlaneGeometry(size, size);
     const baseMat = new THREE.MeshBasicMaterial({
         color: 0x224422,
         transparent: true,
-        opacity: 0.3
+        opacity: 0.25
     });
     const base = new THREE.Mesh(baseGeo, baseMat);
     base.rotation.x = -Math.PI / 2;
     base.position.y = 0.01;
     group.add(base);
-
-    const edgeMat = new THREE.MeshBasicMaterial({ color });
-    const half = size / 2;
-    const thickness = 0.04;
-    const edgeGeo = new THREE.BoxGeometry(size, thickness, thickness);
-
-    const topEdge = new THREE.Mesh(edgeGeo, edgeMat);
-    topEdge.position.set(0, 0.02, -half);
-    group.add(topEdge);
-    const bottomEdge = new THREE.Mesh(edgeGeo, edgeMat);
-    bottomEdge.position.set(0, 0.02, half);
-    group.add(bottomEdge);
-
-    const sideGeo = new THREE.BoxGeometry(thickness, thickness, size);
-    const leftEdge = new THREE.Mesh(sideGeo, edgeMat);
-    leftEdge.position.set(-half, 0.02, 0);
-    group.add(leftEdge);
-    const rightEdge = new THREE.Mesh(sideGeo, edgeMat);
-    rightEdge.position.set(half, 0.02, 0);
-    group.add(rightEdge);
 
     return group;
 });

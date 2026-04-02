@@ -17,8 +17,6 @@ import { EntityFactory } from './entities/EntityFactory.js';
 import { MovementSystem } from './systems/MovementSystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
 import { StackSystem } from './systems/StackSystem.js';
-
-// --- Existing Juiced Systems ---
 import { CameraSystem } from './systems/CameraSystem.js';
 import { EnemySystem } from './systems/EnemySystem.js';
 import { CollectorSystem } from './systems/CollectorSystem.js';
@@ -28,11 +26,10 @@ import { ParticleSystem } from './systems/ParticleSystem.js';
 import { HealthSystem } from './systems/HealthSystem.js';
 import { UnlockZoneSystem } from './systems/UnlockZoneSystem.js';
 import { BuildSystem } from './systems/BuildSystem.js';
-import { Gate } from './entities/Gate.js';
+import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
-import { SELLING_TABLE_POSITION, TRAY_CONFIG, VILLAGER_CONFIG } from './config/gameConfig.js';
 
 class Game {
     constructor() {
@@ -41,114 +38,91 @@ class Game {
     }
 
     init() {
-        // 1. Core Engine Boilerplate
+        // 1. Core Engine
         this.renderer = new Renderer();
         this.scene = new Scene();
         this.camera = new Camera();
         this.lighting = new Lighting(this.scene.instance);
 
-        // 2. Global UI
+        // 2. UI
         this.joystick = new Joystick();
-        this.hud = new HUD();
         this.floatingUI = new FloatingUI(this.camera.instance);
 
-        // 3. Initialize ECS
+        // 3. ECS
         this.ecs = new ECSManager();
         this.factory = new EntityFactory(this.scene.instance, this.ecs);
 
-        // 4. World Environment — loaded async via loadLevel()
-
-        // 5. Spawn Entities via Factory
-        this.playerId = this.factory.createPlayer(new THREE.Vector3(0, 0, 0));
-
-        // Get player transform for camera following
-        const playerTransform = this.ecs.getComponent(this.playerId, 'Transform');
-
-        // 6. Define Systems
-        // --- Shared Pools ---
+        // 4. Shared pools
         this.projectilePool = new ObjectPool(() => new Projectile(), 50, 'ProjectilePool');
 
-        // --- Active ECS Systems ---
+        // 5. Register all systems (entity creation happens in loadLevel)
         this.movementSystem = new MovementSystem(this.joystick);
-
-        this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
-        this.enemySystem.setECS(this.ecs);
-        this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health']);
+        this.ecs.registerSystem(this.movementSystem, ['Transform', 'Movement']);
 
         this.combatSystem = new CombatSystem(this.scene.instance, this.projectilePool);
-
-        // Register ECS Systems
-        this.ecs.registerSystem(this.movementSystem, ['Transform', 'Movement']);
         this.ecs.registerSystem(this.combatSystem, ['Transform', 'Shooter']);
 
-        // StackSystem — ECS driven, no player reference
         this.stackSystem = new StackSystem(this.scene.instance);
         this.stackSystem.setECS(this.ecs);
         this.ecs.registerSystem(this.stackSystem, ['Transform', 'InventoryStack']);
 
-        // --- Utility Systems ---
-        this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
-        this.particleSystem = new ParticleSystem(this.scene.instance);
         this.healthSystem = new HealthSystem(this.scene.instance);
         this.ecs.registerSystem(this.healthSystem, ['Transform', 'Health']);
-        // Utility Systems
+
         this.collectorSystem = new CollectorSystem(this.scene.instance);
         this.ecs.registerSystem(this.collectorSystem, ['Transform', 'Collector', 'InventoryStack']);
 
-        // Unlock Zone System (replaces DrainSystem)
+        this.depositorSystem = new DepositorSystem(this.scene.instance);
+        this.ecs.registerSystem(this.depositorSystem, ['Transform', 'Depositor', 'InventoryStack']);
+
         this.unlockZoneSystem = new UnlockZoneSystem(this.scene.instance);
         this.ecs.registerSystem(this.unlockZoneSystem, ['Transform', 'UnlockZone']);
 
-        // Build System (replaces LevelSystem structure spawning)
+        this.particleSystem = new ParticleSystem(this.scene.instance);
+
         this.buildSystem = new BuildSystem(this.scene.instance, this.factory, this.particleSystem);
         this.buildSystem.setECS(this.ecs);
         this.ecs.registerSystem(this.buildSystem, ['Transform', 'Tag']);
 
-        // 7. Initialize Storage Nodes (ECS-driven)
-        const tablePos3 = new THREE.Vector3(SELLING_TABLE_POSITION.x, SELLING_TABLE_POSITION.y, SELLING_TABLE_POSITION.z);
-        this.meatTableEntityId = this.factory.create('meat-table', tablePos3);
-
-        // Create and register DepositorSystem
-        this.depositorSystem = new DepositorSystem(this.scene.instance);
-        this.ecs.registerSystem(this.depositorSystem, ['Transform', 'Depositor', 'InventoryStack']);
-
-        // Create coin tray ECS entity
-        this.coinTrayEntityId = this.factory.create('coin-tray',
-            new THREE.Vector3(TRAY_CONFIG.position.x, TRAY_CONFIG.position.y, TRAY_CONFIG.position.z));
-
-        // Create AgentAISystem + TraderSystem
-        this.agentAISystem = new AgentAISystem(this.factory, this.scene.instance);
-        this.agentAISystem.setECS(this.ecs);
-        this.traderSystem = new TraderSystem(this.scene.instance, this.agentAISystem, this.coinTrayEntityId);
-        this.traderSystem.setECS(this.ecs);
-
-        // Register with ECS
-        this.ecs.registerSystem(this.agentAISystem, ['Transform', 'Movement', 'AgentAI']);
-        this.ecs.registerSystem(this.traderSystem, ['Transform', 'InventoryStack', 'Trader']);
-
-        // Spawn initial villagers (4 in queue)
-        for (let i = 0; i < VILLAGER_CONFIG.initialCount; i++) {
-            const spawnPos = new THREE.Vector3(0, 0, -24 + i * 0.5);
-            const villagerId = this.factory.create('villager', spawnPos);
-            this.agentAISystem.register(villagerId, i);
-        }
-
-        // ECS meat-table entity provides Tag+InventoryStack for DepositorSystem.
-
-        // Connect Systems
-        EventBus.on('stack:changed', ({ entityId, count }) => {
-            if (entityId === this.playerId) this.hud.updateMeatCount(count);
-        });
-
-
+        this.gateSystem = new GateSystem();
+        this.ecs.registerSystem(this.gateSystem, ['Transform', 'Gate']);
     }
 
+    /**
+     * Load a level — creates ALL entities from level JSON.
+     * No hardcoded positions or entity references in main.js.
+     */
     async loadLevel(path) {
-        const { grid, levelData } = await SceneLoader.load(path, this.scene.instance);
+        const { grid, levelData, gridOverlay } = await SceneLoader.load(path, this.scene.instance);
         this.grid = grid;
-        this.levelData = levelData;
 
-        // Spawn unlock zones from level data
+        // --- Grid toggle ---
+        if (gridOverlay) this._createGridToggle(gridOverlay);
+
+        // --- Player ---
+        const playerPos = levelData.spawners?.player?.position || { x: 0, y: 0, z: 0 };
+        this.playerId = this.factory.createPlayer(new THREE.Vector3(playerPos.x, playerPos.y, playerPos.z));
+        const playerTransform = this.ecs.getComponent(this.playerId, 'Transform');
+
+        // Systems that need player reference
+        this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
+        this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
+        this.enemySystem.setECS(this.ecs);
+        this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health']);
+        this.gateSystem.setPlayerTransform(playerTransform);
+
+        // HUD — self-wired via EventBus
+        this.hud = new HUD(this.ecs, this.playerId);
+
+        // --- Entities from level JSON ---
+        if (levelData.entities) {
+            for (const def of levelData.entities) {
+                const pos = new THREE.Vector3(def.position.x, def.position.y, def.position.z);
+                this.factory.create(def.archetype, pos);
+            }
+        }
+
+        // --- Unlock zones ---
         if (levelData.unlockZones) {
             for (const zoneDef of levelData.unlockZones) {
                 const pos = new THREE.Vector3(zoneDef.position.x, zoneDef.position.y, zoneDef.position.z);
@@ -164,33 +138,67 @@ class Game {
             }
         }
 
-        // Gate (still legacy Gate class for now)
+        // --- Gate (ECS entity) ---
         if (levelData.gate) {
             const gatePos = levelData.gate.position;
-            this.gate = new Gate(
-                this.scene.instance,
-                new THREE.Vector3(gatePos.x, gatePos.y, gatePos.z),
-                levelData.gate.width
-            );
+            this.factory.create('gate', new THREE.Vector3(gatePos.x, gatePos.y, gatePos.z), {
+                Gate: {
+                    activationRange: levelData.gate.activationRange || 5.0,
+                    openSpeed: levelData.gate.openSpeed || 8.0
+                }
+            });
         }
+
+        // --- Villager trading systems (discover targets by tag, no IDs needed) ---
+        this.agentAISystem = new AgentAISystem(this.factory, this.scene.instance);
+        this.agentAISystem.setECS(this.ecs);
+        this.traderSystem = new TraderSystem(this.scene.instance, this.agentAISystem);
+        this.traderSystem.setECS(this.ecs);
+        this.ecs.registerSystem(this.agentAISystem, ['Transform', 'Movement', 'AgentAI']);
+        this.ecs.registerSystem(this.traderSystem, ['Transform', 'InventoryStack', 'Trader']);
+
+        // --- Villagers ---
+        const villagerConfig = levelData.spawners?.villagers;
+        if (villagerConfig) {
+            const count = villagerConfig.initialCount || 4;
+            const spawnZ = villagerConfig.spawnPoint?.z || -24;
+            for (let i = 0; i < count; i++) {
+                const spawnPos = new THREE.Vector3(0, 0, spawnZ + i * 0.5);
+                const villagerId = this.factory.create('villager', spawnPos);
+                this.agentAISystem.register(villagerId, i);
+            }
+        }
+    }
+
+    _createGridToggle(overlay) {
+        const btn = document.createElement('button');
+        btn.id = 'grid-toggle';
+        btn.textContent = overlay.visible ? 'Grid: ON' : 'Grid: OFF';
+        btn.style.cssText = `
+            position: fixed; top: 10px; right: 10px; z-index: 1000;
+            padding: 8px 16px; border: none; border-radius: 6px;
+            background: rgba(0,0,0,0.6); color: #fff;
+            font: bold 14px Arial, sans-serif; cursor: pointer;
+            touch-action: manipulation;
+        `;
+        btn.addEventListener('click', () => {
+            overlay.visible = !overlay.visible;
+            btn.textContent = overlay.visible ? 'Grid: ON' : 'Grid: OFF';
+        });
+        document.body.appendChild(btn);
     }
 
     animate() {
         requestAnimationFrame(this.animate.bind(this));
-
         const deltaTime = Math.min(this.clock.getDelta(), 0.1);
 
-        // 1. Update Core ECS Loop
+        // 1. ECS update (all registered systems)
         this.ecs.update(deltaTime);
 
-        // 2. Update Legacy/Visual Systems
+        // 2. Non-ECS visual systems
         this.cameraSystem.update(deltaTime);
         this.particleSystem.update(deltaTime);
         this.floatingUI.update();
-        if (this.gate) {
-            const playerTransform = this.ecs.getComponent(this.playerId, 'Transform');
-            if (playerTransform) this.gate.update(deltaTime, playerTransform.mesh.position);
-        }
 
         // 3. Render
         this.renderer.render(this.scene.instance, this.camera.instance);

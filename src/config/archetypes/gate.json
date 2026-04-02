@@ -1,0 +1,7 @@
+{
+    "type": "Gate",
+    "mesh": { "preset": "gate", "width": 8.0 },
+    "components": {
+        "Gate": { "activationRange": 5.0, "openSpeed": 8.0 }
+    }
+}

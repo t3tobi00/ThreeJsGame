@@ -14,12 +14,15 @@ export class SceneLoader {
         if (levelData.props) SceneLoader._buildProps(scene, levelData.props);
         if (levelData.road) SceneLoader._buildRoad(scene, levelData.road);
 
-        if (grid && levelData.debug && levelData.debug.showGrid) {
-            const overlay = grid.createDebugOverlay();
-            scene.add(overlay);
+        // Always create grid overlay, control visibility via toggle
+        let gridOverlay = null;
+        if (grid) {
+            gridOverlay = grid.createDebugOverlay();
+            gridOverlay.visible = !!(levelData.debug && levelData.debug.showGrid);
+            scene.add(gridOverlay);
         }
 
-        return { grid, levelData };
+        return { grid, levelData, gridOverlay };
     }
 
     static _buildGround(scene, ground) {

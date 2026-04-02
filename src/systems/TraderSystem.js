@@ -4,10 +4,9 @@ import EventBus from '../core/EventBus.js';
 import ResourceRegistry from '../core/ResourceRegistry.js';
 
 export class TraderSystem {
-    constructor(scene, agentAISystem, coinTrayEntityId) {
+    constructor(scene, agentAISystem) {
         this.scene = scene;
         this._agentAI = agentAISystem;
-        this._coinTrayId = coinTrayEntityId;
         this._transfer = new ResourceTransfer();
         this._ecs = null;
 
@@ -16,7 +15,7 @@ export class TraderSystem {
                 const tableInv = this._ecs.getComponent(targetId, 'InventoryStack');
                 const tableMeta = targetId ? this._ecs.getComponent(targetId, 'Trader') : null;
                 const minStock = tableMeta ? tableMeta.minStock : 1;
-                if (tableInv && tableInv.stack.getCount() >= minStock) {
+                if (tableInv && tableInv.getTotalCount() >= minStock) {
                     this._agentAI.sendFrontToTable(this._ecs);
                 }
             }
@@ -50,7 +49,7 @@ export class TraderSystem {
         if (!tableId) return;
 
         const tableInv = ecs.getComponent(tableId, 'InventoryStack');
-        if (!tableInv || tableInv.stack.getCount() === 0) return;
+        if (!tableInv || tableInv.getTotalCount() === 0) return;
 
         this._agentAI.sendFrontToTable(ecs);
     }
@@ -78,29 +77,30 @@ export class TraderSystem {
         }
 
         const trader = ecs.getComponent(buyerId, 'Trader');
-        const meatToBuy = Math.min(trader ? trader.rate : 3, tableInventory.stack.getCount());
+        const acceptsType = trader ? trader.accepts : 'meat';
+        const meatToBuy = Math.min(trader ? trader.rate : 3, tableInventory.getCountByType(acceptsType));
         if (meatToBuy === 0) {
-            // No meat available — release the villager
-            setTimeout(() => EventBus.emit('trade:complete', { traderId: buyerId, gave: { type: 'coin', count: 0 }, received: { type: 'meat', count: 0 } }), 100);
+            setTimeout(() => EventBus.emit('trade:complete', { traderId: buyerId, gave: { type: 'coin', count: 0 }, received: { type: acceptsType, count: 0 } }), 100);
             return;
         }
 
         for (let i = 0; i < meatToBuy; i++) {
-            const meatMesh = tableInventory.stack.pop();
+            const meatMesh = tableInventory.popFromSlot(acceptsType);
             if (!meatMesh) break;
             const from = meatMesh.position.clone();
             const to = buyerTransform.mesh.position.clone().add(new THREE.Vector3(0, 1.4, 0));
             this._transfer.send(meatMesh, from, to, {
                 arcHeight: 2, duration: 0.45, spin: true,
-                onArrive: (m) => buyerInventory.stack.add(m, { animate: false })
+                onArrive: (m) => buyerInventory.addToSlot(acceptsType, m, { animate: false })
             });
         }
 
         const givesType = trader ? trader.gives : 'coin';
         const givesDef = ResourceRegistry.get(givesType);
         const coinsToGive = Math.ceil(meatToBuy * (givesDef ? givesDef.value : 1));
-        const coinTrayInv = this._coinTrayId ? ecs.getComponent(this._coinTrayId, 'InventoryStack') : null;
-        const coinTrayTransform = this._coinTrayId ? ecs.getComponent(this._coinTrayId, 'Transform') : null;
+        const coinTrayId = this._findByTag(ecs, 'tray');
+        const coinTrayInv = coinTrayId ? ecs.getComponent(coinTrayId, 'InventoryStack') : null;
+        const coinTrayTransform = coinTrayId ? ecs.getComponent(coinTrayId, 'Transform') : null;
 
         for (let i = 0; i < coinsToGive; i++) {
             const coinMesh = ResourceRegistry.createMesh(givesType);
@@ -111,7 +111,7 @@ export class TraderSystem {
                 : new THREE.Vector3(0, 0.4, 0);
             this._transfer.send(coinMesh, coinMesh.position.clone(), to, {
                 arcHeight: 2, duration: 0.45, spin: false,
-                onArrive: (m) => { if (coinTrayInv) coinTrayInv.stack.add(m, { animate: true }); }
+                onArrive: (m) => { if (coinTrayInv) coinTrayInv.addToSlot(givesType, m, { animate: true }); }
             });
         }
 
@@ -124,4 +124,12 @@ export class TraderSystem {
         }, 600);
     }
 
+    _findByTag(ecs, tagName) {
+        const candidates = ecs.queryEntities(['Transform', 'Tag', 'InventoryStack']);
+        for (const id of candidates) {
+            const tag = ecs.getComponent(id, 'Tag');
+            if (tag && tag.has(tagName)) return id;
+        }
+        return null;
+    }
 }

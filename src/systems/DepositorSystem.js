@@ -3,16 +3,13 @@ import { ResourceTransfer } from '../utils/ResourceTransfer.js';
 import EventBus from '../core/EventBus.js';
 
 /**
- * DepositorSystem — ECS-driven replacement for SellingSystem.
+ * DepositorSystem — Transfers items from carrier to nearby tagged target.
  *
- * Queries depositor entities: ['Transform', 'Depositor', 'InventoryStack'].
- * Queries target entities:    ['Transform', 'Tag', 'InventoryStack'].
+ * Queries: ['Transform', 'Depositor', 'InventoryStack']
+ * Smart type matching: pops the resource type that the target accepts.
  *
- * Each frame: if a depositor is within range of a target with matching tag,
- * and the depositor has items, transfer one item on interval via arc animation.
- *
- * Uses ResourceTransfer utility for the Bezier-arc animation.
  * Emits: 'item:deposited' { depositorId, targetId, itemType }
+ *        'stack:changed' { entityId, type, count, totalCount }
  */
 export class DepositorSystem {
     constructor(scene) {
@@ -20,7 +17,6 @@ export class DepositorSystem {
         this._transfer = new ResourceTransfer();
     }
 
-    /** Called by ECS every frame. */
     update(entities, deltaTime, ecs) {
         this._transfer.update(deltaTime);
 
@@ -32,7 +28,6 @@ export class DepositorSystem {
 
             depositor.timeSinceLastTransfer += deltaTime;
 
-            // Find the closest target entity with the matching tag
             const target = this._findTarget(depositorId, depositor.targetTag, transform.mesh.position, ecs);
             if (!target) { depositor.isInRange = false; continue; }
 
@@ -41,16 +36,23 @@ export class DepositorSystem {
             depositor.isInRange = dist < depositor.range;
 
             if (!depositor.isInRange) continue;
-            if (inventory.stack.getCount() === 0) continue;
+            if (inventory.getTotalCount() === 0) continue;
             if (depositor.timeSinceLastTransfer < depositor.transferRate) continue;
-            if (targetInventory && targetInventory.stack.getCount() >= targetInventory.maxCapacity) continue;
+            if (targetInventory && targetInventory.getTotalCount() >= targetInventory.slotCapacity * targetInventory.maxSlots) continue;
 
-            // Pop one item and arc it to the target
-            const mesh = inventory.stack.pop();
+            // Find a matching resource type: what does the target accept?
+            const mesh = this._popMatchingResource(inventory, targetInventory);
             if (!mesh) continue;
 
+            const itemType = (mesh.userData && mesh.userData.resourceType) || 'any';
+
             depositor.timeSinceLastTransfer = 0;
-            EventBus.emit('stack:changed', { entityId: depositorId, count: inventory.stack.getCount() });
+            EventBus.emit('stack:changed', {
+                entityId: depositorId,
+                type: itemType,
+                count: inventory.getCountByType(itemType),
+                totalCount: inventory.getTotalCount()
+            });
 
             const fromPos = mesh.position.clone();
             const toPos = targetTransform.mesh.position.clone().add(new THREE.Vector3(0, 0.6, 0));
@@ -60,15 +62,39 @@ export class DepositorSystem {
                 duration: 0.4,
                 spin: false,
                 onArrive: (m) => {
-                    targetInventory.stack.add(m, { animate: false });
+                    const rType = (m.userData && m.userData.resourceType) || itemType;
+                    targetInventory.addToSlot(rType, m, { animate: false });
                     EventBus.emit('item:deposited', {
                         depositorId,
                         targetId,
-                        itemType: 'meat'
+                        itemType: rType
                     });
                 }
             });
         }
+    }
+
+    /**
+     * Pop a resource from the carrier that the target will accept.
+     * Prioritizes types the target explicitly accepts.
+     */
+    _popMatchingResource(carrierInv, targetInv) {
+        if (!targetInv) return carrierInv.popAny();
+
+        const targetAccepts = targetInv.acceptsTypes;
+
+        // If target accepts specific types, find one we have
+        if (targetAccepts && !targetAccepts.includes('any')) {
+            for (const type of targetAccepts) {
+                if (carrierInv.getCountByType(type) > 0 && targetInv.canAccept(type)) {
+                    return carrierInv.popFromSlot(type);
+                }
+            }
+            return null; // target doesn't accept anything we have
+        }
+
+        // Target accepts anything — pop whatever we have
+        return carrierInv.popAny();
     }
 
     _findTarget(depositorId, targetTag, fromPos, ecs) {
