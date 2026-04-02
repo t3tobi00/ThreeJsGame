@@ -107,11 +107,41 @@ Layer 3 — New Architecture:
 - `SceneLoader` — reads level JSON, builds ground/fence/props/road, returns grid for system wiring
 - Unlock zones support multi-resource costs, simultaneous draining, build (one-time) and spawner (repeatable) types
 
+### Phase 7: Grid-Based Level Design (2026-04-02)
+All level layout is now grid-cell-driven. Fence, gate, entities, and zones are placed by `[row, col]` coordinates in the level JSON.
+
+**What was done:**
+1. Grid coordinates switched from flat cell IDs to `[row, col]` — stable across grid expansion
+2. Fence placement driven by cell array in level JSON with edge detection (outer/inner/both modes)
+3. Door cells define gate gaps in the fence — Gate auto-aligns to outer edge
+4. All assets sized to grid cells (cellSize=2): table=2×2 or 4×2, coin tray=2×2, unlock zone=2×2
+5. Safe zone ground simplified to match rectangular fence layout
+6. Debug overlay shows `row|col` labels (e.g., `15|17` = row 15, col 17)
+
+**Grid coordinate system:**
+- Coordinates use `[row, col]` format — both are whole numbers
+- Debug overlay displays as `row|col` (pipe separator, not decimal)
+- Stable across grid expansion — changing grid origin/size does NOT change existing coordinates
+- All level design (fence, doors, entity placement) references `[row, col]`
+
+**Fence JSON format:**
+```json
+"fence": {
+    "cells": [[10,10], [10,11], [10,12], ...],
+    "doorCells": [[19,13], [19,14], [19,15], [19,16]],
+    "edgeMode": "outer"
+}
+```
+- `edgeMode`: `"outer"` = logs only on outside edges, `"inner"` = inside only, `"both"` = all exposed edges
+- Edge detection uses centroid of all barrier cells to determine inner vs outer
+
 ---
 
 ## Known Issues
 
-None currently tracked.
+- Unlock zones have no UI (no dashed lines, resource counts, or drain animation) — planned for next phase
+- Turret projectiles miss moving enemies (no lead-target prediction)
+- Trees/stones are raw meshes, not ECS entities (no player interaction yet)
 
 ---
 
@@ -173,7 +203,10 @@ src/
 
 ---
 
-## Phase 6: Planned (Not Started)
+## Phase 8: Planned (Not Started)
+- Unlock zone UI: dashed borders, resource type icons, count display, drain animation, reset/remove on completion
+- Turret lead-target prediction (projectiles aim ahead of moving enemies)
+- Trees/stones as ECS entities with player interaction
 - Boss: Cylinder King
 - Infinite wave generator
 - New enemy types: Speeder (fast, low HP), Tank (slow, high HP) — archetypes already defined in JSON
@@ -251,25 +284,31 @@ Already built — any entity with `InventoryStack` + `Tag` is a storage node. De
 
 TraderSystem handles the rest.
 
-### Modular Environment / Scene Design (Future Architecture)
+### Grid-Based Level Design (Implemented)
 
-Currently the environment is hardcoded in `Environment.js`. Future approach:
+All level layout is driven by `level-1.json` and the grid coordinate system:
 
-1. Create a `SceneLoader` that reads a **level JSON** file
-2. Level JSON lists entity placements:
-   ```json
-   {
-     "level": "Dusty Junction",
-     "entities": [
-       { "archetype": "tree", "pos": [5, 0, 3] },
-       { "archetype": "wall", "pos": [0, 0, -5], "overrides": { "Health": { "hp": 20 } } },
-       { "archetype": "turret-slot", "pos": [-3, 0, 2] }
-     ]
-   }
-   ```
-3. Trees, rocks, walls, buildings = archetypes with a `Static` tag
-4. Each level file = a different scene layout
-5. `EntityFactory.create()` already supports `overrides` parameter for per-instance customization
+```json
+{
+  "grid": { "origin": { "x": -30, "z": -30 }, "cellSize": 2, "cols": 30, "rows": 30 },
+  "fence": {
+    "cells": [[10,10], [10,11], ...],
+    "doorCells": [[19,13], [19,14], [19,15], [19,16]],
+    "edgeMode": "outer"
+  },
+  "entities": [
+    { "archetype": "meat-table", "cell": [10, 14], "gridSpan": [1, 2] }
+  ],
+  "unlockZones": [
+    { "cell": [18, 12], "type": "build", "cost": { "meat": 20 }, "builds": "turret" }
+  ]
+}
+```
+
+- Grid coordinates `[row, col]` are stable across grid expansion
+- Fence auto-detects which edges need logs (outer/inner/both)
+- All assets sized to grid cells (cellSize=2)
+- Enable debug overlay with `"debug": { "showGrid": true }` to see cell labels
 
 ### Expandable Walls and Area
 

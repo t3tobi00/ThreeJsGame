@@ -54,12 +54,13 @@ MeshPresets.register('character', ({ color = 0xaaaaaa } = {}) => {
     return group;
 });
 
-MeshPresets.register('table', ({ color = 0x8B4513 } = {}) => {
+MeshPresets.register('table', ({ color = 0x8B4513, width = 2, depth = 2, height = 0.6 } = {}) => {
     const group = new THREE.Group();
-    const boxGeo = new THREE.BoxGeometry(2, 0.6, 1);
+    const boxGeo = new THREE.BoxGeometry(width, height, depth);
     const boxMat = new THREE.MeshStandardMaterial({ color });
     const top = new THREE.Mesh(boxGeo, boxMat);
-    top.position.y = 0.3;
+    top.position.y = height / 2;
+    top.castShadow = true;
     group.add(top);
     return group;
 });
@@ -182,7 +183,7 @@ MeshPresets.register('turret', ({ color = 0xaaaaaa } = {}) => {
     return group;
 });
 
-MeshPresets.register('unlock-zone', ({ color = 0x00aaff, size = 1.6 } = {}) => {
+MeshPresets.register('unlock-zone', ({ color = 0x00aaff, size = 2.0 } = {}) => {
     const group = new THREE.Group();
 
     const baseGeo = new THREE.PlaneGeometry(size, size);

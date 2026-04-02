@@ -101,9 +101,9 @@ export const WALL_CONFIG = {
 };
 
 export const GATE_CONFIG = {
-    width: 3.0,
-    position: { x: 0, y: 0, z: 9 },
-    activationRange: 4.0,
+    width: 8.0,                          // 4 door cells × 2 units
+    position: { x: 0, y: 0, z: 10 },    // outer edge of row 19 door cells
+    activationRange: 5.0,
     openSpeed: 8.0
 };
 
@@ -116,10 +116,10 @@ export const COIN_CONFIG = {
     valuePerMeat: 0.5           // 1 coin = 2 meat (0.5 coin per meat)
 };
 
-export const SELLING_TABLE_POSITION = { x: 0, y: 0.3, z: -9.2 };
+export const SELLING_TABLE_POSITION = { x: 0, y: 0.3, z: -9 };  // cell [10,14]+[10,15] center
 
 export const TRAY_CONFIG = {
-    position: { x: -3, y: 0, z: -11.2 },
+    position: { x: -3, y: 0.15, z: -11 },  // cell [9,13] center
     size: { x: 1.5, y: 0.1, z: 1.0 },
     color: 0x8b4513             // Wood color
 };

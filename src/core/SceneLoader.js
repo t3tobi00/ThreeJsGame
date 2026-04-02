@@ -10,7 +10,7 @@ export class SceneLoader {
         const grid = levelData.grid ? new GridSystem(levelData.grid) : null;
 
         SceneLoader._buildGround(scene, levelData.ground);
-        if (levelData.fence) SceneLoader._buildFence(scene, levelData.fence);
+        if (levelData.fence) SceneLoader._buildFence(scene, levelData.fence, grid);
         if (levelData.props) SceneLoader._buildProps(scene, levelData.props);
         if (levelData.road) SceneLoader._buildRoad(scene, levelData.road);
 
@@ -27,32 +27,7 @@ export class SceneLoader {
 
         if (ground.safeZone) {
             const sz = ground.safeZone;
-            const halfSize = sz.size / 2;
-
-            // Same shape as Environment.js — U-cutouts on bottom
-            const shape = new THREE.Shape();
-            shape.moveTo(-halfSize, halfSize);
-            shape.lineTo(-halfSize, -halfSize);
-            shape.lineTo(-7, -halfSize);
-            shape.lineTo(-7, -5);
-            shape.lineTo(-3, -5);
-            shape.lineTo(-3, -halfSize);
-            shape.lineTo(3, -halfSize);
-            shape.lineTo(3, -5);
-            shape.lineTo(7, -5);
-            shape.lineTo(7, -halfSize);
-            shape.lineTo(halfSize, -halfSize);
-            shape.lineTo(halfSize, halfSize);
-            shape.closePath();
-
-            const safeGeo = new THREE.ShapeGeometry(shape);
-
-            const pos = safeGeo.attributes.position;
-            const bnd = new THREE.Box3().setFromBufferAttribute(pos);
-            const uvs = safeGeo.attributes.uv;
-            for (let i = 0; i < pos.count; i++) {
-                uvs.setXY(i, (pos.getX(i) - bnd.min.x) / 1, (pos.getY(i) - bnd.min.y) / 1);
-            }
+            const safeGeo = new THREE.PlaneGeometry(sz.size, sz.size);
 
             const canvas = document.createElement('canvas');
             canvas.width = 128;
@@ -95,18 +70,37 @@ export class SceneLoader {
         }
     }
 
-    static _buildFence(scene, fence) {
-        const halfSize = fence.halfSize;
+    static _buildFence(scene, fence, grid) {
+        if (!grid || !fence.cells) return;
+
+        // Convert [row, col] arrays to "row,col" string keys for Set lookups
+        const toKey = (r, c) => `${r},${c}`;
+        const fenceSet = new Set(fence.cells.map(([r, c]) => toKey(r, c)));
+        const doorSet = new Set((fence.doorCells || []).map(([r, c]) => toKey(r, c)));
+        const allBarrier = new Set([...fenceSet, ...doorSet]);
+        const edgeMode = fence.edgeMode || 'both'; // 'outer', 'inner', 'both'
+
+        // Calculate centroid for inner/outer detection
+        let centroidRow = 0, centroidCol = 0, count = 0;
+        for (const [r, c] of [...fence.cells, ...(fence.doorCells || [])]) {
+            centroidRow += r;
+            centroidCol += c;
+            count++;
+        }
+        centroidRow /= count;
+        centroidCol /= count;
+
         const logHeight = 0.5;
         const spacing = 0.35;
         const fenceGroup = new THREE.Group();
+        const half = grid.cellSize / 2;
 
-        const spawnLogsAlongLine = (start, end, skipStart = 0, skipEnd = 0) => {
+        const spawnLogsAlongEdge = (start, end) => {
             const dist = start.distanceTo(end);
-            const count = Math.floor(dist / spacing);
-            for (let i = 0; i <= count; i++) {
-                const t = i / count;
-                if (t >= skipStart && t <= skipEnd && (skipStart !== 0 || skipEnd !== 0)) continue;
+            const n = Math.floor(dist / spacing);
+            if (n === 0) return;
+            for (let i = 0; i <= n; i++) {
+                const t = i / n;
                 const pos = new THREE.Vector3().lerpVectors(start, end, t);
                 const log = MeshPresets.create('fence-log');
                 log.position.copy(pos);
@@ -115,42 +109,42 @@ export class SceneLoader {
             }
         };
 
-        const p1  = new THREE.Vector3(-halfSize, 0, -halfSize);
-        const p2  = new THREE.Vector3(-halfSize, 0, halfSize);
-        const p3  = new THREE.Vector3(-7, 0, halfSize);
-        const p4  = new THREE.Vector3(-7, 0, 5);
-        const p5  = new THREE.Vector3(-3, 0, 5);
-        const p6  = new THREE.Vector3(-3, 0, halfSize);
-        const p7  = new THREE.Vector3(3, 0, halfSize);
-        const p8  = new THREE.Vector3(3, 0, 5);
-        const p9  = new THREE.Vector3(7, 0, 5);
-        const p10 = new THREE.Vector3(7, 0, halfSize);
-        const p11 = new THREE.Vector3(halfSize, 0, halfSize);
-        const p12 = new THREE.Vector3(halfSize, 0, -halfSize);
+        for (const [row, col] of fence.cells) {
+            const center = grid.rowColToWorld(row, col);
 
-        spawnLogsAlongLine(p1, p2);
-        spawnLogsAlongLine(p2, p3);
-        spawnLogsAlongLine(p3, p4);
-        spawnLogsAlongLine(p4, p5);
-        spawnLogsAlongLine(p5, p6);
-        const gapB = fence.gapFractions.bottom;
-        spawnLogsAlongLine(p6, p7, gapB.start, gapB.end);
-        spawnLogsAlongLine(p7, p8);
-        spawnLogsAlongLine(p8, p9);
-        spawnLogsAlongLine(p9, p10);
-        spawnLogsAlongLine(p10, p11);
-        spawnLogsAlongLine(p11, p12);
-        const gapT = fence.gapFractions.top;
-        spawnLogsAlongLine(p12, p1, gapT.start, gapT.end);
+            const checkEdge = (nRow, nCol, x1, z1, x2, z2) => {
+                const nKey = toKey(nRow, nCol);
+                if (allBarrier.has(nKey)) return; // skip edges facing other barrier cells
+
+                if (edgeMode !== 'both') {
+                    const nDist = Math.hypot(nRow - centroidRow, nCol - centroidCol);
+                    const cDist = Math.hypot(row - centroidRow, col - centroidCol);
+                    const isOuter = nDist > cDist;
+                    if (edgeMode === 'outer' && !isOuter) return;
+                    if (edgeMode === 'inner' && isOuter) return;
+                }
+
+                spawnLogsAlongEdge(
+                    new THREE.Vector3(x1, 0, z1),
+                    new THREE.Vector3(x2, 0, z2)
+                );
+            };
+
+            // Top edge (negative Z)
+            checkEdge(row - 1, col,
+                center.x - half, center.z - half, center.x + half, center.z - half);
+            // Bottom edge (positive Z)
+            checkEdge(row + 1, col,
+                center.x - half, center.z + half, center.x + half, center.z + half);
+            // Left edge (negative X)
+            checkEdge(row, col - 1,
+                center.x - half, center.z - half, center.x - half, center.z + half);
+            // Right edge (positive X)
+            checkEdge(row, col + 1,
+                center.x + half, center.z - half, center.x + half, center.z + half);
+        }
 
         scene.add(fenceGroup);
-
-        // Selling table visual
-        const tableMat = new THREE.MeshStandardMaterial({ color: 0x5d4037 });
-        const table = new THREE.Mesh(new THREE.BoxGeometry(2, 0.6, 1.2), tableMat);
-        table.position.set(0, 0.3, -9.2);
-        table.castShadow = true;
-        scene.add(table);
     }
 
     static _buildProps(scene, props) {
