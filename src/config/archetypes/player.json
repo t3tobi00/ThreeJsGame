@@ -4,7 +4,7 @@
   "behaviors": ["shooter", "collector", "stacker", "depositor"],
   "components": {
     "Movement":        { "speed": 8, "controller": "joystick", "faction": "player" },
-    "Shooter":         { "fireRate": 0.8, "range": 7, "damage": 1, "faction": "player", "targetFactions": ["enemy"] },
+    "Shooter":         { "fireRate": 0.6, "range": 8, "damage": 2, "faction": "player", "targetFactions": ["enemy"] },
     "Collector":       { "radius": 5, "resourceTypes": ["meat", "coin", "wood"], "pullForce": 1.0, "collectFromTags": ["tray"], "pickupRate": 0.25 },
     "InventoryStack":  { "maxSlots": 3, "slotCapacity": 10, "anchorOffset": { "x": 0, "y": 1.2, "z": -0.25 }, "slotSpacing": 0.45, "style": "wobble" },
     "Depositor":       { "range": 4, "targetTag": "table", "transferRate": 0.3 },

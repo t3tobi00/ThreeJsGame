@@ -3,8 +3,8 @@
   "mesh": { "preset": "character", "color": "0xff3333" },
   "behaviors": ["mover", "damageable"],
   "components": {
-    "Movement":  { "speed": 3.5, "controller": "simple_steering", "faction": "enemy" },
-    "Health":    { "hp": 6, "maxHp": 6, "armor": 0 },
+    "Movement":  { "speed": 3.8, "controller": "simple_steering", "faction": "enemy" },
+    "Health":    { "hp": 4, "maxHp": 4, "armor": 0 },
     "Tag":       { "tags": ["enemy"] },
     "WalkAnim":  { "bobHeight": 0.06, "bobFreq": 7, "tiltAngle": 0.05 },
     "FlashAnim": { "color": "#ffffff", "duration": 0.1, "onEvent": "entity:damaged" },

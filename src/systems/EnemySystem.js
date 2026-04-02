@@ -78,9 +78,12 @@ export class EnemySystem {
     }
 
     _spawnEnemy() {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = ENEMY_CONFIG.spawnDistance + Math.random() * 5;
-        const pos = new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
-        this._factory.create('enemy', pos);
+        const count = 2 + Math.floor(Math.random() * 2); // 2-3 per wave
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = ENEMY_CONFIG.spawnDistance + Math.random() * 5;
+            const pos = new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+            this._factory.create('enemy', pos);
+        }
     }
 }

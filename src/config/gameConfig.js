@@ -36,9 +36,9 @@ export const WORLD_CONFIG = {
 
 export const ENEMY_CONFIG = {
     speed: 3.5,
-    spawnInterval: 1.2,
-    spawnDistance: 25,
-    health: 6,
+    spawnInterval: 1.5,
+    spawnDistance: 28,
+    health: 4,
     size: 0.6,
     eyeColor: 0xff0000,
     bodyColor: 0xff4444
