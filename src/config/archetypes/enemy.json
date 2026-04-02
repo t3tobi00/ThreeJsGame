@@ -1,13 +1,65 @@
 {
   "type": "Enemy",
-  "mesh": { "preset": "character", "color": "0xff3333" },
-  "behaviors": ["mover", "damageable"],
+  "mesh": {
+    "preset": "character",
+    "color": "0xff3333"
+  },
+  "behaviors": [
+    "mover",
+    "damageable"
+  ],
   "components": {
-    "Movement":  { "speed": 2.0, "controller": "simple_steering", "faction": "enemy" },
-    "Health":    { "hp": 4, "maxHp": 4, "armor": 0 },
-    "Tag":       { "tags": ["enemy"] },
-    "WalkAnim":  { "bobHeight": 0.06, "bobFreq": 7, "tiltAngle": 0.05 },
-    "FlashAnim": { "color": "#ffffff", "duration": 0.1, "onEvent": "entity:damaged" },
-    "ContactDamage": { "damage": 1, "cooldown": 0.8, "range": 1.2, "targetFactions": ["player", "structure"] }
+    "Movement": {
+      "speed": 3.0,
+      "controller": "simple_steering",
+      "faction": "enemy"
+    },
+    "Health": {
+      "hp": 10,
+      "maxHp": 10,
+      "armor": 0
+    },
+    "Tag": {
+      "tags": [
+        "enemy"
+      ]
+    },
+    "WalkAnim": {
+      "bobHeight": 0.06,
+      "bobFreq": 7,
+      "tiltAngle": 0.05
+    },
+    "FlashAnim": {
+      "color": "#ffffff",
+      "duration": 0.1,
+      "onEvent": "entity:damaged"
+    },
+    "ContactDamage": {
+      "damage": 1,
+      "cooldown": 0.8,
+      "range": 1.2,
+      "targetFactions": [
+        "player",
+        "structure"
+      ]
+    },
+    "EnemyAI": {
+      "aggroRadius": 10,
+      "herdRadius": 5,
+      "wanderSpeed": 0.6,
+      "wanderRadius": 12,
+      "wanderPauseMin": 1.0,
+      "wanderPauseMax": 3.0
+    },
+    "Drops": {
+      "table": [
+        {
+          "type": "meat",
+          "chance": 1.0,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    }
   }
 }

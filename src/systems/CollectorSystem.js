@@ -152,7 +152,7 @@ export class CollectorSystem {
     }
 
     _spawnDisks(pos, resourceType) {
-        const count = 3 + Math.floor(Math.random() * 3);
+        const count = 1;
         const pool = this._getPool(resourceType);
         for (let i = 0; i < count; i++) {
             const disk = pool.get();

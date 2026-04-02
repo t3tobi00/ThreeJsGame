@@ -47,7 +47,9 @@
         },
         "enemies": {
             "spawnDistance": 35,
-            "spawnInterval": 2
+            "spawnInterval": 2,
+            "countMin": 8,
+            "countMax": 10
         }
     },
     "unlockZones": [

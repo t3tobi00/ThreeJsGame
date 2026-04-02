@@ -113,6 +113,9 @@ class Game {
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
         this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
         this.enemySystem.setECS(this.ecs);
+        if (levelData.spawners?.enemies) {
+            this.enemySystem.setSpawnConfig(levelData.spawners.enemies);
+        }
         this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health']);
         this.gateSystem.setPlayerTransform(playerTransform);
 
