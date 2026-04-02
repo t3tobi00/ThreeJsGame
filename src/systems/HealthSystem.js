@@ -37,8 +37,18 @@ export class HealthSystem {
                 const pos = transform ? transform.mesh.position.clone() : null;
 
                 const tag = ecs.getComponent(entityId, 'Tag');
+                const dropsComp = ecs.getComponent(entityId, 'Drops');
                 const drops = [];
-                if (tag && tag.has('enemy')) drops.push('meat');
+                if (dropsComp) {
+                    const rolled = dropsComp.roll();
+                    for (const { type, count } of rolled) {
+                        for (let i = 0; i < count; i++) {
+                            drops.push(type);
+                        }
+                    }
+                } else if (tag && tag.has('enemy')) {
+                    drops.push('meat');
+                }
 
                 if (tag && tag.has('player')) {
                     EventBus.emit('player:died', { entityId, position: pos });

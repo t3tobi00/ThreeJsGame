@@ -19,6 +19,7 @@ import { Component_SpawnAnim } from '../ecs/components/Component_SpawnAnim.js';
 import { Component_UnlockZone } from '../ecs/components/Component_UnlockZone.js';
 import { Component_Gate } from '../ecs/components/Component_Gate.js';
 import { Component_ContactDamage } from '../ecs/components/Component_ContactDamage.js';
+import { Component_Drops } from '../ecs/components/Component_Drops.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -42,6 +43,7 @@ const COMPONENT_MAP = {
     UnlockZone:      (d) => new Component_UnlockZone(d),
     Gate:            (d) => new Component_Gate(d),
     ContactDamage:   (d) => new Component_ContactDamage(d),
+    Drops:           (d) => new Component_Drops(d),
 };
 
 
