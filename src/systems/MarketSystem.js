@@ -86,6 +86,7 @@ export class MarketSystem {
 
     /**
      * Spawn coin meshes that fly to the carrier's inventory.
+     * Each coin gets a slightly longer flight duration to stagger arrivals.
      */
     _spawnCoins(count, fromPos, carrierId, ecs) {
         const carrierTransform = ecs.getComponent(carrierId, 'Transform');
@@ -104,21 +105,18 @@ export class MarketSystem {
             const toPos = carrierTransform.mesh.position.clone();
             toPos.y += 1.2;
 
-            // Stagger coin arrivals
-            setTimeout(() => {
-                this._transfer.send(coinMesh, startPos.clone(), toPos, {
-                    arcHeight: 2.0,
-                    duration: 0.35,
-                    spin: true,
-                    onArrive: (m) => {
-                        EventBus.emit('item:collected', {
-                            collectorId: carrierId,
-                            itemType: 'coin',
-                            mesh: m
-                        });
-                    }
-                });
-            }, i * 80);
+            this._transfer.send(coinMesh, startPos.clone(), toPos, {
+                arcHeight: 2.0 + i * 0.3,
+                duration: 0.35 + i * 0.08,
+                spin: true,
+                onArrive: (m) => {
+                    EventBus.emit('item:collected', {
+                        collectorId: carrierId,
+                        itemType: 'coin',
+                        mesh: m
+                    });
+                }
+            });
         }
     }
 }
