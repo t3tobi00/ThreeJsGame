@@ -37,9 +37,17 @@ export class EnemySystem {
         // Spawn config — set from level JSON via setSpawnConfig()
         this._countMin = 4;
         this._countMax = 5;
+        this._grid = null;
+        this._zone = null;
     }
 
     setECS(ecs) { this._ecs = ecs; }
+
+    /** Called from main.js after safe zone entity is created. */
+    setSafeZone(grid, zone) {
+        this._grid = grid;
+        this._zone = zone;
+    }
 
     /** Called from main.js after level load to pass level-specific spawn config. */
     setSpawnConfig({ countMin, countMax } = {}) {
@@ -116,7 +124,11 @@ export class EnemySystem {
         // --- Pass 3: Movement ---
         for (const { transform, movement, pos, ai, aiComp } of alive) {
             if (ai.state === 'chase') {
-                const dir = new THREE.Vector3().subVectors(playerPos, pos);
+                // Each enemy targets the point on the boundary nearest to itself
+                const target = (this._zone?.active && this._isPlayerInsideZone(playerPos))
+                    ? this._nearestBoundaryPoint(pos)
+                    : playerPos;
+                const dir = new THREE.Vector3().subVectors(target, pos);
                 if (dir.length() > 0.5) {
                     dir.normalize();
                     pos.addScaledVector(dir, movement.speed * deltaTime);
@@ -163,6 +175,32 @@ export class EnemySystem {
         const wanderSpeed = movement.speed * aiComp.wanderSpeed;
         pos.addScaledVector(dir, wanderSpeed * deltaTime);
         transform.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+    }
+
+    /** True if pos is within the safe zone grid bounds (inclusive of fence cells). */
+    _isPlayerInsideZone(pos) {
+        const b = this._zone.bounds;
+        const col = Math.floor((pos.x - this._grid.origin.x) / this._grid.cellSize);
+        const row = Math.floor((pos.z - this._grid.origin.z) / this._grid.cellSize);
+        return row >= b.minRow && row <= b.maxRow && col >= b.minCol && col <= b.maxCol;
+    }
+
+    /**
+     * Returns the nearest point on the zone's outer boundary rectangle to enemyPos.
+     * Enemies outside the zone will get a point on the closest fence edge.
+     */
+    _nearestBoundaryPoint(enemyPos) {
+        const { origin, cellSize } = this._grid;
+        const b    = this._zone.bounds;
+        const minX = origin.x + b.minCol * cellSize;
+        const maxX = origin.x + (b.maxCol + 1) * cellSize;
+        const minZ = origin.z + b.minRow * cellSize;
+        const maxZ = origin.z + (b.maxRow + 1) * cellSize;
+        return new THREE.Vector3(
+            Math.max(minX, Math.min(enemyPos.x, maxX)),
+            0,
+            Math.max(minZ, Math.min(enemyPos.z, maxZ))
+        );
     }
 
     _spawnEnemy() {

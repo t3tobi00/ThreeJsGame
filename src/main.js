@@ -176,11 +176,15 @@ class Game {
 
         // --- Safe Zone ---
         if (levelData.safeZone) {
-            const szId   = this.ecs.createEntity();
-            const zone   = new Component_SafeZone(levelData.safeZone);
+            const szId = this.ecs.createEntity();
+            const zone = new Component_SafeZone(levelData.safeZone);
             zone.fenceGroup       = fenceGroup;
             zone.fenceColliderIds = fenceColliderIds;
             this.ecs.addComponent(szId, 'SafeZone', zone);
+
+            // Give other systems a direct reference — they check zone.active each frame
+            this.contactDamageSystem.setSafeZone(this.grid, zone);
+            this.enemySystem.setSafeZone(this.grid, zone);
         }
 
         // --- Villager trading systems (discover targets by tag, no IDs needed) ---

@@ -8,6 +8,17 @@ import EventBus from '../core/EventBus.js';
  * Emits: 'entity:damaged' { entityId, damage }
  */
 export class ContactDamageSystem {
+    constructor() {
+        this._grid = null;
+        this._zone = null; // Component_SafeZone reference, set via setSafeZone()
+    }
+
+    /** Called from main.js after the safe zone entity is created. */
+    setSafeZone(grid, zone) {
+        this._grid = grid;
+        this._zone = zone;
+    }
+
     update(entities, deltaTime, ecs) {
         const targets = ecs.queryEntities(['Transform', 'Health']);
 
@@ -37,6 +48,13 @@ export class ContactDamageSystem {
                 );
                 if (!isTarget) continue;
 
+                // Skip damage if attacker and target are on opposite sides of an active zone wall
+                if (this._zone?.active) {
+                    const attackerInside = this._isInsideZone(attackerPos);
+                    const targetInside   = this._isInsideZone(targetTransform.mesh.position);
+                    if (attackerInside !== targetInside) continue;
+                }
+
                 const dist = attackerPos.distanceTo(targetTransform.mesh.position);
                 if (dist > contact.range) continue;
 
@@ -48,5 +66,12 @@ export class ContactDamageSystem {
                 break; // one target per cooldown cycle
             }
         }
+    }
+
+    _isInsideZone(pos) {
+        const b = this._zone.bounds;
+        const col = Math.floor((pos.x - this._grid.origin.x) / this._grid.cellSize);
+        const row = Math.floor((pos.z - this._grid.origin.z) / this._grid.cellSize);
+        return row >= b.minRow && row <= b.maxRow && col >= b.minCol && col <= b.maxCol;
     }
 }
