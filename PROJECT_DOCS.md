@@ -412,6 +412,37 @@ Already built — any entity with `InventoryStack` + `Tag` is a storage node. De
 
 TraderSystem handles the rest.
 
+### Expanding the Safe Zone (JSON Only)
+
+The safe zone is defined by grid cell bounds in `level-1.json`. Changing these numbers is all that's needed — every system adapts automatically.
+
+```json
+"safeZone": {
+    "health": 200,
+    "maxHealth": 200,
+    "bounds": { "minRow": 10, "maxRow": 19, "minCol": 10, "maxCol": 19 }
+}
+```
+
+**To expand the zone:** decrease `minRow` (grow north), increase `maxRow` (grow south), `minCol`/`maxCol` for west/east. Also expand `fence.cells` to match the new perimeter.
+
+**What auto-adapts with zero code changes:**
+
+| System | How it uses bounds |
+|---|---|
+| `SafeZoneSystem` | Recomputes world-space AABB each frame; sets `ZoneStatus.zoneBoundsWorld` on all zone-aware entities |
+| `EnemySystem` | Reads `ZoneStatus.zoneBoundsWorld` from player — no direct zone knowledge |
+| `ContactDamageSystem` | Reads `ZoneStatus.insideZone` flag — no direct zone knowledge |
+| `CollisionSystem` | Fence edge colliders come from `fenceEdges` data — just add fence cells |
+
+**To add a second zone type (DangerZone, ShopZone, etc.):**
+1. `Component_DangerZone.js` — same shape: `{ health, maxHealth, bounds, active }`
+2. `DangerZoneSystem.js` — same bounds pattern, different rules
+3. Add `"dangerZone": { "bounds": {...} }` to level JSON
+4. Create the entity in `main.js` loadLevel — ~5 lines
+
+**Key principle:** `ZoneStatus` is the communication interface. If an entity needs to react to a zone, give it `ZoneStatus` in its archetype. The zone system sets the flag; other systems read the flag. Neither side knows about the other.
+
 ### Grid-Based Level Design (Implemented)
 
 All level layout is driven by `level-1.json` and the grid coordinate system:

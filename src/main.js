@@ -11,6 +11,7 @@ import { Joystick } from './ui/Joystick.js';
 import { HUD } from './ui/HUD.js';
 import { GameOverUI } from './ui/GameOverUI.js';
 import { FloatingUI } from './ui/FloatingUI.js';
+import { WorldHealthBar } from './ui/WorldHealthBar.js';
 
 // --- ECS Framework ---
 import { ECSManager } from './ecs/ECSManager.js';
@@ -139,6 +140,13 @@ class Game {
         this.hud = new HUD(this.ecs, this.playerId);
         this.gameOverUI = new GameOverUI();
 
+        // Floating HP bar above player's head — follows mesh in world space
+        this.playerHealthBar = new WorldHealthBar(
+            this.camera.instance,
+            playerTransform.mesh,
+            this.playerId
+        );
+
         // --- Entities from level JSON ---
         if (levelData.entities) {
             for (const def of levelData.entities) {
@@ -251,6 +259,7 @@ class Game {
         this.cameraSystem.update(deltaTime);
         this.particleSystem.update(deltaTime);
         this.floatingUI.update();
+        this.playerHealthBar.update();
 
         // 3. Render
         this.renderer.render(this.scene.instance, this.camera.instance);

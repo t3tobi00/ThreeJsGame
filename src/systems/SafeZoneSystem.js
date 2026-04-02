@@ -24,6 +24,7 @@ export class SafeZoneSystem {
         this._playerId        = null;
         this._playerWasInside = null;
         this._fenceGroup      = null; // THREE.Group — set via setFenceGroup()
+        this._lastHealth      = null; // tracks last emitted health to avoid redundant events
     }
 
     setPlayer(playerId) {
@@ -55,6 +56,15 @@ export class SafeZoneSystem {
             this._checkPlayerTransition(ecs);
             this._damageFromEnemies(zone, wb, zoneAware, deltaTime, ecs);
             this._blockEnemies(wb, zoneAware, ecs);
+
+            // Emit only when health actually changes (enemies on boundary drain continuously)
+            if (zone.health !== this._lastHealth) {
+                this._lastHealth = zone.health;
+                EventBus.emit('zone:health_changed', {
+                    health: zone.health,
+                    maxHealth: zone.maxHealth
+                });
+            }
 
             if (zone.health <= 0) {
                 this._destroyZone(zone, ecs);
