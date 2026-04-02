@@ -2,6 +2,9 @@ import EventBus from '../core/EventBus.js';
 
 const RESOURCE_EMOJI = {
     meat: '\u{1F356}',
+    'bio-matter': '\u{1F9EA}',
+    'zombie-teeth': '\u{1F9B7}',
+    'mutant-core': '\u{1F52E}',
     coin: '\u{1FA99}',
     wood: '\u{1FAB5}',
     stone: '\u{1FAA8}'
