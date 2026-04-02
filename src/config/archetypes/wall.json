@@ -4,6 +4,7 @@
     "components": {
         "Health": { "hp": 100, "maxHp": 100 },
         "Tag": { "tags": ["wall", "structure", "static"] },
-        "FlashAnim": { "color": "0xff0000", "duration": 0.15 }
+        "FlashAnim": { "color": "0xff0000", "duration": 0.15 },
+        "Collider":  { "shape": "box", "width": 1.0, "depth": 0.4, "isStatic": true }
     }
 }

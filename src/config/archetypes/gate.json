@@ -2,6 +2,7 @@
     "type": "Gate",
     "mesh": { "preset": "gate", "width": 8.0 },
     "components": {
-        "Gate": { "activationRange": 5.0, "openSpeed": 8.0 }
+        "Gate":     { "activationRange": 5.0, "openSpeed": 8.0 },
+        "Collider": { "shape": "box", "width": 4.0, "depth": 0.5, "isStatic": true }
     }
 }

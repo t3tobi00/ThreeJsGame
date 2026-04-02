@@ -60,6 +60,7 @@
           "max": 1
         }
       ]
-    }
+    },
+    "Collider": { "shape": "circle", "radius": 0.4, "isStatic": false }
   }
 }

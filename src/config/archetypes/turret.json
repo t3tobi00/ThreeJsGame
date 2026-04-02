@@ -4,6 +4,7 @@
     "components": {
         "Health": { "hp": 50, "maxHp": 50 },
         "Shooter": { "fireRate": 0.8, "range": 12, "damage": 1, "targetFactions": ["enemy"] },
-        "Tag": { "tags": ["turret", "structure", "static"] }
+        "Tag":      { "tags": ["turret", "structure", "static"] },
+        "Collider": { "shape": "box", "width": 0.75, "depth": 0.75, "isStatic": true }
     }
 }

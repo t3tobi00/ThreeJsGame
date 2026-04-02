@@ -30,6 +30,7 @@ import { BuildSystem } from './systems/BuildSystem.js';
 import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ContactDamageSystem } from './systems/ContactDamageSystem.js';
+import { CollisionSystem } from './systems/CollisionSystem.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
 
@@ -98,7 +99,7 @@ class Game {
      * No hardcoded positions or entity references in main.js.
      */
     async loadLevel(path) {
-        const { grid, levelData, gridOverlay } = await SceneLoader.load(path, this.scene.instance);
+        const { grid, levelData, gridOverlay } = await SceneLoader.load(path, this.scene.instance, this.ecs);
         this.grid = grid;
 
         // --- Grid toggle ---
@@ -118,6 +119,10 @@ class Game {
         }
         this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health']);
         this.gateSystem.setPlayerTransform(playerTransform);
+
+        // CollisionSystem registered after movement + enemy systems so push-out runs last
+        this.collisionSystem = new CollisionSystem();
+        this.ecs.registerSystem(this.collisionSystem, ['Transform', 'Collider']);
 
         // HUD — self-wired via EventBus
         this.hud = new HUD(this.ecs, this.playerId);

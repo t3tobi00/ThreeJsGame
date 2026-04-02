@@ -1,16 +1,18 @@
 import * as THREE from 'three';
 import { GridSystem } from './GridSystem.js';
 import MeshPresets from './MeshPresets.js';
+import { Component_Transform } from '../ecs/components/Component_Transform.js';
+import { Component_Collider } from '../ecs/components/Component_Collider.js';
 
 export class SceneLoader {
-    static async load(path, scene) {
+    static async load(path, scene, ecs = null) {
         const response = await fetch(path);
         const levelData = await response.json();
 
         const grid = levelData.grid ? new GridSystem(levelData.grid) : null;
 
         SceneLoader._buildGround(scene, levelData.ground);
-        if (levelData.fence) SceneLoader._buildFence(scene, levelData.fence, grid);
+        if (levelData.fence) SceneLoader._buildFence(scene, levelData.fence, grid, ecs);
         if (levelData.props) SceneLoader._buildProps(scene, levelData.props);
         if (levelData.road) SceneLoader._buildRoad(scene, levelData.road);
 
@@ -73,7 +75,7 @@ export class SceneLoader {
         }
     }
 
-    static _buildFence(scene, fence, grid) {
+    static _buildFence(scene, fence, grid, ecs = null) {
         if (!grid || !fence.cells) return;
 
         // Convert [row, col] arrays to "row,col" string keys for Set lookups
@@ -148,6 +150,22 @@ export class SceneLoader {
         }
 
         scene.add(fenceGroup);
+
+        // Create invisible ECS collider entities for each fence cell (Option A).
+        // Visual logs above are pure decoration; these provide solid collision.
+        if (ecs) {
+            const half = grid.cellSize / 2; // 1.0 for cellSize=2
+            for (const [row, col] of fence.cells) {
+                const center = grid.rowColToWorld(row, col);
+                const obj = new THREE.Object3D();
+                obj.position.set(center.x, 0, center.z);
+                const id = ecs.createEntity();
+                ecs.addComponent(id, 'Transform', new Component_Transform(obj));
+                ecs.addComponent(id, 'Collider', new Component_Collider({
+                    shape: 'box', width: half, depth: half, isStatic: true
+                }));
+            }
+        }
     }
 
     static _buildProps(scene, props) {

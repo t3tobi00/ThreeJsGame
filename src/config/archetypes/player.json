@@ -14,6 +14,7 @@
     "WalkAnim":        { "bobHeight": 0.08, "bobFreq": 8, "tiltAngle": 0.06 },
     "Health":          { "hp": 10, "maxHp": 10, "armor": 0 },
     "FlashAnim":       { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
-    "Tag":             { "tags": ["player"] }
+    "Tag":             { "tags": ["player"] },
+    "Collider":        { "shape": "circle", "radius": 0.4, "isStatic": false }
   }
 }

@@ -32,6 +32,13 @@ export class GateSystem {
                 gate.openRatio, targetOpen, deltaTime * gate.openSpeed
             );
 
+            // Enable/disable gate collider based on open state
+            const gateCollider = ecs.getComponent(entityId, 'Collider');
+            if (gateCollider) {
+                if (gate.openRatio > 0.8)  gateCollider.disabled = true;
+                if (gate.openRatio < 0.3)  gateCollider.disabled = false;
+            }
+
             // Animate the doorGroup child
             const doorGroup = transform.mesh.getObjectByName('doorGroup');
             if (doorGroup) {

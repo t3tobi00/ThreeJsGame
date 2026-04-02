@@ -5,6 +5,7 @@
   "components": {
     "InventoryStack": { "maxCapacity": 100, "anchorOffset": { "x": 0, "y": 0.05, "z": 0 }, "style": "wobble", "acceptsTypes": ["coin"] },
     "Tag":            { "tags": ["tray", "storage"] },
-    "SpringStackAnim":{ "wobble": 0.2, "squash": 0.1, "lag": 0.08 }
+    "SpringStackAnim":{ "wobble": 0.2, "squash": 0.1, "lag": 0.08 },
+    "Collider":       { "shape": "box", "width": 1.0, "depth": 1.0, "isStatic": true }
   }
 }
