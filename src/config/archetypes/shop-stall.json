@@ -1,8 +1,0 @@
-{
-  "type": "ShopStall",
-  "mesh": { "preset": "stall", "color": "0x44aa44", "width": 2.0, "depth": 1.2 },
-  "behaviors": [],
-  "components": {
-    "Tag": { "tags": ["shop-stall"] }
-  }
-}

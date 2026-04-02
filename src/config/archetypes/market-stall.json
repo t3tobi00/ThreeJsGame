@@ -1,8 +1,0 @@
-{
-  "type": "MarketStall",
-  "mesh": { "preset": "stall", "color": "0x8b6914", "width": 2.5, "depth": 1.5 },
-  "behaviors": [],
-  "components": {
-    "Tag": { "tags": ["market-stall"] }
-  }
-}

@@ -38,12 +38,10 @@
         { "archetype": "meat-table", "cell": [10, 14], "gridSpan": [1, 2], "position": { "x": 0, "y": 0.3, "z": -9 } },
         { "archetype": "coin-tray", "cell": [9, 13], "position": { "x": -3, "y": 0, "z": -11 } },
 
-        { "archetype": "market-stall", "position": { "x": 0, "y": 0, "z": 15 } },
-        { "archetype": "market", "position": { "x": 0, "y": 0, "z": 13 } },
-        { "archetype": "market-tray", "position": { "x": 3, "y": 0, "z": 13 } },
+        { "archetype": "market", "position": { "x": 0, "y": 0, "z": 14 } },
+        { "archetype": "market-tray", "position": { "x": 3, "y": 0, "z": 14 } },
 
-        { "archetype": "shop-stall", "position": { "x": -5, "y": 0, "z": 15 } },
-        { "archetype": "health-shop", "position": { "x": -5, "y": 0, "z": 13 } }
+        { "archetype": "health-shop", "position": { "x": -5, "y": 0, "z": 14 } }
     ],
     "spawners": {
         "player": { "cell": [14, 14], "position": { "x": 0, "y": 0, "z": 0 } },
