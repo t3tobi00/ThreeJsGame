@@ -17,12 +17,14 @@ import { MarketUI } from '../ui/MarketUI.js';
 export class MarketSystem {
     constructor(scene) {
         this.scene = scene;
-        this._transfer = new ResourceTransfer();
+        this._transfer = new ResourceTransfer();     // resource → zone
+        this._coinTransfer = new ResourceTransfer();  // zone → tray (separate to avoid onArrive nesting)
         this._uiMap = new Map(); // marketId → MarketUI
     }
 
     update(entities, deltaTime, ecs) {
         this._transfer.update(deltaTime);
+        this._coinTransfer.update(deltaTime);
 
         const carriers = ecs.queryEntities(['Transform', 'Collector', 'InventoryStack']);
 
@@ -149,7 +151,7 @@ export class MarketSystem {
             const toPos = trayTransform.mesh.position.clone();
             toPos.y += 0.4;
 
-            this._transfer.send(coinMesh, startPos.clone(), toPos, {
+            this._coinTransfer.send(coinMesh, startPos.clone(), toPos, {
                 arcHeight: 2.0 + i * 0.3,
                 duration: 0.35 + i * 0.08,
                 spin: false,
