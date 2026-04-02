@@ -107,6 +107,115 @@ Layer 3 — New Architecture:
 - `SceneLoader` — reads level JSON, builds ground/fence/props/road, returns grid for system wiring
 - Unlock zones support multi-resource costs, simultaneous draining, build (one-time) and spawner (repeatable) types
 
+### Phase 8: Collision System + Safe Zone (2026-04-02)
+
+Introduced physical collision for all solid entities and a full safe zone mechanic with health, enemy barrier, and zone-based combat rules.
+
+---
+
+#### Collision System
+
+**Component_Collider** (pure data):
+- `shape`: `'box'` or `'circle'`
+- `width` / `depth`: box half-extents on XZ plane
+- `radius`: circle radius
+- `isStatic`: static bodies don't get pushed (walls, tables, fence)
+- `isTrigger`: detects overlap without push (reserved for future zones)
+- `disabled`: runtime flag — CollisionSystem skips disabled colliders (used by GateSystem when gate is open)
+
+**CollisionSystem** — queries `['Transform', 'Collider']`:
+- Partitions entities into static vs dynamic lists each frame
+- Each dynamic entity is pushed out of every overlapping static entity
+- Collision is 2D on XZ plane only (Y ignored)
+- Supports `circle-box` (nearest-point push-out) and `box-box` (AABB shortest-axis push-out)
+- Runs **last** in the system list — after movement and enemy AI — so positions are corrected after all movement is applied
+
+**Fence collision design decision — edge-based, not cell-based:**
+The original implementation created one full-size box per fence cell. This was wrong: fence logs only appear on the outer edges of fence cells (using `edgeMode: "outer"`), not filling the whole cell. The fix creates one thin box collider per fence edge, exactly where logs are drawn. Horizontal edges: `width=half, depth=0.15`. Vertical edges: `width=0.15, depth=half`. This means the player can walk up to the inner side of the fence without being blocked from the inside.
+
+**Gate collider:** `gate.json` has a box collider. GateSystem sets `collider.disabled = true` when `openRatio > 0.8` (fully open) and re-enables it at `openRatio < 0.3`. CollisionSystem skips disabled colliders automatically.
+
+**Archetypes with colliders:**
+
+| Archetype  | Shape  | width | depth | radius | isStatic |
+|------------|--------|-------|-------|--------|----------|
+| player     | circle | —     | —     | 0.4    | false    |
+| enemy      | circle | —     | —     | 0.4    | false    |
+| wall       | box    | 1.0   | 0.4   | —      | true     |
+| meat-table | box    | 1.0   | 1.0   | —      | true     |
+| coin-tray  | box    | 1.0   | 1.0   | —      | true     |
+| turret     | box    | 0.75  | 0.75  | —      | true     |
+| gate       | box    | 4.0   | 0.5   | —      | true     |
+| fence edge | box    | half or 0.15 | 0.15 or half | — | true |
+
+---
+
+#### Safe Zone System
+
+**What the safe zone is:**
+A rectangular grid-cell region defined by `{minRow, maxRow, minCol, maxCol}` in `level-1.json`. It has health. While active, it enforces three rules:
+1. Enemies cannot enter the interior
+2. Player cannot shoot out
+3. Contact damage cannot pass through the boundary wall
+
+**Why bounds, not fence cells:**
+The zone is not tied to where fence logs happen to be placed. It is an abstract rectangular region anchored to the grid. This makes it expandable (just grow `maxRow`/`maxCol`) and lets it work even if the fence is partially destroyed or not yet built. Future zone types can reuse the same bounds concept.
+
+**Component_SafeZone** (data):
+- `health` / `maxHealth`: zone HP pool
+- `bounds`: `{minRow, maxRow, minCol, maxCol}` — the rectangular zone boundary
+- `active`: set to `false` when health reaches 0 (permanent until rebuilt)
+- `fenceGroup`: THREE.Group reference — hidden when zone dies
+- `fenceColliderIds`: array of ECS entity IDs for fence edge colliders — disabled when zone dies
+
+`fenceGroup` and `fenceColliderIds` are not archetype-configurable — they are wired in `main.js` after `SceneLoader.load()` returns them.
+
+**SafeZoneSystem** — queries `['SafeZone']`:
+
+Rule 1 — **Player shooting disabled inside zone:**
+System keeps `_playerWasInside` flag. Each frame it checks if player's grid cell is inside the zone bounds. On a state change (transition), it directly sets `shooter.enabled = false/true` on the player's Shooter component and emits `zone:player_entered` / `zone:player_exited`. No per-frame cost after transition — the zone drives state, not the player.
+
+Why this design: the player shouldn't be able to shoot at enemies through the fence from inside. Disabling the Shooter component was chosen over destroying projectiles mid-flight because it's simpler, cheaper, and feels intentional (gun puts itself away when you step inside).
+
+Rule 2 — **Enemy boundary damage:**
+Each enemy at a boundary cell (`row == minRow/maxRow` or `col == minCol/maxCol`) drains zone health at 10 HP/sec. Enemies crowding the fence whittle down the zone over time. No individual fence log HP — all damage goes to the single zone health pool.
+
+Rule 3 — **Enemy hard block:**
+If an enemy somehow ends up strictly inside the zone (e.g. spawned wrong, numerical edge case), SafeZoneSystem pushes them to the nearest boundary edge. This is a belt-and-suspenders fix — the fence edge colliders (CollisionSystem) are the primary barrier.
+
+**Enemy AI targeting inside zone (EnemySystem):**
+When player is inside an active zone, chasing enemies no longer target `playerPos` directly. Instead each enemy targets `nearestBoundaryPoint(enemyPos)` — the nearest point on the zone's outer rectangle perimeter to that specific enemy. This means:
+- Enemies naturally cluster at the closest fence segment
+- They do not pathfind through the open gate even when it's open
+- When zone dies, targeting reverts to player position immediately (same frame)
+
+Why this matters: without this fix, enemies in chase state aim straight toward the player. The shortest path from outside often passes through the gate opening — so they'd walk in. Redirecting to the boundary point eliminates this without needing pathfinding.
+
+**Contact damage blocked across boundary (ContactDamageSystem):**
+Before checking range, the system checks whether attacker and target are on opposite sides of an active zone boundary (one inside, one outside). If so, damage is skipped. This prevents zombies pressing against the outer fence from dealing damage to a player standing against the inner fence — even if the physical distance is within `contact.range`.
+
+**Zone death sequence (when health → 0):**
+1. `zone.active = false`
+2. `fenceGroup.visible = false` — logs disappear
+3. All fence edge collider IDs → `collider.disabled = true`
+4. Player `shooter.enabled = true` (unconditional re-enable)
+5. `EventBus.emit('zone:destroyed')` — future systems can listen
+
+After zone death: enemies chase player normally, contact damage resumes, fence is fully passable.
+
+**Zone rebuild:** Not yet implemented. Planned as a player-cost action in a future phase.
+
+---
+
+#### Level changes (level-1.json)
+
+- Fence top row fully closed: added `[10,13], [10,14], [10,15], [10,16]` — the base is now fully enclosed with a single gate opening at the south
+- Meat-table entity removed (selling mechanic deferred)
+- Two coin trays repositioned inside the base (`z: -5`)
+- `safeZone` block added: `health: 200, bounds: {minRow:10, maxRow:19, minCol:10, maxCol:19}`
+
+---
+
 ### Phase 7: Grid-Based Level Design (2026-04-02)
 All level layout is now grid-cell-driven. Fence, gate, entities, and zones are placed by `[row, col]` coordinates in the level JSON.
 
@@ -142,6 +251,9 @@ All level layout is now grid-cell-driven. Fence, gate, entities, and zones are p
 - Unlock zones have no UI (no dashed lines, resource counts, or drain animation) — planned for next phase
 - Turret projectiles miss moving enemies (no lead-target prediction)
 - Trees/stones are raw meshes, not ECS entities (no player interaction yet)
+- Safe zone has no HUD health bar — player cannot see zone HP
+- Safe zone cannot be rebuilt after destruction — planned for future phase
+- Enemy wander targets are not zone-aware (wandering enemies may pick a target inside the zone — SafeZoneSystem hard-blocks them but it looks abrupt)
 
 ---
 
@@ -169,7 +281,7 @@ src/
     SceneLoader.js           — Loads level JSON, builds environment
   ecs/
     ECSManager.js            — Core ECS registry
-    components/              — 18 component definitions (Transform, Movement, Health, UnlockZone, etc.)
+    components/              — 20 component definitions (Transform, Movement, Health, UnlockZone, Collider, SafeZone, etc.)
   entities/
     EntityFactory.js         — Creates entities from JSON archetypes via MeshPresets
     Projectile.js            — Pooled projectile mesh
@@ -187,6 +299,9 @@ src/
     HealthSystem.js          — HP tracking + entity death events
     UnlockZoneSystem.js      — Multi-resource drain into zones
     BuildSystem.js           — Spawn buildings/units on zone:funded
+    CollisionSystem.js       — AABB + circle-box push-out (XZ plane, static vs dynamic)
+    SafeZoneSystem.js        — Zone health, enemy barrier, player shooter toggle, zone death
+    ContactDamageSystem.js   — Contact damage (zone-boundary-aware)
     CameraSystem.js          — Rubber-band camera follow
     ParticleSystem.js        — Pooled particle effects
   state/
@@ -203,16 +318,29 @@ src/
 
 ---
 
-## Phase 8: Planned (Not Started)
-- Unlock zone UI: dashed borders, resource type icons, count display, drain animation, reset/remove on completion
+## Phase 9: Planned (Not Started)
+
+**Safe Zone:**
+- Safe zone HUD health bar (player needs to see zone HP)
+- Zone rebuild mechanic (player spends resources to restore fence + zone)
+- Enemy wander AI zone-awareness (don't pick wander targets inside zone)
+- Zone expansion — player unlocks additional grid rows/cols, bounds grow outward
+
+**Combat:**
 - Turret lead-target prediction (projectiles aim ahead of moving enemies)
-- Trees/stones as ECS entities with player interaction
-- Boss: Cylinder King
-- Infinite wave generator
 - New enemy types: Speeder (fast, low HP), Tank (slow, high HP) — archetypes already defined in JSON
+- Boss: Cylinder King
+- Infinite wave generator with scaling difficulty
+
+**Base Building:**
+- Unlock zone UI: dashed borders, resource type icons, count display, drain animation
+- Selling mechanic restored: meat-table + villager trading loop (was removed for safe zone focus)
 - Wall repair mechanic
 - Player upgrade zones
-- Level progression (Lone Outpost -> Dusty Junction -> Neon Oasis -> Sandstorm Siege)
+
+**World:**
+- Trees/stones as ECS entities with player interaction
+- Level progression (Lone Outpost → Dusty Junction → Neon Oasis → Sandstorm Siege)
 
 ---
 
