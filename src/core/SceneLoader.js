@@ -12,9 +12,17 @@ export class SceneLoader {
         const grid = levelData.grid ? new GridSystem(levelData.grid) : null;
 
         SceneLoader._buildGround(scene, levelData.ground);
-        if (levelData.fence) SceneLoader._buildFence(scene, levelData.fence, grid, ecs);
+
+        let fenceGroup       = null;
+        let fenceColliderIds = [];
+        if (levelData.fence) {
+            const result = SceneLoader._buildFence(scene, levelData.fence, grid, ecs);
+            fenceGroup       = result.fenceGroup;
+            fenceColliderIds = result.fenceColliderIds;
+        }
+
         if (levelData.props) SceneLoader._buildProps(scene, levelData.props);
-        if (levelData.road) SceneLoader._buildRoad(scene, levelData.road);
+        if (levelData.road)  SceneLoader._buildRoad(scene, levelData.road);
 
         // Always create grid overlay, control visibility via toggle
         let gridOverlay = null;
@@ -24,7 +32,7 @@ export class SceneLoader {
             scene.add(gridOverlay);
         }
 
-        return { grid, levelData, gridOverlay };
+        return { grid, levelData, gridOverlay, fenceGroup, fenceColliderIds };
     }
 
     static _buildGround(scene, ground) {
@@ -76,29 +84,27 @@ export class SceneLoader {
     }
 
     static _buildFence(scene, fence, grid, ecs = null) {
-        if (!grid || !fence.cells) return;
+        if (!grid || !fence.cells) return { fenceGroup: null, fenceColliderIds: [] };
 
-        // Convert [row, col] arrays to "row,col" string keys for Set lookups
         const toKey = (r, c) => `${r},${c}`;
-        const fenceSet = new Set(fence.cells.map(([r, c]) => toKey(r, c)));
-        const doorSet = new Set((fence.doorCells || []).map(([r, c]) => toKey(r, c)));
+        const fenceSet  = new Set(fence.cells.map(([r, c]) => toKey(r, c)));
+        const doorSet   = new Set((fence.doorCells || []).map(([r, c]) => toKey(r, c)));
         const allBarrier = new Set([...fenceSet, ...doorSet]);
-        const edgeMode = fence.edgeMode || 'both'; // 'outer', 'inner', 'both'
+        const edgeMode  = fence.edgeMode || 'both';
 
-        // Calculate centroid for inner/outer detection
         let centroidRow = 0, centroidCol = 0, count = 0;
         for (const [r, c] of [...fence.cells, ...(fence.doorCells || [])]) {
-            centroidRow += r;
-            centroidCol += c;
-            count++;
+            centroidRow += r; centroidCol += c; count++;
         }
         centroidRow /= count;
         centroidCol /= count;
 
-        const logHeight = 0.5;
-        const spacing = 0.35;
+        const logHeight  = 0.5;
+        const spacing    = 0.35;
+        const THICKNESS  = 0.15; // half-depth of each fence edge collider
         const fenceGroup = new THREE.Group();
-        const half = grid.cellSize / 2;
+        const half       = grid.cellSize / 2; // 1.0 for cellSize=2
+        const fenceColliderIds = [];
 
         const spawnLogsAlongEdge = (start, end) => {
             const dist = start.distanceTo(end);
@@ -114,58 +120,54 @@ export class SceneLoader {
             }
         };
 
+        // Creates a thin box collider centred on the edge segment.
+        // isHorizontal=true → edge runs along X, so width=half, depth=THICKNESS
+        // isHorizontal=false → edge runs along Z, so width=THICKNESS, depth=half
+        const spawnEdgeCollider = (start, end, isHorizontal) => {
+            if (!ecs) return;
+            const obj = new THREE.Object3D();
+            obj.position.set((start.x + end.x) / 2, 0, (start.z + end.z) / 2);
+            const id = ecs.createEntity();
+            ecs.addComponent(id, 'Transform', new Component_Transform(obj));
+            ecs.addComponent(id, 'Collider', new Component_Collider({
+                shape:    'box',
+                width:    isHorizontal ? half : THICKNESS,
+                depth:    isHorizontal ? THICKNESS : half,
+                isStatic: true
+            }));
+            fenceColliderIds.push(id);
+        };
+
         for (const [row, col] of fence.cells) {
             const center = grid.rowColToWorld(row, col);
 
-            const checkEdge = (nRow, nCol, x1, z1, x2, z2) => {
+            const checkEdge = (nRow, nCol, x1, z1, x2, z2, isHorizontal) => {
                 const nKey = toKey(nRow, nCol);
-                if (allBarrier.has(nKey)) return; // skip edges facing other barrier cells
+                if (allBarrier.has(nKey)) return;
 
                 if (edgeMode !== 'both') {
                     const nDist = Math.hypot(nRow - centroidRow, nCol - centroidCol);
-                    const cDist = Math.hypot(row - centroidRow, col - centroidCol);
+                    const cDist = Math.hypot(row  - centroidRow, col  - centroidCol);
                     const isOuter = nDist > cDist;
                     if (edgeMode === 'outer' && !isOuter) return;
-                    if (edgeMode === 'inner' && isOuter) return;
+                    if (edgeMode === 'inner' &&  isOuter) return;
                 }
 
-                spawnLogsAlongEdge(
-                    new THREE.Vector3(x1, 0, z1),
-                    new THREE.Vector3(x2, 0, z2)
-                );
+                const start = new THREE.Vector3(x1, 0, z1);
+                const end   = new THREE.Vector3(x2, 0, z2);
+                spawnLogsAlongEdge(start, end);
+                spawnEdgeCollider(start, end, isHorizontal);
             };
 
-            // Top edge (negative Z)
-            checkEdge(row - 1, col,
-                center.x - half, center.z - half, center.x + half, center.z - half);
-            // Bottom edge (positive Z)
-            checkEdge(row + 1, col,
-                center.x - half, center.z + half, center.x + half, center.z + half);
-            // Left edge (negative X)
-            checkEdge(row, col - 1,
-                center.x - half, center.z - half, center.x - half, center.z + half);
-            // Right edge (positive X)
-            checkEdge(row, col + 1,
-                center.x + half, center.z - half, center.x + half, center.z + half);
+            // Top edge (−Z), Bottom edge (+Z), Left edge (−X), Right edge (+X)
+            checkEdge(row-1, col, center.x-half, center.z-half, center.x+half, center.z-half, true);
+            checkEdge(row+1, col, center.x-half, center.z+half, center.x+half, center.z+half, true);
+            checkEdge(row, col-1, center.x-half, center.z-half, center.x-half, center.z+half, false);
+            checkEdge(row, col+1, center.x+half, center.z-half, center.x+half, center.z+half, false);
         }
 
         scene.add(fenceGroup);
-
-        // Create invisible ECS collider entities for each fence cell (Option A).
-        // Visual logs above are pure decoration; these provide solid collision.
-        if (ecs) {
-            const half = grid.cellSize / 2; // 1.0 for cellSize=2
-            for (const [row, col] of fence.cells) {
-                const center = grid.rowColToWorld(row, col);
-                const obj = new THREE.Object3D();
-                obj.position.set(center.x, 0, center.z);
-                const id = ecs.createEntity();
-                ecs.addComponent(id, 'Transform', new Component_Transform(obj));
-                ecs.addComponent(id, 'Collider', new Component_Collider({
-                    shape: 'box', width: half, depth: half, isStatic: true
-                }));
-            }
-        }
+        return { fenceGroup, fenceColliderIds };
     }
 
     static _buildProps(scene, props) {

@@ -31,6 +31,8 @@ import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ContactDamageSystem } from './systems/ContactDamageSystem.js';
 import { CollisionSystem } from './systems/CollisionSystem.js';
+import { SafeZoneSystem } from './systems/SafeZoneSystem.js';
+import { Component_SafeZone } from './ecs/components/Component_SafeZone.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
 
@@ -99,7 +101,8 @@ class Game {
      * No hardcoded positions or entity references in main.js.
      */
     async loadLevel(path) {
-        const { grid, levelData, gridOverlay } = await SceneLoader.load(path, this.scene.instance, this.ecs);
+        const { grid, levelData, gridOverlay, fenceGroup, fenceColliderIds } =
+            await SceneLoader.load(path, this.scene.instance, this.ecs);
         this.grid = grid;
 
         // --- Grid toggle ---
@@ -120,7 +123,12 @@ class Game {
         this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health']);
         this.gateSystem.setPlayerTransform(playerTransform);
 
-        // CollisionSystem registered after movement + enemy systems so push-out runs last
+        // SafeZoneSystem — after enemies move, before collision resolution
+        this.safeZoneSystem = new SafeZoneSystem(this.grid);
+        this.safeZoneSystem.setPlayer(this.playerId, playerTransform);
+        this.ecs.registerSystem(this.safeZoneSystem, ['SafeZone']);
+
+        // CollisionSystem — runs last, after all movement and zone logic
         this.collisionSystem = new CollisionSystem();
         this.ecs.registerSystem(this.collisionSystem, ['Transform', 'Collider']);
 
@@ -164,6 +172,15 @@ class Game {
                     openSpeed: levelData.gate.openSpeed || 8.0
                 }
             });
+        }
+
+        // --- Safe Zone ---
+        if (levelData.safeZone) {
+            const szId   = this.ecs.createEntity();
+            const zone   = new Component_SafeZone(levelData.safeZone);
+            zone.fenceGroup       = fenceGroup;
+            zone.fenceColliderIds = fenceColliderIds;
+            this.ecs.addComponent(szId, 'SafeZone', zone);
         }
 
         // --- Villager trading systems (discover targets by tag, no IDs needed) ---

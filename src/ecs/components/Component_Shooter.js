@@ -16,6 +16,7 @@ export class Component_Shooter {
         this.targetFactions = targetFactions;
 
         // State
+        this.enabled      = true;  // toggled by SafeZoneSystem
         this.lastFireTime = 0;
         this.currentTarget = null; // EntityID
     }

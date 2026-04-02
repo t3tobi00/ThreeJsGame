@@ -20,6 +20,7 @@ export class CombatSystem {
             if (!transform || !shooter) continue;
 
             shooter.lastFireTime += deltaTime;
+            if (!shooter.enabled) continue;
 
             let closestDist = shooter.range;
             let bestTarget = null;
