@@ -11,12 +11,14 @@ export class Component_Market {
         accepts = ['bio-matter', 'zombie-teeth', 'mutant-core'],
         payRate = { 'bio-matter': 1, 'zombie-teeth': 5, 'mutant-core': 15 },
         range = 3.0,
-        drainRate = 0.3
+        drainRate = 0.15,
+        outputTag = 'market-tray'
     } = {}) {
         this.accepts = accepts;
         this.payRate = payRate;
         this.range = range;
         this.drainRate = drainRate;
+        this.outputTag = outputTag;
         this.timeSinceLastDrain = 999;
     }
 }

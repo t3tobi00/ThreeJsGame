@@ -1,14 +1,15 @@
 {
   "type": "Market",
-  "mesh": { "preset": "stall", "color": "0x8b6914", "width": 2.5, "depth": 1.5 },
+  "mesh": { "preset": "unlock-zone", "color": "0x332200", "size": 4.0 },
   "behaviors": ["market"],
   "components": {
     "Market": {
       "accepts": ["bio-matter", "zombie-teeth", "mutant-core"],
       "payRate": { "bio-matter": 1, "zombie-teeth": 5, "mutant-core": 15 },
       "range": 3.0,
-      "drainRate": 0.3
+      "drainRate": 0.15,
+      "outputTag": "market-tray"
     },
-    "Tag": { "tags": ["market"] }
+    "Tag": { "tags": ["market-zone"] }
   }
 }
