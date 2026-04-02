@@ -174,16 +174,47 @@ class Game {
             }
         }
 
-        // --- Gate (ECS entity) ---
-        if (levelData.gate) {
-            const gatePos = levelData.gate.position;
-            this.factory.create('gate', new THREE.Vector3(gatePos.x, gatePos.y, gatePos.z), {
-                Gate: {
-                    activationRange: levelData.gate.activationRange || 5.0,
-                    openSpeed: levelData.gate.openSpeed || 8.0
+        // --- Gates (one per side) ---
+        this.gateHealthBars = [];
+        if (levelData.gates) {
+            for (const gateDef of levelData.gates) {
+                const pos = new THREE.Vector3(gateDef.position.x, gateDef.position.y, gateDef.position.z);
+                const isRotated = Math.abs(gateDef.rotationY || 0) > 0.01;
+
+                // For rotated gates (W/E), swap collider width/depth since CollisionSystem uses AABB
+                const overrides = isRotated ? {
+                    Collider: { shape: 'box', width: 0.25, depth: 3.0, isStatic: true }
+                } : {};
+
+                const gateId = this.factory.create('gate', pos, overrides);
+                const gateTransform = this.ecs.getComponent(gateId, 'Transform');
+
+                // Apply mesh rotation for visual alignment
+                if (isRotated && gateTransform?.mesh) {
+                    gateTransform.mesh.rotation.y = gateDef.rotationY;
                 }
-            });
+
+                // Per-gate floating HP bar
+                if (gateTransform?.mesh) {
+                    const bar = new WorldHealthBar(
+                        this.camera.instance,
+                        gateTransform.mesh,
+                        gateId,
+                        { yOffset: 2.5 }
+                    );
+                    this.gateHealthBars.push({ entityId: gateId, bar });
+                }
+            }
         }
+
+        // Clean up gate health bars when a gate dies
+        EventBus.on('entity:died', ({ entityId }) => {
+            const idx = this.gateHealthBars.findIndex(g => g.entityId === entityId);
+            if (idx !== -1) {
+                this.gateHealthBars[idx].bar.destroy();
+                this.gateHealthBars.splice(idx, 1);
+            }
+        });
 
         // --- Fence collider entities (created here, not in SceneLoader) ---
         // SceneLoader returns plain edge data; main.js turns it into ECS entities.
@@ -260,6 +291,7 @@ class Game {
         this.particleSystem.update(deltaTime);
         this.floatingUI.update();
         this.playerHealthBar.update();
+        for (const g of this.gateHealthBars) g.bar.update();
 
         // 3. Render
         this.renderer.render(this.scene.instance, this.camera.instance);

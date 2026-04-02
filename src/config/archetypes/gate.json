@@ -1,8 +1,10 @@
 {
     "type": "Gate",
-    "mesh": { "preset": "gate", "width": 8.0 },
+    "mesh": { "preset": "gate", "width": 6.0 },
     "components": {
         "Gate":     { "activationRange": 5.0, "openSpeed": 8.0 },
-        "Collider": { "shape": "box", "width": 4.0, "depth": 0.5, "isStatic": true }
+        "Collider": { "shape": "box", "width": 3.0, "depth": 0.25, "isStatic": true },
+        "Health":   { "hp": 100, "maxHp": 100 },
+        "Tag":      { "tags": ["gate", "structure"] }
     }
 }

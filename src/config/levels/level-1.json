@@ -1,7 +1,10 @@
 {
     "name": "Lone Outpost",
     "grid": {
-        "origin": { "x": -30, "z": -30 },
+        "origin": {
+            "x": -30,
+            "z": -30
+        },
         "cellSize": 2,
         "cols": 30,
         "rows": 30
@@ -20,27 +23,59 @@
     "props": {
         "rocks": 20,
         "deadTrees": 20,
-        "spawnRadius": { "min": 12.6, "max": 37.6 }
+        "spawnRadius": {
+            "min": 12.6,
+            "max": 37.6
+        }
     },
     "fence": {
         "cells": [
-            [10,10], [10,11], [10,12], [10,13], [10,14], [10,15], [10,16], [10,17], [10,18], [10,19],
-            [11,10], [12,10], [13,10], [14,10], [15,10], [16,10], [17,10], [18,10], [19,10],
-            [19,11], [19,12],
-            [19,17], [19,18],
-            [11,19], [12,19], [13,19], [14,19], [15,19], [16,19], [17,19], [18,19], [19,19]
+            [10, 10], [10, 11], [10, 12],
+            [10, 16], [10, 17], [10, 18], [10, 19],
+            [11, 10], [12, 10],
+            [16, 10], [17, 10], [18, 10],
+            [19, 10], [19, 11], [19, 12],
+            [19, 16], [19, 17], [19, 18], [19, 19],
+            [11, 19], [12, 19],
+            [16, 19], [17, 19], [18, 19]
         ],
-        "doorCells": [[19,13], [19,14], [19,15], [19,16]],
         "edgeMode": "outer"
     },
     "entities": [
-        { "archetype": "coin-tray", "position": { "x": -3, "y": 0, "z": -5 } },
-        { "archetype": "coin-tray", "position": { "x":  3, "y": 0, "z": -5 } }
+        {
+            "archetype": "coin-tray",
+            "position": {
+                "x": -3,
+                "y": 0,
+                "z": -5
+            }
+        },
+        {
+            "archetype": "coin-tray",
+            "position": {
+                "x": 3,
+                "y": 0,
+                "z": -5
+            }
+        }
     ],
     "spawners": {
-        "player": { "cell": [14, 14], "position": { "x": 0, "y": 0, "z": 0 } },
+        "player": {
+            "cell": [
+                14,
+                14
+            ],
+            "position": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            }
+        },
         "villagers": {
-            "spawnPoint": { "x": 0, "z": -24 },
+            "spawnPoint": {
+                "x": 0,
+                "z": -24
+            },
             "initialCount": 4
         },
         "enemies": {
@@ -52,34 +87,77 @@
     },
     "unlockZones": [
         {
-            "cell": [17, 11],
-            "gridSpan": [2, 2],
-            "position": { "x": -6, "y": 0, "z": 6 },
+            "cell": [
+                17,
+                11
+            ],
+            "gridSpan": [
+                2,
+                2
+            ],
+            "position": {
+                "x": -6,
+                "y": 0,
+                "z": 6
+            },
             "type": "build",
-            "cost": { "meat": 10, "coin": 10 },
+            "cost": {
+                "meat": 10,
+                "coin": 10
+            },
             "builds": "turret"
         },
         {
-            "position": { "x": 0, "y": 0, "z": 14 },
+            "position": {
+                "x": 0,
+                "y": 0,
+                "z": 14
+            },
             "type": "convert",
-            "cost": { "meat": 10 },
+            "cost": {
+                "meat": 10
+            },
             "output": "coin",
             "outputTag": "tray",
             "outputCount": 5
         }
     ],
     "safeZone": {
-        "health": 200,
-        "maxHealth": 200,
-        "bounds": { "minRow": 10, "maxRow": 19, "minCol": 10, "maxCol": 19 }
+        "requiredGateCount": 4,
+        "bounds": {
+            "minRow": 10,
+            "maxRow": 19,
+            "minCol": 10,
+            "maxCol": 19
+        }
     },
-    "gate": {
-        "doorCells": [[19,13], [19,14], [19,15], [19,16]],
-        "position": { "x": 0, "y": 0, "z": 10 },
-        "width": 8.0
-    },
+    "gates": [
+        {
+            "position": { "x": -1, "y": 0, "z": -10 },
+            "rotationY": 0,
+            "side": "north"
+        },
+        {
+            "position": { "x": -1, "y": 0, "z": 10 },
+            "rotationY": 0,
+            "side": "south"
+        },
+        {
+            "position": { "x": -10, "y": 0, "z": -1 },
+            "rotationY": 1.5708,
+            "side": "west"
+        },
+        {
+            "position": { "x": 10, "y": 0, "z": -1 },
+            "rotationY": 1.5708,
+            "side": "east"
+        }
+    ],
     "road": {
-        "position": { "x": 0, "z": -16.7 },
+        "position": {
+            "x": 0,
+            "z": -16.7
+        },
         "width": 3.0,
         "length": 15
     },
