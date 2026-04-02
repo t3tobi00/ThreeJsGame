@@ -30,6 +30,9 @@ export class EnemySystem {
 
         const playerPos = this._playerTransform.mesh.position;
 
+        // Query entities that could be walls (have Transform, Health, Tag)
+        const walls = ecs.queryEntities(['Transform', 'Health', 'Tag']);
+
         for (const entityId of entities) {
             const transform = ecs.getComponent(entityId, 'Transform');
             const movement = ecs.getComponent(entityId, 'Movement');
@@ -40,12 +43,35 @@ export class EnemySystem {
             // Skip dead/destroyed enemies (HealthSystem handles death)
             if (health.hp <= 0) continue;
 
-            // Steer toward player
-            const dir = new THREE.Vector3()
-                .subVectors(playerPos, transform.mesh.position);
+            const pos = transform.mesh.position;
+
+            // Check if blocked by a wall/structure
+            let blocked = false;
+            for (const wallId of walls) {
+                const wallTag = ecs.getComponent(wallId, 'Tag');
+                if (!wallTag || !wallTag.has('structure')) continue;
+                const wallTransform = ecs.getComponent(wallId, 'Transform');
+                if (!wallTransform) continue;
+
+                const distToWall = pos.distanceTo(wallTransform.mesh.position);
+                if (distToWall < 1.5) {
+                    blocked = true;
+                    // Face the wall
+                    const wallDir = new THREE.Vector3().subVectors(wallTransform.mesh.position, pos);
+                    if (wallDir.length() > 0.1) {
+                        transform.mesh.rotation.y = Math.atan2(wallDir.x, wallDir.z);
+                    }
+                    break;
+                }
+            }
+
+            if (blocked) continue; // ContactDamageSystem handles the attack damage
+
+            // Chase player
+            const dir = new THREE.Vector3().subVectors(playerPos, pos);
             if (dir.length() > 0.5) {
                 dir.normalize();
-                transform.mesh.position.addScaledVector(dir, movement.speed * deltaTime);
+                pos.addScaledVector(dir, movement.speed * deltaTime);
                 transform.mesh.rotation.y = Math.atan2(dir.x, dir.z);
             }
         }

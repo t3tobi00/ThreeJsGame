@@ -9,6 +9,7 @@ import ResourceRegistry from './core/ResourceRegistry.js';
 import { SceneLoader } from './core/SceneLoader.js';
 import { Joystick } from './ui/Joystick.js';
 import { HUD } from './ui/HUD.js';
+import { GameOverUI } from './ui/GameOverUI.js';
 import { FloatingUI } from './ui/FloatingUI.js';
 
 // --- ECS Framework ---
@@ -28,6 +29,7 @@ import { UnlockZoneSystem } from './systems/UnlockZoneSystem.js';
 import { BuildSystem } from './systems/BuildSystem.js';
 import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
+import { ContactDamageSystem } from './systems/ContactDamageSystem.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
 
@@ -68,6 +70,9 @@ class Game {
 
         this.healthSystem = new HealthSystem(this.scene.instance);
         this.ecs.registerSystem(this.healthSystem, ['Transform', 'Health']);
+
+        this.contactDamageSystem = new ContactDamageSystem();
+        this.ecs.registerSystem(this.contactDamageSystem, ['Transform', 'ContactDamage']);
 
         this.collectorSystem = new CollectorSystem(this.scene.instance);
         this.ecs.registerSystem(this.collectorSystem, ['Transform', 'Collector', 'InventoryStack']);
@@ -113,6 +118,7 @@ class Game {
 
         // HUD — self-wired via EventBus
         this.hud = new HUD(this.ecs, this.playerId);
+        this.gameOverUI = new GameOverUI();
 
         // --- Entities from level JSON ---
         if (levelData.entities) {

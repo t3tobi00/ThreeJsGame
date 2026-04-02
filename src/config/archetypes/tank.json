@@ -4,6 +4,7 @@
   "type": "Tank",
   "components": {
     "Movement": { "speed": 1.2 },
-    "Health":   { "hp": 10, "maxHp": 10 }
+    "Health":   { "hp": 10, "maxHp": 10 },
+    "ContactDamage": { "damage": 2, "cooldown": 1.5, "range": 1.5, "targetFactions": ["player", "structure"] }
   }
 }

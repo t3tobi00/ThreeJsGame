@@ -25,6 +25,12 @@ export class HealthSystem {
             const actualDamage = Math.max(0, damage - health.armor);
             health.hp -= actualDamage;
 
+            EventBus.emit('entity:hp_changed', {
+                entityId,
+                hp: health.hp,
+                maxHp: health.maxHp
+            });
+
             if (health.hp <= 0) {
                 health.hp = 0;
                 const transform = ecs.getComponent(entityId, 'Transform');
@@ -33,6 +39,10 @@ export class HealthSystem {
                 const tag = ecs.getComponent(entityId, 'Tag');
                 const drops = [];
                 if (tag && tag.has('enemy')) drops.push('meat');
+
+                if (tag && tag.has('player')) {
+                    EventBus.emit('player:died', { entityId, position: pos });
+                }
 
                 if (transform && transform.mesh) {
                     this.scene.remove(transform.mesh);

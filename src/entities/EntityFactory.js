@@ -18,6 +18,7 @@ import { Component_SquashStretch } from '../ecs/components/Component_SquashStret
 import { Component_SpawnAnim } from '../ecs/components/Component_SpawnAnim.js';
 import { Component_UnlockZone } from '../ecs/components/Component_UnlockZone.js';
 import { Component_Gate } from '../ecs/components/Component_Gate.js';
+import { Component_ContactDamage } from '../ecs/components/Component_ContactDamage.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -40,6 +41,7 @@ const COMPONENT_MAP = {
     SpawnAnim:       (d) => new Component_SpawnAnim(d),
     UnlockZone:      (d) => new Component_UnlockZone(d),
     Gate:            (d) => new Component_Gate(d),
+    ContactDamage:   (d) => new Component_ContactDamage(d),
 };
 
 

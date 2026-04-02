@@ -4,6 +4,7 @@
   "type": "Speeder",
   "components": {
     "Movement": { "speed": 6 },
-    "Health":   { "hp": 1, "maxHp": 1 }
+    "Health":   { "hp": 1, "maxHp": 1 },
+    "ContactDamage": { "damage": 1, "cooldown": 0.8, "range": 1.0, "targetFactions": ["player", "structure"] }
   }
 }

@@ -11,6 +11,8 @@
     "FlyToAnim":       { "arcHeight": 2.5, "speed": 8, "easing": "quadOut" },
     "SpringStackAnim": { "wobble": 0.3, "squash": 0.15, "lag": 0.15 },
     "SquashStretch":   { "intensity": 0.2, "frequency": 8, "trigger": "move" },
-    "WalkAnim":        { "bobHeight": 0.08, "bobFreq": 8, "tiltAngle": 0.06 }
+    "WalkAnim":        { "bobHeight": 0.08, "bobFreq": 8, "tiltAngle": 0.06 },
+    "Health":          { "hp": 10, "maxHp": 10, "armor": 0 },
+    "FlashAnim":       { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" }
   }
 }
