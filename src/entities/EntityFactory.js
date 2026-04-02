@@ -20,8 +20,6 @@ import { Component_UnlockZone } from '../ecs/components/Component_UnlockZone.js'
 import { Component_Gate } from '../ecs/components/Component_Gate.js';
 import { Component_ContactDamage } from '../ecs/components/Component_ContactDamage.js';
 import { Component_Drops } from '../ecs/components/Component_Drops.js';
-import { Component_Market } from '../ecs/components/Component_Market.js';
-import { Component_Shop } from '../ecs/components/Component_Shop.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -46,8 +44,6 @@ const COMPONENT_MAP = {
     Gate:            (d) => new Component_Gate(d),
     ContactDamage:   (d) => new Component_ContactDamage(d),
     Drops:           (d) => new Component_Drops(d),
-    Market:          (d) => new Component_Market(d),
-    Shop:            (d) => new Component_Shop(d),
 };
 
 
