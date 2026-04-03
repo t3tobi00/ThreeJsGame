@@ -175,7 +175,7 @@ class Game {
         }
 
         // --- Gates (one per side) ---
-        this.gateHealthBars = [];
+        this._gateBarFills = new Map(); // entityId → fill mesh
         if (levelData.gates) {
             for (const gateDef of levelData.gates) {
                 const pos = new THREE.Vector3(gateDef.position.x, gateDef.position.y, gateDef.position.z);
@@ -194,26 +194,46 @@ class Game {
                     gateTransform.mesh.rotation.y = gateDef.rotationY;
                 }
 
-                // Per-gate floating HP bar
+                // 3D health bar — parented to gate mesh so it aligns with gate direction
                 if (gateTransform?.mesh) {
-                    const bar = new WorldHealthBar(
-                        this.camera.instance,
-                        gateTransform.mesh,
-                        gateId,
-                        { yOffset: 2.5 }
-                    );
-                    this.gateHealthBars.push({ entityId: gateId, bar });
+                    const barWidth = 4.0;
+                    const barHeight = 0.25;
+
+                    const bgGeo = new THREE.PlaneGeometry(barWidth, barHeight);
+                    const bgMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, side: THREE.DoubleSide });
+                    const bg = new THREE.Mesh(bgGeo, bgMat);
+
+                    const fillGeo = new THREE.PlaneGeometry(barWidth, barHeight);
+                    const fillMat = new THREE.MeshBasicMaterial({ color: 0x44cc44, side: THREE.DoubleSide });
+                    const fill = new THREE.Mesh(fillGeo, fillMat);
+
+                    const barGroup = new THREE.Group();
+                    barGroup.add(bg);
+                    barGroup.add(fill);
+                    fill.position.z = 0.01; // slight offset so fill renders in front of bg
+                    barGroup.position.y = 1.5;
+                    barGroup.rotation.x = -Math.PI / 4; // tilt toward camera
+
+                    gateTransform.mesh.add(barGroup);
+                    this._gateBarFills.set(gateId, { fill, barWidth });
                 }
             }
         }
 
-        // Clean up gate health bars when a gate dies
+        // Update gate 3D health bars on HP change + clean up on death
+        EventBus.on('entity:hp_changed', ({ entityId, hp, maxHp }) => {
+            const entry = this._gateBarFills.get(entityId);
+            if (!entry) return;
+            const pct = Math.max(0, Math.min(1, hp / maxHp));
+            entry.fill.scale.x = pct;
+            entry.fill.position.x = -(entry.barWidth * (1 - pct)) / 2;
+            entry.fill.material.color.setHex(
+                pct > 0.5 ? 0x44cc44 : pct > 0.25 ? 0xffaa00 : 0xff4444
+            );
+        });
+
         EventBus.on('entity:died', ({ entityId }) => {
-            const idx = this.gateHealthBars.findIndex(g => g.entityId === entityId);
-            if (idx !== -1) {
-                this.gateHealthBars[idx].bar.destroy();
-                this.gateHealthBars.splice(idx, 1);
-            }
+            this._gateBarFills.delete(entityId);
         });
 
         // --- Fence collider entities (created here, not in SceneLoader) ---
@@ -291,7 +311,6 @@ class Game {
         this.particleSystem.update(deltaTime);
         this.floatingUI.update();
         this.playerHealthBar.update();
-        for (const g of this.gateHealthBars) g.bar.update();
 
         // 3. Render
         this.renderer.render(this.scene.instance, this.camera.instance);
