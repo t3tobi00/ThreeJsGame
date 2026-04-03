@@ -332,6 +332,49 @@ class Game {
 
         // 4. Render
         this.renderer.render(this.scene.instance, this.camera.instance);
+
+        // 5. Debug overlay
+        this._updateDebugOverlay();
+    }
+
+    _updateDebugOverlay() {
+        if (!this._debugEl) {
+            this._debugEl = document.createElement('div');
+            this._debugEl.id = 'debug-overlay';
+            this._debugEl.style.cssText = `
+                position: fixed; bottom: 10px; left: 10px; z-index: 9999;
+                padding: 8px 12px; border-radius: 6px;
+                background: rgba(0,0,0,0.75); color: #0f0;
+                font: bold 12px monospace; line-height: 1.6;
+                pointer-events: none;
+            `;
+            document.body.appendChild(this._debugEl);
+            this._debugFrames = 0;
+            this._debugFPS = 0;
+            this._debugLastTime = performance.now();
+        }
+
+        // FPS counter (update every 30 frames to avoid flicker)
+        this._debugFrames++;
+        const now = performance.now();
+        if (now - this._debugLastTime >= 500) {
+            this._debugFPS = Math.round(this._debugFrames / ((now - this._debugLastTime) / 1000));
+            this._debugFrames = 0;
+            this._debugLastTime = now;
+        }
+
+        const ri = this.renderer.instance.info.render;
+        const enemies = this._characterPools[0].activeCount;
+        const villagers = this._characterPools[1].activeCount;
+        const totalEntities = this.ecs.entities.size;
+
+        this._debugEl.innerHTML =
+            `FPS: ${this._debugFPS}<br>` +
+            `Draw calls: ${ri.calls}<br>` +
+            `Triangles: ${ri.triangles}<br>` +
+            `Enemies: ${enemies}<br>` +
+            `Villagers: ${villagers}<br>` +
+            `Total entities: ${totalEntities}`;
     }
 }
 
