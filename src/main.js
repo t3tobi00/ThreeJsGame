@@ -363,7 +363,7 @@ class Game {
             this._debugLastTime = now;
         }
 
-        const ri = this.renderer.instance.info.render;
+        const ri = this.renderer.threeRenderer.info.render;
         const enemies = this._characterPools[0].activeCount;
         const villagers = this._characterPools[1].activeCount;
         const totalEntities = this.ecs.entities.size;
