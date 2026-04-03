@@ -196,8 +196,8 @@ class Game {
 
                 // 3D health bar — parented to gate mesh so it aligns with gate direction
                 if (gateTransform?.mesh) {
-                    const barWidth = 4.0;
-                    const barHeight = 0.25;
+                    const barWidth = 2.0;
+                    const barHeight = 0.18;
 
                     const bgGeo = new THREE.PlaneGeometry(barWidth, barHeight);
                     const bgMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, side: THREE.DoubleSide });
