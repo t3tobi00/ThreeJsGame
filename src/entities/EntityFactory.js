@@ -23,6 +23,7 @@ import { Component_Drops } from '../ecs/components/Component_Drops.js';
 import { Component_EnemyAI } from '../ecs/components/Component_EnemyAI.js';
 import { Component_Collider } from '../ecs/components/Component_Collider.js';
 import { Component_ZoneStatus } from '../ecs/components/Component_ZoneStatus.js';
+import { Component_InstanceRef } from '../ecs/components/Component_InstanceRef.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -57,6 +58,15 @@ export class EntityFactory {
     constructor(scene, ecs) {
         this.scene = scene;
         this.ecs = ecs;
+        this._instancePools = {};  // archetype type → InstancedCharacterPool
+    }
+
+    /**
+     * Register instanced pools for character types.
+     * @param {Object} pools Map of archetype type (lowercase) → InstancedCharacterPool
+     */
+    setInstancePools(pools) {
+        this._instancePools = pools;
     }
 
     /**
@@ -70,11 +80,29 @@ export class EntityFactory {
         const archetype = getArchetype(archetypeName);
         const id = this.ecs.createEntity();
 
-        // Build the mesh
-        const mesh = this._createMesh(archetype, pos);
+        // Try instanced pool for character-preset archetypes
+        const poolKey = archetype.type?.toLowerCase();
+        const pool = (archetype.mesh?.preset === 'character') ? this._instancePools[poolKey] : null;
+        let instanceRef = null;
 
-        // Always add Transform
+        let mesh;
+        if (pool && pool.hasFreeSlots) {
+            // Use instanced pool — proxy Object3D, no scene.add needed
+            const slot = pool.allocate(pos);
+            mesh = slot.proxy;
+            instanceRef = new Component_InstanceRef(pool, slot.index);
+        } else {
+            // Fallback to individual mesh (player, gates, or pool full)
+            mesh = this._createMesh(archetype, pos);
+        }
+
+        // Always add Transform (works with both real mesh and proxy)
         this.ecs.addComponent(id, 'Transform', new Component_Transform(mesh));
+
+        // Add InstanceRef if this entity is instanced
+        if (instanceRef) {
+            this.ecs.addComponent(id, 'InstanceRef', instanceRef);
+        }
 
         // Add all components defined in the archetype
         const components = { ...archetype.components, ...overrides };

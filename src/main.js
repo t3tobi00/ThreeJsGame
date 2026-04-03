@@ -38,6 +38,7 @@ import { Component_Transform } from './ecs/components/Component_Transform.js';
 import { Component_Collider } from './ecs/components/Component_Collider.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
+import { InstancedCharacterPool } from './rendering/InstancedCharacterPool.js';
 
 class Game {
     constructor() {
@@ -111,7 +112,21 @@ class Game {
         // --- Grid toggle ---
         if (gridOverlay) this._createGridToggle(gridOverlay);
 
-        // --- Player ---
+        // --- Instanced character pools (GPU batching for crowds) ---
+        this._characterPools = [
+            new InstancedCharacterPool(this.scene.instance, 0xff3333, 120),  // enemy
+            new InstancedCharacterPool(this.scene.instance, 0x44bb44, 60),   // villager
+            new InstancedCharacterPool(this.scene.instance, 0xff6600, 30),   // speeder
+            new InstancedCharacterPool(this.scene.instance, 0x880000, 30),   // tank
+        ];
+        this.factory.setInstancePools({
+            enemy:    this._characterPools[0],
+            villager: this._characterPools[1],
+            speeder:  this._characterPools[2],
+            tank:     this._characterPools[3],
+        });
+
+        // --- Player (NOT instanced — needs real mesh for camera follow + health bar) ---
         const playerPos = levelData.spawners?.player?.position || { x: 0, y: 0, z: 0 };
         this.playerId = this.factory.createPlayer(new THREE.Vector3(playerPos.x, playerPos.y, playerPos.z));
         const playerTransform = this.ecs.getComponent(this.playerId, 'Transform');
@@ -312,7 +327,10 @@ class Game {
         this.floatingUI.update();
         this.playerHealthBar.update();
 
-        // 3. Render
+        // 3. Sync instanced character pools (proxy → GPU matrices)
+        for (const pool of this._characterPools) pool.sync();
+
+        // 4. Render
         this.renderer.render(this.scene.instance, this.camera.instance);
     }
 }

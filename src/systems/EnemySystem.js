@@ -91,7 +91,12 @@ export class EnemySystem {
             // Despawn far-off-screen wanderers to free slots for fresh spawns
             const ai = this._aiState.get(entityId);
             if (ai && ai.state === 'wander' && pos.distanceTo(playerPos) > ENEMY_CONFIG.despawnDistance) {
-                this.scene.remove(transform.mesh);
+                const instanceRef = ecs.getComponent(entityId, 'InstanceRef');
+                if (instanceRef) {
+                    instanceRef.pool.release(instanceRef.index);
+                } else {
+                    this.scene.remove(transform.mesh);
+                }
                 ecs.destroyEntity(entityId);
                 this._aiState.delete(entityId);
                 continue;

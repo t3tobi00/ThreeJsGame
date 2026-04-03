@@ -38,7 +38,7 @@ export const ENEMY_CONFIG = {
     speed: 3.5,
     spawnInterval: 1.5,
     spawnDistance: 28,
-    maxAlive: 40,
+    maxAlive: 100,
     despawnDistance: 50,
     health: 4,
     size: 0.6,

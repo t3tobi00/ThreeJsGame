@@ -54,7 +54,11 @@ export class HealthSystem {
                     EventBus.emit('player:died', { entityId, position: pos });
                 }
 
-                if (transform && transform.mesh) {
+                // Release instanced slot or remove individual mesh
+                const instanceRef = ecs.getComponent(entityId, 'InstanceRef');
+                if (instanceRef) {
+                    instanceRef.pool.release(instanceRef.index);
+                } else if (transform && transform.mesh) {
                     this.scene.remove(transform.mesh);
                 }
 
