@@ -23,31 +23,35 @@ const MeshPresets = {
     }
 };
 
+// --- Shared geometry/materials for characters (enemies, player, villagers) ---
+// Cached once at module scope — all character meshes share these GPU buffers.
+const _charBodyGeo = new THREE.CapsuleGeometry(0.25, 0.5, 4, 8);
+const _charHeadGeo = new THREE.SphereGeometry(0.2, 8, 6);
+const _charEyeGeo  = new THREE.SphereGeometry(0.05, 4, 4);
+const _charHeadMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.6 });
+const _charEyeMat  = new THREE.MeshStandardMaterial({ color: 0x000000 });
+
 // --- Built-in Presets ---
 
 MeshPresets.register('character', ({ color = 0xaaaaaa } = {}) => {
     const group = new THREE.Group();
 
-    const bodyGeo = new THREE.CapsuleGeometry(0.25, 0.5, 4, 8);
+    // Only bodyMat is per-character (unique color)
     const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    const body = new THREE.Mesh(_charBodyGeo, bodyMat);
     body.position.y = 0.5;
     body.castShadow = true;
     group.add(body);
 
-    const headGeo = new THREE.SphereGeometry(0.2, 8, 6);
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.6 });
-    const head = new THREE.Mesh(headGeo, headMat);
+    const head = new THREE.Mesh(_charHeadGeo, _charHeadMat);
     head.position.y = 1.1;
     head.castShadow = true;
     group.add(head);
 
-    const eyeGeo = new THREE.SphereGeometry(0.05, 4, 4);
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
-    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+    const leftEye = new THREE.Mesh(_charEyeGeo, _charEyeMat);
     leftEye.position.set(-0.08, 1.12, 0.18);
     group.add(leftEye);
-    const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+    const rightEye = new THREE.Mesh(_charEyeGeo, _charEyeMat);
     rightEye.position.set(0.08, 1.12, 0.18);
     group.add(rightEye);
 

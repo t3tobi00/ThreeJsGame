@@ -1,3 +1,5 @@
+import { SpatialHash } from '../utils/SpatialHash.js';
+
 /**
  * CollisionSystem — Resolves solid collisions on the XZ plane.
  *
@@ -5,34 +7,66 @@
  *
  * Each frame:
  *   - Partitions entities into static and dynamic lists.
- *   - Pushes each dynamic entity out of any overlapping static entity.
+ *   - Inserts statics into a SpatialHash for fast neighbor lookups.
+ *   - Pushes each dynamic entity out of any overlapping nearby static entity.
  *   - Supports box-box (AABB) and circle-box shapes.
  *   - Skips colliders with disabled === true (used by GateSystem).
  */
 export class CollisionSystem {
+    constructor() {
+        this._hash = new SpatialHash(4);
+        this._statics = [];       // cached static data
+        this._staticsDirty = true; // rebuild hash when statics change
+    }
+
     update(entities, deltaTime, ecs) {
-        const statics  = [];
         const dynamics = [];
+
+        // Rebuild static list + hash only when entity set changes
+        // (statics don't move, so we can cache between frames)
+        if (this._staticsDirty || this._lastEntityCount !== entities.length) {
+            this._statics = [];
+            this._hash.clear();
+            for (const id of entities) {
+                const transform = ecs.getComponent(id, 'Transform');
+                const collider  = ecs.getComponent(id, 'Collider');
+                if (!transform || !collider || collider.disabled || collider.isTrigger) continue;
+
+                if (collider.isStatic) {
+                    const pos = transform.mesh.position;
+                    this._statics.push({ transform, collider, id });
+                    this._hash.insert(this._statics.length - 1, pos.x, pos.z);
+                }
+            }
+            this._lastEntityCount = entities.length;
+            this._staticsDirty = false;
+        }
 
         for (const id of entities) {
             const transform = ecs.getComponent(id, 'Transform');
             const collider  = ecs.getComponent(id, 'Collider');
             if (!transform || !collider || collider.disabled || collider.isTrigger) continue;
-
-            if (collider.isStatic) {
-                statics.push({ transform, collider });
-            } else {
+            if (!collider.isStatic) {
                 dynamics.push({ transform, collider });
             }
         }
 
+        // For each dynamic, check only nearby statics via spatial hash
         for (const dyn of dynamics) {
             const dp = dyn.transform.mesh.position;
-            for (const sta of statics) {
-                if (sta.collider.disabled) continue;
+            const nearbyIndices = this._hash.query(dp.x, dp.z, 4);
+
+            for (const idx of nearbyIndices) {
+                const sta = this._statics[idx];
+                if (!sta || sta.collider.disabled) continue;
                 this._resolve(dp, dyn.collider, sta.transform.mesh.position, sta.collider);
             }
         }
+    }
+
+    /** Mark statics as dirty (call when entities are added/removed). */
+    invalidateStatics() {
+        this._staticsDirty = true;
     }
 
     // ─── Private ────────────────────────────────────────────────────────────────

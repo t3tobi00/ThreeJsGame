@@ -18,6 +18,11 @@ const DEFAULT_AI = {
  * AI parameters are read from each entity's EnemyAI component (JSON archetype).
  * Spawn counts come from level JSON via setSpawnConfig().
  *
+ * Performance guards:
+ *   - Hard cap on alive enemies (ENEMY_CONFIG.maxAlive)
+ *   - Far wanderers despawned (ENEMY_CONFIG.despawnDistance)
+ *   - Herd aggro is O(N*C) not O(N²) — only checks chasers
+ *
  * AI states:
  *   'wander' — pick random points, idle between moves
  *   'chase'  — pursue the player
@@ -58,7 +63,9 @@ export class EnemySystem {
 
         if (this._spawnTimer >= ENEMY_CONFIG.spawnInterval) {
             this._spawnTimer = 0;
-            this._spawnEnemy();
+            if (this._aiState.size < ENEMY_CONFIG.maxAlive) {
+                this._spawnEnemy();
+            }
         }
 
         const playerPos = this._playerTransform.mesh.position;
@@ -68,7 +75,7 @@ export class EnemySystem {
             if (!entities.includes(id)) this._aiState.delete(id);
         }
 
-        // --- Pass 1: Initialize AI state + direct player aggro ---
+        // --- Pass 1: Despawn far wanderers + Initialize AI state + direct player aggro ---
         const alive = [];
         for (const entityId of entities) {
             const transform = ecs.getComponent(entityId, 'Transform');
@@ -81,6 +88,15 @@ export class EnemySystem {
             const pos = transform.mesh.position;
             const aiComp = ecs.getComponent(entityId, 'EnemyAI') || DEFAULT_AI;
 
+            // Despawn far-off-screen wanderers to free slots for fresh spawns
+            const ai = this._aiState.get(entityId);
+            if (ai && ai.state === 'wander' && pos.distanceTo(playerPos) > ENEMY_CONFIG.despawnDistance) {
+                this.scene.remove(transform.mesh);
+                ecs.destroyEntity(entityId);
+                this._aiState.delete(entityId);
+                continue;
+            }
+
             if (!this._aiState.has(entityId)) {
                 this._aiState.set(entityId, {
                     state: 'wander',
@@ -90,26 +106,28 @@ export class EnemySystem {
                 });
             }
 
-            const ai = this._aiState.get(entityId);
+            const aiState = this._aiState.get(entityId);
             const distToPlayer = pos.distanceTo(playerPos);
 
-            if (ai.state === 'wander' && distToPlayer < aiComp.aggroRadius) {
-                ai.state = 'chase';
-            } else if (ai.state === 'chase' && distToPlayer > aiComp.aggroRadius * 1.5) {
-                ai.state = 'wander';
-                ai.wanderTarget = null;
-                ai.pauseTimer = aiComp.wanderPauseMin;
+            if (aiState.state === 'wander' && distToPlayer < aiComp.aggroRadius) {
+                aiState.state = 'chase';
+            } else if (aiState.state === 'chase' && distToPlayer > aiComp.aggroRadius * 1.5) {
+                aiState.state = 'wander';
+                aiState.wanderTarget = null;
+                aiState.pauseTimer = aiComp.wanderPauseMin;
             }
 
-            alive.push({ entityId, transform, movement, pos, ai, aiComp });
+            alive.push({ entityId, transform, movement, pos, ai: aiState, aiComp });
         }
 
-        // --- Pass 2: Herd aggro ---
+        // --- Pass 2: Herd aggro — O(N*C) where C = number of chasers ---
+        const chasers = [];
+        for (const a of alive) {
+            if (a.ai.state === 'chase') chasers.push(a);
+        }
         for (const a of alive) {
             if (a.ai.state !== 'wander') continue;
-            for (const b of alive) {
-                if (b.ai.state !== 'chase') continue;
-                if (b.pos.distanceTo(playerPos) > b.aiComp.aggroRadius) continue;
+            for (const b of chasers) {
                 if (a.pos.distanceTo(b.pos) < a.aiComp.herdRadius) {
                     a.ai.state = 'chase';
                     break;
@@ -194,7 +212,9 @@ export class EnemySystem {
     _spawnEnemy() {
         const range = this._countMax - this._countMin + 1;
         const count = this._countMin + Math.floor(Math.random() * range);
-        for (let i = 0; i < count; i++) {
+        const slotsLeft = ENEMY_CONFIG.maxAlive - this._aiState.size;
+        const toSpawn = Math.min(count, slotsLeft);
+        for (let i = 0; i < toSpawn; i++) {
             const angle = Math.random() * Math.PI * 2;
             const dist = ENEMY_CONFIG.spawnDistance + Math.random() * 5;
             const pos = new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
