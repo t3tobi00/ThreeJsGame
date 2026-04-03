@@ -244,6 +244,133 @@ All level layout is now grid-cell-driven. Fence, gate, entities, and zones are p
 - `edgeMode`: `"outer"` = logs only on outside edges, `"inner"` = inside only, `"both"` = all exposed edges
 - Edge detection uses centroid of all barrier cells to determine inner vs outer
 
+### Phase 9: 4-Sided Gate System (2026-04-02)
+
+Replaced the single south gate with 4 gates (N/S/E/W). Safe zone health is now tied to gate survival instead of a single HP pool.
+
+**What was done:**
+1. Fence layout modified — 4 gaps (3 cells wide each), one per side, centered at cols/rows 13-15
+2. Gate archetype gains `Health` (100 HP) and `Tag: ["gate", "structure"]` — enemies auto-damage gates via ContactDamageSystem
+3. 4 gate entities defined in `level-1.json` with positions and rotationY. W/E gates rotated π/2 with swapped AABB collider dimensions
+4. SafeZoneSystem rewritten — counts living `['Gate', 'Health']` entities each frame. Zone active when count ≥ `requiredGateCount` (4). Zone deactivates when any gate dies
+5. Component_SafeZone simplified — removed `health`/`maxHealth`, added `requiredGateCount`
+6. HUD zone HP bar removed — replaced by per-gate 3D mesh health bars (PlaneGeometry parented to gate mesh, aligned parallel to gate direction)
+7. Gate health bars tilt 45° toward camera, scale left-to-right with green→yellow→red color transitions
+8. GateSystem unchanged — already handles multiple gates via ECS query
+
+**Key design decisions:**
+- Gates are standard ECS entities with Health — HealthSystem destroys them on death automatically
+- SafeZoneSystem queries gate count each frame (not event-driven) — enables future gate rebuilding without extra wiring
+- 3D mesh health bars instead of HTML overlays — they inherit gate rotation, no screen projection needed
+
+### Phase 10: Performance Optimization (2026-04-02 → 2026-04-03)
+
+The game became unplayable after a few minutes due to unbounded enemy accumulation. 800+ enemies after 5 minutes, with O(N²) herd aggro and O(N×M) brute-force collision/damage checks, caused frame times to spike beyond 100ms.
+
+**The problem in detail:**
+- Enemy spawn: 4-5 enemies every 1.5s with **zero cap** on alive count
+- Herd aggro in EnemySystem: nested loop checking every enemy against every other enemy → O(N²)
+- ContactDamageSystem: every attacker checked against every Health entity → O(N×M)
+- CollisionSystem: every dynamic entity checked against every static entity → O(N×M)
+- Every enemy = 4 individual Three.js meshes (body, head, 2 eyes) = 4 draw calls each
+- No geometry/material sharing — fresh allocation per enemy → GC pressure
+
+**Solution — 3 layers of optimization:**
+
+#### Layer 1: Enemy Cap + Despawn + Herd Fix (EnemySystem.js)
+
+- **Hard cap** of `ENEMY_CONFIG.maxAlive` (100) on alive enemies — spawning skips when at cap
+- **Despawn** wanderers beyond `ENEMY_CONFIG.despawnDistance` (50 units) from player — frees slots for fresh nearby spawns
+- **Herd aggro fix** — O(N²) → O(N×C): build a `chasers` subset (enemies in chase state), then only check wanderers against chasers. Typically C=5-15, so 100 enemies = 1,500 checks instead of 10,000
+
+Config values added to `gameConfig.js` → `ENEMY_CONFIG`:
+```
+maxAlive: 100          // hard cap on alive enemies
+despawnDistance: 50     // world units from player before wanderers despawn
+```
+
+#### Layer 2: Shared Geometry & Materials (MeshPresets.js)
+
+All character meshes (enemies, villagers, player) share the same GPU geometry buffers and materials:
+```javascript
+// Cached once at module scope, shared by ALL character meshes
+const _charBodyGeo = new THREE.CapsuleGeometry(0.25, 0.5, 4, 8);
+const _charHeadGeo = new THREE.SphereGeometry(0.2, 8, 6);
+const _charEyeGeo  = new THREE.SphereGeometry(0.05, 4, 4);
+const _charHeadMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.6 });
+const _charEyeMat  = new THREE.MeshStandardMaterial({ color: 0x000000 });
+```
+Only `bodyMat` is per-character (unique body color). This cuts GPU memory and GC pressure.
+
+#### Layer 3: Spatial Hash (SpatialHash.js)
+
+New utility `src/utils/SpatialHash.js` — a 2D grid hash on the XZ plane for fast proximity queries:
+- `insert(id, x, z)` — stores entity in a grid cell
+- `query(x, z, radius)` — returns entity IDs from nearby cells only
+- Cell size = 3 units (covers max contact range with neighbor lookup)
+- Rebuilt each frame (cheap for <200 entities)
+
+**ContactDamageSystem** — builds spatial hash of all Health targets each frame, queries nearby cells for each attacker. Reduces O(N×M) to O(N×k) where k ≈ 1-3 neighbors.
+
+**CollisionSystem** — caches static colliders in spatial hash (rebuilt only when entity count changes since statics don't move). Each dynamic entity queries only nearby statics.
+
+#### Layer 4: GPU Instanced Crowd Rendering (InstancedCharacterPool.js)
+
+The industry-standard solution for rendering many identical objects: `THREE.InstancedMesh`. Instead of 100 separate enemy meshes (400 draw calls), one `InstancedMesh` per body part renders ALL instances in a single draw call.
+
+**Architecture — Proxy Object3D pattern:**
+
+Each instanced entity gets a lightweight `THREE.Object3D` (proxy) that's never added to the scene. ECS systems read/write `proxy.position`, `proxy.rotation`, `proxy.scale` as if it were a real mesh. A render sync step copies all proxy transforms into the InstancedMesh matrix buffer once per frame.
+
+This means **zero changes to any gameplay system** — MovementSystem, EnemySystem, CombatSystem, CollisionSystem, etc. all work unchanged. They don't know they're talking to a proxy.
+
+**New files:**
+- `src/rendering/InstancedCharacterPool.js` — Core pool class. Creates 4 InstancedMesh objects (body, head, leftEye, rightEye) per character type. Manages slot allocation/release via free list. `sync()` copies proxy transforms into GPU instance matrices.
+- `src/ecs/components/Component_InstanceRef.js` — Links entity to pool slot `{ pool, index }`. Used by HealthSystem to call `pool.release(index)` on death instead of `scene.remove()`.
+
+**What gets instanced (and what doesn't):**
+
+| Entity type | Instanced? | Reason |
+|------------|-----------|--------|
+| enemy | YES | 100+ instances, main perf problem |
+| villager | YES | Will scale to 50+ |
+| speeder | YES | Enemy variant |
+| tank | YES | Enemy variant |
+| **player** | **NO** | Single entity, needs real mesh for camera follow + WorldHealthBar |
+| **gate** | **NO** | Uses getObjectByName('doorGroup') for door animation |
+| **turret, wall, tables** | **NO** | Few instances, unique presets |
+
+**Pool setup in main.js:**
+```javascript
+this._characterPools = [
+    new InstancedCharacterPool(scene, 0xff3333, 120),  // enemy (red)
+    new InstancedCharacterPool(scene, 0x44bb44, 60),   // villager (green)
+    new InstancedCharacterPool(scene, 0xff6600, 30),   // speeder (orange)
+    new InstancedCharacterPool(scene, 0x880000, 30),   // tank (dark red)
+];
+this.factory.setInstancePools({
+    enemy: pools[0], villager: pools[1], speeder: pools[2], tank: pools[3]
+});
+```
+
+**EntityFactory routing:** When creating an entity with `mesh.preset === 'character'`, checks if a pool exists for that `archetype.type.toLowerCase()`. If pool has free slots → allocate proxy + add InstanceRef. If no pool (player) or pool full → fallback to individual mesh.
+
+**Death/despawn cleanup:** HealthSystem and EnemySystem check for InstanceRef component before cleanup. If instanced → `pool.release(index)`. If not → `scene.remove(mesh)`.
+
+**Shadow optimization:** Only body InstancedMesh casts shadows (1 shadow draw call per type). Head and eyes skip shadows — too small to matter.
+
+**Performance results:**
+
+| Metric | Before optimization | After optimization |
+|--------|-------------------|-------------------|
+| Max enemies before lag | ~30-40 | 100+ at 60 FPS |
+| Draw calls (100 enemies) | ~400 (enemies alone) | ~290 total (enemies = ~4) |
+| Herd aggro complexity | O(N²) = 10,000 checks | O(N×C) = ~1,500 checks |
+| Collision complexity | O(N×M) brute force | O(N×k) spatial hash |
+| Memory per enemy | Full mesh Group + 4 geometries + 4 materials | Proxy Object3D only |
+
+**Debug overlay:** Bottom-left green overlay shows live FPS, draw calls, triangles, enemy count, villager count, and total entities. Driven by `renderer.threeRenderer.info.render`.
+
 ---
 
 ## Known Issues
@@ -251,9 +378,11 @@ All level layout is now grid-cell-driven. Fence, gate, entities, and zones are p
 - Unlock zones have no UI (no dashed lines, resource counts, or drain animation) — planned for next phase
 - Turret projectiles miss moving enemies (no lead-target prediction)
 - Trees/stones are raw meshes, not ECS entities (no player interaction yet)
-- Safe zone has no HUD health bar — player cannot see zone HP
 - Safe zone cannot be rebuilt after destruction — planned for future phase
 - Enemy wander targets are not zone-aware (wandering enemies may pick a target inside the zone — SafeZoneSystem hard-blocks them but it looks abrupt)
+- Fence logs and props are individual meshes (~150+ draw calls) — could be instanced for further draw call reduction
+- Damage flash effect (FlashAnim) not yet implemented — requires per-instance color attribute on InstancedMesh for instanced entities
+- Debug overlay always visible — should be togglable or removed for production
 
 ---
 
@@ -299,21 +428,26 @@ src/
     HealthSystem.js          — HP tracking + entity death events
     UnlockZoneSystem.js      — Multi-resource drain into zones
     BuildSystem.js           — Spawn buildings/units on zone:funded
-    CollisionSystem.js       — AABB + circle-box push-out (XZ plane, static vs dynamic)
-    SafeZoneSystem.js        — Zone health, enemy barrier, player shooter toggle, zone death
-    ContactDamageSystem.js   — Contact damage (zone-boundary-aware)
+    CollisionSystem.js       — AABB + circle-box push-out (spatial hash accelerated)
+    SafeZoneSystem.js        — Gate-count-driven zone, enemy barrier, player shooter toggle
+    ContactDamageSystem.js   — Contact damage (spatial hash + zone-boundary-aware)
     CameraSystem.js          — Rubber-band camera follow
+    GateSystem.js            — Proximity-activated swinging gates (multi-gate)
     ParticleSystem.js        — Pooled particle effects
+  rendering/
+    InstancedCharacterPool.js — GPU-instanced crowd rendering (4 InstancedMesh per type)
   state/
     GameState.js             — Global state (resources, unlocks, progression)
   ui/
     Joystick.js              — Virtual joystick
-    HUD.js                   — Resource counter, HP bar
+    HUD.js                   — Resource counter
     FloatingUI.js            — In-world floating text
+    WorldHealthBar.js        — Floating HP bar anchored to 3D mesh (player)
   utils/
     ObjectPool.js            — Generic pool (acquire/release)
     ResourceStack.js         — Reusable vertical spring-stack
     ResourceTransfer.js      — Reusable Bezier-arc flight
+    SpatialHash.js           — 2D grid hash for fast proximity queries
 ```
 
 ---
@@ -476,6 +610,58 @@ Walls are already an archetype (`wall.json`). To make them expandable:
 - A `UpgradeSystem` listens to `zone:unlocked` or a new `upgrade:requested` event
 - Each upgrade stage can change mesh scale, HP, and visual appearance
 - Expanding the base area = unlocking new zones that push the buildable perimeter outward
+
+### Adding New Character Types (With GPU Instancing)
+
+Any character that uses `"preset": "character"` in its archetype can be GPU-instanced automatically. The system routes them to the correct pool by matching `archetype.type.toLowerCase()` to the pool key.
+
+**Step 1 — Create the archetype JSON** (e.g. `src/config/archetypes/brute.json`):
+```json
+{
+  "type": "Brute",
+  "mesh": { "preset": "character", "color": "0x660066" },
+  "components": {
+    "Movement": { "speed": 1.5, "controller": "simple_steering", "faction": "enemy" },
+    "Health":   { "hp": 50, "maxHp": 50 },
+    "Tag":      { "tags": ["enemy"] },
+    "ContactDamage": { "damage": 5, "cooldown": 1.5, "range": 1.8, "targetFactions": ["player", "structure"] },
+    "EnemyAI":  { "aggroRadius": 15, "herdRadius": 8, "wanderSpeed": 0.3 },
+    "Collider": { "shape": "circle", "radius": 0.6, "isStatic": false },
+    "ZoneStatus": {}
+  }
+}
+```
+
+**Step 2 — Add a pool in `main.js`** (in the `loadLevel` method):
+```javascript
+this._characterPools.push(
+    new InstancedCharacterPool(this.scene.instance, 0x660066, 30)  // brute (purple)
+);
+// Add to factory pool map:
+this.factory.setInstancePools({
+    enemy: ..., villager: ..., speeder: ..., tank: ...,
+    brute: this._characterPools[4]  // key must match type.toLowerCase()
+});
+```
+
+**Step 3 — Spawn it:**
+```javascript
+this.factory.create('brute', somePosition);
+```
+
+That's it. EntityFactory detects the `character` preset, finds the `brute` pool, allocates a proxy, and all systems work unchanged.
+
+**Making enemies bigger/smaller:** Any system can write `transform.mesh.scale.set(1.5, 1.5, 1.5)` — the proxy scale is copied into the instance matrix by `sync()`. A boss can be 2× bigger than regular enemies using the same pool.
+
+**Different body shapes (non-character preset):** If you want a completely different mesh (e.g. a spider, a vehicle), create a new MeshPresets entry and a new InstancedMesh pool class for that geometry. The proxy pattern is the same — only the geometry/offsets in `sync()` change.
+
+**When NOT to instance:** Don't instance entities that need:
+- `getObjectByName()` for child animation (like gates with doorGroup)
+- Per-instance material changes (like damage flash — workaround: use per-instance color attribute)
+- WorldHealthBar or FloatingUI (needs real mesh in scene graph for matrixWorld — workaround: manually compute matrix)
+- Fewer than ~5 instances (overhead of instancing isn't worth it)
+
+**Fallback behavior:** If no pool exists for a character type, or the pool is full, EntityFactory automatically falls back to creating an individual mesh. No crash, no special handling needed — it just uses the old path.
 
 ### The Mental Model
 
