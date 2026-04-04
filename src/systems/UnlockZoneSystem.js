@@ -109,6 +109,7 @@ export class UnlockZoneSystem {
                 if (this._isFunded(zone)) {
                     EventBus.emit('zone:funded', {
                         zoneId,
+                        carrierId,
                         type: zone.type,
                         builds: zone.builds,
                         spawns: zone.spawns,

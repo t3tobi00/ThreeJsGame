@@ -87,39 +87,19 @@
     },
     "unlockZones": [
         {
-            "cell": [
-                17,
-                11
-            ],
-            "gridSpan": [
-                2,
-                2
-            ],
-            "position": {
-                "x": -6,
-                "y": 0,
-                "z": 6
-            },
+            "cell": [17, 11],
+            "gridSpan": [2, 2],
             "type": "build",
-            "cost": {
-                "meat": 10,
-                "coin": 10
-            },
+            "cost": { "meat": 10, "coin": 10 },
             "builds": "turret"
         },
         {
-            "position": {
-                "x": 0,
-                "y": 0,
-                "z": 14
-            },
+            "cell": [19, 14],
             "type": "convert",
-            "cost": {
-                "meat": 10
-            },
+            "cost": { "meat": 10 },
             "output": "coin",
-            "outputTag": "tray",
-            "outputCount": 5
+            "outputCount": 5,
+            "outputTarget": { "tag": "tray" }
         }
     ],
     "safeZone": {

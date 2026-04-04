@@ -173,17 +173,48 @@ class Game {
         // --- Unlock zones ---
         if (levelData.unlockZones) {
             for (const zoneDef of levelData.unlockZones) {
-                const pos = new THREE.Vector3(zoneDef.position.x, zoneDef.position.y, zoneDef.position.z);
+                // Resolve position: cell-based or legacy world coordinates
+                let pos;
+                if (zoneDef.cell) {
+                    pos = this.grid.rowColToWorld(zoneDef.cell[0], zoneDef.cell[1]);
+                } else {
+                    pos = new THREE.Vector3(zoneDef.position.x, zoneDef.position.y, zoneDef.position.z);
+                }
+
+                // Pre-resolve optional cell overrides to world positions
+                const buildsAt = zoneDef.buildsAt
+                    ? this.grid.rowColToWorld(zoneDef.buildsAt[0], zoneDef.buildsAt[1])
+                    : null;
+                const spawnsAt = zoneDef.spawnsAt
+                    ? this.grid.rowColToWorld(zoneDef.spawnsAt[0], zoneDef.spawnsAt[1])
+                    : null;
+
+                // Resolve outputTarget — cell form gets pre-resolved to worldPos
+                let outputTarget = zoneDef.outputTarget || null;
+                if (outputTarget && outputTarget.cell) {
+                    outputTarget = {
+                        ...outputTarget,
+                        worldPos: this.grid.rowColToWorld(outputTarget.cell[0], outputTarget.cell[1])
+                    };
+                }
+                // Legacy fallback
+                if (!outputTarget && zoneDef.outputTag) {
+                    outputTarget = { tag: zoneDef.outputTag };
+                }
+
                 this.factory.create('unlock-turret', pos, {
                     UnlockZone: {
                         type: zoneDef.type,
                         cost: zoneDef.cost,
                         builds: zoneDef.builds || null,
                         spawns: zoneDef.spawns || null,
-                        spawnCount: zoneDef.count || 1,
+                        spawnCount: zoneDef.count || zoneDef.spawnCount || 1,
                         output: zoneDef.output || null,
                         outputTag: zoneDef.outputTag || null,
-                        outputCount: zoneDef.outputCount || 1
+                        outputTarget,
+                        outputCount: zoneDef.outputCount || 1,
+                        buildsAt,
+                        spawnsAt
                     }
                 });
             }

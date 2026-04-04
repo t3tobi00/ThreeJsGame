@@ -8,5 +8,15 @@
         "mesh": { "preset": "coin", "color": "0xffdd00", "radius": 0.25, "height": 0.08 },
         "stackOffset": 0.16,
         "value": 1
+    },
+    "wood": {
+        "mesh": { "preset": "disk", "color": "0x8b5e3c", "radius": 0.3, "height": 0.12 },
+        "stackOffset": 0.22,
+        "value": 1
+    },
+    "stone": {
+        "mesh": { "preset": "disk", "color": "0x888888", "radius": 0.28, "height": 0.14 },
+        "stackOffset": 0.24,
+        "value": 1
     }
 }
