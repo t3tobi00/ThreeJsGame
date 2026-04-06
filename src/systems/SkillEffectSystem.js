@@ -35,6 +35,14 @@ export class SkillEffectSystem {
         EventBus.on('skill:fired',        (e) => this._onFired(e));
         EventBus.on('skill:melee_swing',  (e) => this._onMeleeSwing(e));
         EventBus.on('effect:hit_spark',   (e) => this._spawnHitSpark(e));
+        // Per-hit chop effect — any weapon can trigger this when striking a
+        // harvestable (so swords get the woodsy crunch on trees even though
+        // their swing animation is the cyan slash arc).
+        EventBus.on('effect:mine_chop',   (e) => {
+            const impactColor = 0xfff2b3;
+            const dustColor   = 0x8b6b3a;
+            this._spawnChopAt(e.position, impactColor, dustColor, 2.2, 0.1, 1.0);
+        });
     }
 
     setECS(ecs) { this._ecs = ecs; }
@@ -96,12 +104,12 @@ export class SkillEffectSystem {
         // (direction, isFinisher, hitCount).
     }
 
-    _onMeleeSwing({ entityId, skillId, origin, direction, isFinisher, hitCount }) {
+    _onMeleeSwing({ entityId, skillId, origin, direction, isFinisher, hitCount, hitPositions }) {
         const skill = this._lookupSkill(skillId);
         if (!skill || !skill.effect) return;
 
-        // The slash effect type can be specified per skill, OR the skill declares
-        // a finisher effect in skill.effect.finisher.type which overrides it.
+        // The effect type can be specified per skill, OR the skill declares
+        // a finisher override in skill.effect.finisher.type.
         const baseType = skill.effect.type;
         const finisherType = skill.effect.finisher?.type;
 
@@ -109,6 +117,8 @@ export class SkillEffectSystem {
             this._spawnSlashArc(origin, direction, skill.effect.finisher, true);
         } else if (baseType === 'slash_arc') {
             this._spawnSlashArc(origin, direction, skill.effect, false);
+        } else if (baseType === 'mine_chop') {
+            this._spawnMineChop(origin, direction, skill.effect, hitPositions || []);
         }
     }
 
@@ -374,6 +384,157 @@ export class SkillEffectSystem {
         });
     }
 
+    // ── Harvest: downward chop + dust puff ─────────────────────────
+
+    /**
+     * Mine chop effect — for each hit node (tree, rock), spawns a vertical
+     * impact bar that snaps down onto the target plus a ground-level dust
+     * puff (expanding ring + particles). Reads effect color config for
+     * theming (wood vs stone).
+     *
+     * When the swing misses everything (hitPositions empty), spawns a small
+     * chop in front of the player at range so the swing still feels
+     * responsive.
+     */
+    _spawnMineChop(origin, direction, cfg, hitPositions) {
+        const impactColor = this._parseColor(cfg.impactColor || cfg.color, 0xfff2b3);
+        const dustColor   = this._parseColor(cfg.dustColor || cfg.sparkColor, 0x8b6b3a);
+        const barHeight   = cfg.barHeight || 2.2;
+        const barRadius   = cfg.barRadius || 0.10;
+
+        if (hitPositions.length === 0) {
+            // Whiff — still give the player feedback in front of them
+            const whiffPos = origin.clone();
+            whiffPos.x += direction.x * 1.5;
+            whiffPos.z += direction.z * 1.5;
+            whiffPos.y = 0;
+            this._spawnChopAt(whiffPos, impactColor, dustColor, barHeight, barRadius, 0.5);
+            return;
+        }
+
+        for (const pos of hitPositions) {
+            this._spawnChopAt(pos, impactColor, dustColor, barHeight, barRadius, 1.0);
+        }
+    }
+
+    /**
+     * Single chop instance: impact bar + ring + dust particles.
+     */
+    _spawnChopAt(pos, impactColor, dustColor, barHeight, barRadius, intensity) {
+        const anchor = new THREE.Group();
+        anchor.position.copy(pos);
+        anchor.position.y = 0;
+
+        // ── Vertical impact bar — snaps down over 0.06s, then fades out ──
+        const barGeo = new THREE.CylinderGeometry(barRadius, barRadius, barHeight, 8);
+        const barMat = new THREE.MeshBasicMaterial({
+            color: impactColor,
+            transparent: true,
+            opacity: 1.0
+        });
+        const bar = new THREE.Mesh(barGeo, barMat);
+        bar.position.y = barHeight / 2 + 3.0; // start high above
+        anchor.add(bar);
+
+        // ── Inner bright core — slightly thinner, pure white ──
+        const coreGeo = new THREE.CylinderGeometry(barRadius * 0.4, barRadius * 0.4, barHeight, 6);
+        const coreMat = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 1.0
+        });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        core.position.y = barHeight / 2 + 3.0;
+        anchor.add(core);
+
+        // ── Expanding ground ring at target base (dust shockwave) ──
+        const ringGeo = new THREE.RingGeometry(0.15, 0.30, 24);
+        const ringMat = new THREE.MeshBasicMaterial({
+            color: dustColor,
+            transparent: true,
+            opacity: 0.85,
+            side: THREE.DoubleSide
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.03;
+        anchor.add(ring);
+
+        // ── Dust particles — small spheres bursting outward along ground ──
+        const particleCount = Math.round(12 * intensity);
+        const particles = [];
+        const dustMat = new THREE.MeshBasicMaterial({
+            color: dustColor,
+            transparent: true,
+            opacity: 0.95
+        });
+        for (let i = 0; i < particleCount; i++) {
+            const geo = new THREE.SphereGeometry(0.07 + Math.random() * 0.06, 4, 4);
+            const p = new THREE.Mesh(geo, dustMat);
+
+            // Random horizontal direction, slight upward kick
+            const theta = Math.random() * Math.PI * 2;
+            const speed = 1.5 + Math.random() * 2;
+            const upSpeed = 1.5 + Math.random() * 1.5;
+            p.userData.velocity = new THREE.Vector3(
+                Math.cos(theta) * speed,
+                upSpeed,
+                Math.sin(theta) * speed
+            );
+            p.position.y = 0.1 + Math.random() * 0.1;
+            anchor.add(p);
+            particles.push(p);
+        }
+
+        this.scene.add(anchor);
+
+        const duration = 0.55;
+        this._active.push({
+            anchor,
+            elapsed: 0,
+            duration,
+            tick: (dt, elapsed, dur) => {
+                const t = elapsed / dur;
+
+                // Impact bar: first 0.08s = snap down (lerp y from +3 → 0),
+                // then fade/shrink over the rest
+                if (elapsed < 0.08) {
+                    const k = elapsed / 0.08;
+                    const y0 = barHeight / 2 + 3.0;
+                    const y1 = barHeight / 2;
+                    bar.position.y  = y0 + (y1 - y0) * k;
+                    core.position.y = bar.position.y;
+                } else {
+                    const k = (elapsed - 0.08) / (dur - 0.08);
+                    barMat.opacity  = Math.max(0, 1 - k * 1.5);
+                    coreMat.opacity = Math.max(0, 1 - k * 1.3);
+                    const s = 1 + k * 0.3;
+                    bar.scale.set(s, 1, s);
+                }
+
+                // Ring: expand + fade
+                const ringScale = 1 + t * 6;
+                ring.scale.set(ringScale, ringScale, ringScale);
+                ringMat.opacity = 0.85 * (1 - t);
+
+                // Particles: integrate with gravity, fade
+                const gravity = 9;
+                for (const p of particles) {
+                    p.position.addScaledVector(p.userData.velocity, dt);
+                    p.userData.velocity.y -= gravity * dt;
+                    if (p.position.y < 0.02) {
+                        p.position.y = 0.02;
+                        p.userData.velocity.y = 0;
+                        p.userData.velocity.x *= 0.6;
+                        p.userData.velocity.z *= 0.6;
+                    }
+                    p.scale.setScalar(1 - t * 0.5);
+                }
+                dustMat.opacity = 0.95 * (1 - t);
+            }
+        });
+    }
+
     // ── Hit sparks ─────────────────────────────────────────────────
 
     /**
@@ -381,9 +542,13 @@ export class SkillEffectSystem {
      * Cheap, spawned one per enemy per swing. Finisher variant is bigger
      * and hotter-colored.
      */
-    _spawnHitSpark({ position, isFinisher }) {
+    _spawnHitSpark({ position, isFinisher, color }) {
         const particleCount = isFinisher ? 10 : 6;
-        const baseColor = isFinisher ? 0xffaa22 : 0xffffaa;
+        // Allow per-event color override (e.g. brown dust for mining, yellow
+        // sparks for combat). Falls back to the finisher/default palette.
+        const baseColor = (color != null)
+            ? this._parseColor(color, 0xffffaa)
+            : (isFinisher ? 0xffaa22 : 0xffffaa);
         const speed = isFinisher ? 5 : 3;
         const duration = isFinisher ? 0.35 : 0.22;
 

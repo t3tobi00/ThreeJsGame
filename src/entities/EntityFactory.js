@@ -27,6 +27,7 @@ import { Component_InstanceRef } from '../ecs/components/Component_InstanceRef.j
 import { Component_SkillLoadout } from '../ecs/components/Component_SkillLoadout.js';
 import { Component_SkillState } from '../ecs/components/Component_SkillState.js';
 import { Component_Arms } from '../ecs/components/Component_Arms.js';
+import { Component_Harvestable } from '../ecs/components/Component_Harvestable.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -57,6 +58,7 @@ const COMPONENT_MAP = {
     SkillLoadout:    (d) => new Component_SkillLoadout(d),
     SkillState:      ()  => new Component_SkillState(),
     Arms:            ()  => new Component_Arms(),
+    Harvestable:     (d) => new Component_Harvestable(d),
 };
 
 
@@ -120,6 +122,14 @@ export class EntityFactory {
                 continue;
             }
             this.ecs.addComponent(id, name, factory(data));
+        }
+
+        // Populate Harvestable with archetype name + spawn position so
+        // HarvestNodeSystem can respawn this node after it dies.
+        const harvestable = this.ecs.getComponent(id, 'Harvestable');
+        if (harvestable) {
+            harvestable.archetypeName = archetypeName;
+            harvestable.spawnPos = pos.clone();
         }
 
         // ─── DISABLED: physical arm meshes ───

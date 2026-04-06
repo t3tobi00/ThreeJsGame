@@ -25,6 +25,7 @@ import { SkillSystem } from './systems/SkillSystem.js';
 // commented so we can re-enable quickly if we want arms back.
 // import { ArmAnimSystem } from './systems/ArmAnimSystem.js';
 import { SkillEffectSystem } from './systems/SkillEffectSystem.js';
+import { HarvestNodeSystem } from './systems/HarvestNodeSystem.js';
 import { StackSystem } from './systems/StackSystem.js';
 import { CameraSystem } from './systems/CameraSystem.js';
 import { EnemySystem } from './systems/EnemySystem.js';
@@ -98,6 +99,10 @@ class Game {
         // Damage popups (floating numbers over hit enemies)
         this.damagePopupUI = new DamagePopupUI(this.camera.instance);
 
+        // HarvestNodeSystem — respawns trees/rocks after they're mined.
+        // Non-ECS: update(dt) is called from the animate loop below.
+        this.harvestNodeSystem = new HarvestNodeSystem(this.factory, this.ecs);
+
         this.combatSystem = new CombatSystem(this.scene.instance, this.projectilePool);
         this.ecs.registerSystem(this.combatSystem, ['Transform', 'Shooter']);
 
@@ -135,7 +140,7 @@ class Game {
      * No hardcoded positions or entity references in main.js.
      */
     async loadLevel(path) {
-        const { grid, levelData, gridOverlay, fenceGroup, fenceEdges } =
+        const { grid, levelData, gridOverlay, fenceGroup, fenceEdges, propEntities } =
             await SceneLoader.load(path, this.scene.instance);
         this.grid = grid;
 
@@ -195,6 +200,15 @@ class Game {
         // --- Entities from level JSON ---
         if (levelData.entities) {
             for (const def of levelData.entities) {
+                const pos = new THREE.Vector3(def.position.x, def.position.y, def.position.z);
+                this.factory.create(def.archetype, pos);
+            }
+        }
+
+        // --- Scattered harvestable props (all procedurally-placed rocks/trees
+        //     are now real ECS entities so every one is minable) ---
+        if (propEntities && propEntities.length > 0) {
+            for (const def of propEntities) {
                 const pos = new THREE.Vector3(def.position.x, def.position.y, def.position.z);
                 this.factory.create(def.archetype, pos);
             }
@@ -404,6 +418,7 @@ class Game {
         this.cameraSystem.update(realDt);
         this.particleSystem.update(deltaTime);
         this.skillEffectSystem.update(deltaTime);
+        this.harvestNodeSystem.update(deltaTime);
         this.damagePopupUI.update(realDt);
         this.floatingUI.update();
         this.playerHealthBar.update();

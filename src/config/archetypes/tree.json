@@ -1,0 +1,17 @@
+{
+  "type": "Tree",
+  "emoji": "🌲",
+  "mesh": {
+    "preset": "dead-tree",
+    "color": "0x5d4037"
+  },
+  "behaviors": ["harvestable"],
+  "components": {
+    "Health":       { "hp": 30, "maxHp": 30, "armor": 0 },
+    "Harvestable":  { "respawnTime": 15 },
+    "Drops":        { "table": [{ "type": "wood", "chance": 1.0, "min": 3, "max": 5 }] },
+    "Tag":          { "tags": ["tree", "harvestable"] },
+    "Collider":     { "shape": "box", "width": 0.6, "depth": 0.6, "isStatic": true },
+    "FlashAnim":    { "color": "0xffffff", "duration": 0.12, "onEvent": "entity:damaged" }
+  }
+}

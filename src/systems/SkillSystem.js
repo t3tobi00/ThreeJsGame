@@ -164,16 +164,63 @@ export class SkillSystem {
 
     _findTarget(shooterId, shooterTransform, skill, ecs) {
         const range = skill.range || 10;
+        const shooterPos = shooterTransform.mesh.position;
 
         if (skill.type === 'projectile' || skill.type === 'melee') {
             const factions = skill.targetFactions || ['enemy'];
-            const candidates = ecs.queryEntities(['Transform', 'Movement', 'Health']);
+            let best = null;
+            let bestDist = range;
+
+            // Faction-matched enemies
+            const enemyCandidates = ecs.queryEntities(['Transform', 'Movement', 'Health']);
+            for (const id of enemyCandidates) {
+                if (id === shooterId) continue;
+                const m = ecs.getComponent(id, 'Movement');
+                if (!factions.includes(m.faction)) continue;
+                const t = ecs.getComponent(id, 'Transform');
+                const dist = shooterPos.distanceTo(t.mesh.position);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = { entityId: id, pos: t.mesh.position };
+                }
+            }
+
+            // For melee weapons with alsoTargetTags (e.g. sword that chops trees),
+            // also consider nearby tagged harvestables. Picks the nearest of
+            // either category so the sword auto-swings whether you're near a
+            // zombie or a tree.
+            if (skill.type === 'melee' && skill.alsoTargetTags?.length > 0) {
+                const alsoTags = skill.alsoTargetTags;
+                const taggedCandidates = ecs.queryEntities(['Transform', 'Tag', 'Health']);
+                for (const id of taggedCandidates) {
+                    if (id === shooterId) continue;
+                    const tag = ecs.getComponent(id, 'Tag');
+                    if (!tag || !alsoTags.some(t => tag.has(t))) continue;
+                    const t = ecs.getComponent(id, 'Transform');
+                    const dist = shooterPos.distanceTo(t.mesh.position);
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        best = { entityId: id, pos: t.mesh.position };
+                    }
+                }
+            }
+
+            return best;
+        }
+
+        if (skill.type === 'harvest') {
+            // Tag-based targeting: find the nearest entity whose Tag component
+            // contains ANY of the skill's targetTags. Harvestables don't need
+            // a Movement component.
+            const wantTags = skill.targetTags || ['harvestable'];
+            const candidates = ecs.queryEntities(['Transform', 'Tag', 'Health']);
             let best = null;
             let bestDist = range;
             for (const id of candidates) {
                 if (id === shooterId) continue;
-                const m = ecs.getComponent(id, 'Movement');
-                if (!factions.includes(m.faction)) continue;
+                const tag = ecs.getComponent(id, 'Tag');
+                if (!tag) continue;
+                if (!wantTags.some(t => tag.has(t))) continue;
                 const t = ecs.getComponent(id, 'Transform');
                 const dist = shooterTransform.mesh.position.distanceTo(t.mesh.position);
                 if (dist < bestDist) {
@@ -184,7 +231,6 @@ export class SkillSystem {
             return best;
         }
 
-        // Phase 5: 'harvest' — tag-based targeting
         return null;
     }
 
@@ -214,21 +260,101 @@ export class SkillSystem {
             case 'melee':
                 this._executeMelee(shooterId, transform, skill, targetInfo, ecs);
                 break;
-            // Phase 5: case 'harvest':
+            case 'harvest':
+                this._executeHarvest(shooterId, transform, skill, targetInfo, ecs);
+                break;
         }
     }
 
     /**
-     * Melee swing — hits all valid enemies in a forward-facing cone.
+     * Harvest — same cone-hit logic as melee, but targets entities by Tag
+     * rather than Movement.faction. No combo/finisher/knockback. Hit sparks
+     * use a dust-colored palette via the skill's effect.sparkColor if set.
+     */
+    _executeHarvest(shooterId, transform, skill, primaryTarget, ecs) {
+        const range = skill.range || 2.5;
+        const cfg = skill.harvest || {};
+        const coneAngleRad = THREE.MathUtils.degToRad(cfg.coneAngleDeg || 100);
+        const halfCone = coneAngleRad / 2;
+
+        const origin = transform.mesh.position;
+        const facing = new THREE.Vector3().subVectors(primaryTarget.pos, origin);
+        facing.y = 0;
+        if (facing.lengthSq() < 0.0001) return;
+        facing.normalize();
+
+        const damage = skill.damage || 5;
+        const wantTags = skill.targetTags || ['harvestable'];
+        const sparkColor = skill.effect?.sparkColor || 0x9e7a48;
+
+        const candidates = ecs.queryEntities(['Transform', 'Tag', 'Health']);
+        const hits = [];
+        for (const id of candidates) {
+            if (id === shooterId) continue;
+            const tag = ecs.getComponent(id, 'Tag');
+            if (!tag || !wantTags.some(t => tag.has(t))) continue;
+
+            const t = ecs.getComponent(id, 'Transform');
+            const toNode = new THREE.Vector3().subVectors(t.mesh.position, origin);
+            toNode.y = 0;
+            const dist = toNode.length();
+            if (dist > range || dist < 0.0001) continue;
+            toNode.divideScalar(dist);
+
+            const dot = facing.dot(toNode);
+            const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+            if (angle > halfCone) continue;
+
+            hits.push({ id, transform: t });
+        }
+
+        for (const hit of hits) {
+            EventBus.emit('entity:damaged', { entityId: hit.id, damage });
+
+            const hitPos = hit.transform.mesh.position.clone();
+            hitPos.y += 0.6;
+            EventBus.emit('effect:hit_spark', {
+                position: hitPos,
+                isFinisher: false,
+                color: sparkColor
+            });
+            EventBus.emit('damage:popup', {
+                position: hit.transform.mesh.position.clone().add(new THREE.Vector3(0, 1.4, 0)),
+                amount: Math.round(damage),
+                isCrit: false
+            });
+        }
+
+        // Fire the swing event with actual hit positions so the effect system
+        // can place chop visuals + dust puffs at each impacted node.
+        EventBus.emit('skill:melee_swing', {
+            entityId: shooterId,
+            skillId: skill.id,
+            origin: origin.clone(),
+            direction: facing.clone(),
+            isFinisher: false,
+            hitCount: hits.length,
+            hitPositions: hits.map(h => h.transform.mesh.position.clone())
+        });
+    }
+
+    /**
+     * Melee swing — hits all valid enemies in a forward-facing cone, plus
+     * any tagged harvestables in the cone if skill.alsoTargetTags is set.
+     *
+     * A sword that can chop trees and fight zombies at once is much more
+     * satisfying than forcing a skill swap per task, so melee weapons now
+     * double as axes/pickaxes against Tag-matched objects.
      *
      * Flow:
      *   1. Compute facing direction toward the primary (nearest) target
      *   2. Increment combo count; check if this swing is a finisher
      *   3. Find ALL enemies inside range + cone arc
-     *   4. Deal damage (x multiplier on finisher), push them back, spawn
+     *   4. Find ALL tagged harvestables inside range + cone arc (if configured)
+     *   5. Deal damage (x multiplier on finisher), push them back, spawn
      *      hit sparks + damage popups per hit
-     *   5. Emit 'skill:melee_swing' so SkillEffectSystem can spawn the arc
-     *   6. On finisher-with-hits: emit camera shake + hitstop
+     *   6. Emit 'skill:melee_swing' so SkillEffectSystem can spawn the arc
+     *   7. On finisher-with-hits: emit camera shake + hitstop
      */
     _executeMelee(shooterId, transform, skill, primaryTarget, ecs) {
         const range = skill.range || 3;
@@ -261,12 +387,13 @@ export class SkillSystem {
         const damage = (skill.damage || 5) * damageMult;
         const knockback = (skill.knockback || 0.5) * knockbackMult;
 
-        // Find all targets inside the cone
+        // Find all targets inside the cone.
+        // First pass: faction-matched enemies (entities with Movement + Health).
         const factions = skill.targetFactions || ['enemy'];
-        const candidates = ecs.queryEntities(['Transform', 'Movement', 'Health']);
+        const enemyCandidates = ecs.queryEntities(['Transform', 'Movement', 'Health']);
 
         const hits = [];
-        for (const id of candidates) {
+        for (const id of enemyCandidates) {
             if (id === shooterId) continue;
             const m = ecs.getComponent(id, 'Movement');
             if (!factions.includes(m.faction)) continue;
@@ -284,28 +411,64 @@ export class SkillSystem {
             const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
             if (angle > effectiveHalfCone) continue;
 
-            hits.push({ id, transform: t });
+            hits.push({ id, transform: t, isHarvestable: false });
+        }
+
+        // Second pass: tagged harvestables (trees, rocks) if the skill allows it.
+        // Lets swords chop wood and break stones without swapping to pickaxe.
+        const alsoTags = skill.alsoTargetTags || [];
+        if (alsoTags.length > 0) {
+            const taggedCandidates = ecs.queryEntities(['Transform', 'Tag', 'Health']);
+            for (const id of taggedCandidates) {
+                if (id === shooterId) continue;
+                const tag = ecs.getComponent(id, 'Tag');
+                if (!tag || !alsoTags.some(t => tag.has(t))) continue;
+
+                const t = ecs.getComponent(id, 'Transform');
+                const toNode = new THREE.Vector3().subVectors(t.mesh.position, origin);
+                toNode.y = 0;
+                const dist = toNode.length();
+                if (dist > effectiveRange) continue;
+                if (dist < 0.0001) continue;
+                toNode.divideScalar(dist);
+
+                const dot = facing.dot(toNode);
+                const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+                if (angle > effectiveHalfCone) continue;
+
+                hits.push({ id, transform: t, isHarvestable: true });
+            }
         }
 
         // Apply damage, knockback, spark, popup per hit
         for (const hit of hits) {
             EventBus.emit('entity:damaged', { entityId: hit.id, damage });
 
-            // Knockback — push enemy away from shooter
-            const kb = new THREE.Vector3().subVectors(hit.transform.mesh.position, origin);
-            kb.y = 0;
-            if (kb.lengthSq() > 0.0001) {
-                kb.normalize().multiplyScalar(knockback);
-                hit.transform.mesh.position.add(kb);
+            if (hit.isHarvestable) {
+                // Harvestables: dedicated chop impact instead of the yellow
+                // sparks. Swing arc still plays (emitted below) so the sword
+                // keeps its identity; the chop is the *contact* feedback.
+                EventBus.emit('effect:mine_chop', {
+                    position: hit.transform.mesh.position.clone()
+                });
+            } else {
+                // Enemies: knockback + yellow sparks (or hot finisher sparks)
+                const kb = new THREE.Vector3().subVectors(hit.transform.mesh.position, origin);
+                kb.y = 0;
+                if (kb.lengthSq() > 0.0001) {
+                    kb.normalize().multiplyScalar(knockback);
+                    hit.transform.mesh.position.add(kb);
+                }
+
+                const hitPos = hit.transform.mesh.position.clone();
+                hitPos.y += 1.0;
+                EventBus.emit('effect:hit_spark', {
+                    position: hitPos,
+                    isFinisher
+                });
             }
 
-            // Visual/UI hooks
-            const hitPos = hit.transform.mesh.position.clone();
-            hitPos.y += 1.0;
-            EventBus.emit('effect:hit_spark', {
-                position: hitPos,
-                isFinisher
-            });
+            // Damage popup for every hit (enemies and harvestables)
             EventBus.emit('damage:popup', {
                 position: hit.transform.mesh.position.clone().add(new THREE.Vector3(0, 1.8, 0)),
                 amount: Math.round(damage),

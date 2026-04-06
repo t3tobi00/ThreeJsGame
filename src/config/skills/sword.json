@@ -3,6 +3,7 @@
   "name": "Iron Sword",
   "type": "melee",
   "targetFactions": ["enemy"],
+  "alsoTargetTags": ["harvestable"],
   "range": 2.8,
   "damage": 8,
   "fireRate": 0.35,

@@ -1,0 +1,18 @@
+{
+  "type": "Rock",
+  "emoji": "🪨",
+  "mesh": {
+    "preset": "rock",
+    "color": "0x888888",
+    "scale": 1.4
+  },
+  "behaviors": ["harvestable"],
+  "components": {
+    "Health":       { "hp": 40, "maxHp": 40, "armor": 1 },
+    "Harvestable":  { "respawnTime": 20 },
+    "Drops":        { "table": [{ "type": "stone", "chance": 1.0, "min": 2, "max": 4 }] },
+    "Tag":          { "tags": ["rock", "harvestable"] },
+    "Collider":     { "shape": "box", "width": 0.8, "depth": 0.8, "isStatic": true },
+    "FlashAnim":    { "color": "0xffffff", "duration": 0.12, "onEvent": "entity:damaged" }
+  }
+}

@@ -59,6 +59,8 @@ canvas {
 
 .hud-item .icon {
     font-size: 1.4rem;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+                 "Twemoji Mozilla", sans-serif;
 }
 
 #joystick-container {

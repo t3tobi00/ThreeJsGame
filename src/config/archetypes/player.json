@@ -25,7 +25,9 @@
       "radius": 5,
       "resourceTypes": [
         "meat",
-        "coin"
+        "coin",
+        "wood",
+        "stone"
       ],
       "pullForce": 1.0,
       "collectFromTags": [

@@ -19,7 +19,12 @@ export class SceneLoader {
             fenceEdges = result.fenceEdges;
         }
 
-        if (levelData.props) SceneLoader._buildProps(scene, levelData.props);
+        // Props are now returned as position data — main.js creates real ECS
+        // entities via EntityFactory so every scattered tree/rock is harvestable.
+        const propEntities = levelData.props
+            ? SceneLoader._computePropPositions(levelData.props)
+            : [];
+
         if (levelData.road)  SceneLoader._buildRoad(scene, levelData.road);
 
         let gridOverlay = null;
@@ -29,7 +34,7 @@ export class SceneLoader {
             scene.add(gridOverlay);
         }
 
-        return { grid, levelData, gridOverlay, fenceGroup, fenceEdges };
+        return { grid, levelData, gridOverlay, fenceGroup, fenceEdges, propEntities };
     }
 
     static _buildGround(scene, ground) {
@@ -160,27 +165,29 @@ export class SceneLoader {
         return { fenceGroup, fenceEdges };
     }
 
-    static _buildProps(scene, props) {
-        const total = (props.rocks || 0) + (props.deadTrees || 0);
+    /**
+     * Compute scattered positions for rock/tree props. Returns an array of
+     * { archetype, position } entries so main.js can spawn real entities via
+     * EntityFactory (making every prop minable).
+     */
+    static _computePropPositions(props) {
         const rockCount = props.rocks || 0;
-        const minDist = props.spawnRadius.min;
-        const maxDist = props.spawnRadius.max;
+        const treeCount = props.deadTrees || 0;
+        const minDist = props.spawnRadius?.min ?? 12;
+        const maxDist = props.spawnRadius?.max ?? 38;
 
-        for (let i = 0; i < total; i++) {
+        const entries = [];
+        for (let i = 0; i < rockCount + treeCount; i++) {
             const angle = Math.random() * Math.PI * 2;
             const dist = minDist + Math.random() * (maxDist - minDist);
             const x = Math.cos(angle) * dist;
             const z = Math.sin(angle) * dist;
-
-            let prop;
-            if (i < rockCount) {
-                prop = MeshPresets.create('rock');
-            } else {
-                prop = MeshPresets.create('dead-tree');
-            }
-            prop.position.set(x, 0, z);
-            scene.add(prop);
+            entries.push({
+                archetype: i < rockCount ? 'rock' : 'tree',
+                position: { x, y: 0, z }
+            });
         }
+        return entries;
     }
 
     static _buildRoad(scene, road) {

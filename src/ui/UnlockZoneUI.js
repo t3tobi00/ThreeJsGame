@@ -17,8 +17,8 @@ import { getArchetype } from '../core/ArchetypeLoader.js';
  * - Corner brackets frame the zone and pulse green when player is in range
  */
 
-// Font stack that works across platforms for color emoji in canvas 2D
-const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif';
+// Segoe UI Emoji first → fixes Edge; Apple Color Emoji → fixes Mac; fallback sans-serif
+const EMOJI_FONT = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
 
 const FALLBACK_RESOURCE_EMOJI = '\u2753';
 const FALLBACK_OUTPUT_EMOJI   = '\u{1F527}';
@@ -55,67 +55,8 @@ export class UnlockZoneUI {
             this.progress[key] = 0;
         }
 
-        this._createFillPlane();
         this._createCornerBrackets();
         this._createContentPlane();
-    }
-
-    // ── Progress Fill Plane (blue water under content) ────────────
-
-    _createFillPlane() {
-        // A blue plane that sits UNDER the content, scales from 0 → 1 to
-        // give a "water filling the cup" effect as the zone gets funded.
-        const planeSize = this.size * 0.88;
-        const geo = new THREE.PlaneGeometry(planeSize, planeSize);
-        const mat = new THREE.MeshBasicMaterial({
-            color: 0x44aaff,
-            transparent: true,
-            opacity: 0.45,
-            depthTest: false,
-            side: THREE.DoubleSide
-        });
-        const plane = new THREE.Mesh(geo, mat);
-        plane.rotation.x = -Math.PI / 2;
-        plane.position.y = 0.04;  // below content plane (0.06)
-        plane.renderOrder = 998;
-        plane.scale.set(1, 1, 0.001); // start empty (scale Z controls fill height)
-        this.group.add(plane);
-        this._fillPlane = plane;
-        this._fillPlaneSize = planeSize;
-        this._disposables.push(geo, mat);
-    }
-
-    _updateFillPlane() {
-        // Total progress 0..1 across all resources
-        const entries = Object.entries(this.cost);
-        let total = 0;
-        let current = 0;
-        for (const [type, needed] of entries) {
-            total += needed;
-            current += Math.min(this.progress[type] || 0, needed);
-        }
-        const pct = total > 0 ? current / total : 0;
-
-        // Scale Z from 0.001 → 1 to fill upward.
-        // Also shift position so the fill grows from the bottom (+Z) edge
-        // of the plane upward (−Z direction, which is "north" in world).
-        const half = this._fillPlaneSize / 2;
-        this._fillPlane.scale.z = Math.max(0.001, pct);
-        // Anchor bottom edge — the plane's center shifts as it grows
-        this._fillPlane.position.z = half - (half * pct);
-
-        // Color transitions: blue → cyan → green as it fills
-        const mat = this._fillPlane.material;
-        if (pct >= 1) {
-            mat.color.setHex(0x44ff88);  // complete — green
-            mat.opacity = 0.55;
-        } else if (pct > 0.5) {
-            mat.color.setHex(0x44ccff);  // mostly — cyan
-            mat.opacity = 0.5;
-        } else {
-            mat.color.setHex(0x44aaff);  // partial — blue
-            mat.opacity = 0.45;
-        }
     }
 
     // ── Corner Brackets (slim, pointing inward) ────────────────────
@@ -294,8 +235,8 @@ export class UnlockZoneUI {
 
         // Emoji + count side by side
         // Scale the horizontal offsets with size so spacing stays proportional
-        const emojiOffset = -emojiSize * 0.42;
-        const numberOffset = emojiSize * 0.32;
+        const emojiOffset = -emojiSize * 0.55;
+        const numberOffset = emojiSize * 0.45;
 
         ctx.font = `${emojiSize}px ${EMOJI_FONT}`;
         ctx.fillStyle = 'white';
@@ -337,7 +278,6 @@ export class UnlockZoneUI {
         }
         if (changed) {
             this._renderContent();
-            this._updateFillPlane();
         }
     }
 
@@ -363,9 +303,6 @@ export class UnlockZoneUI {
         if (this._contentPlane) {
             this.group.remove(this._contentPlane);
             this._texture.dispose();
-        }
-        if (this._fillPlane) {
-            this.group.remove(this._fillPlane);
         }
         for (const d of this._disposables) {
             if (d.dispose) d.dispose();

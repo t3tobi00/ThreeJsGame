@@ -1,0 +1,25 @@
+{
+  "id": "pickaxe",
+  "name": "Pickaxe",
+  "type": "harvest",
+  "targetTags": ["harvestable"],
+  "range": 2.5,
+  "damage": 6,
+  "fireRate": 0.45,
+  "windup": 0,
+  "charges": 0,
+  "reloadTime": 0,
+
+  "harvest": {
+    "coneAngleDeg": 100
+  },
+
+  "effect": {
+    "type": "mine_chop",
+    "impactColor": "0xfff2b3",
+    "dustColor": "0x8b6b3a",
+    "sparkColor": "0x9e7a48",
+    "barHeight": 2.2,
+    "barRadius": 0.1
+  }
+}

@@ -1,14 +1,13 @@
 import EventBus from '../core/EventBus.js';
-
-const RESOURCE_EMOJI = {
-    meat: '\u{1F356}',
-    coin: '\u{1FA99}'
-};
+import ResourceRegistry from '../core/ResourceRegistry.js';
 
 /**
  * HUD — Displays resource counts.
  * Player HP is shown by WorldHealthBar (floating above head) — not here.
  * Per-gate HP bars are WorldHealthBar instances created in main.js.
+ *
+ * Resource emojis are pulled from ResourceRegistry (resources.json "emoji"
+ * field) so adding a new resource doesn't require touching this file.
  */
 export class HUD {
     constructor(ecs, playerId) {
@@ -30,10 +29,18 @@ export class HUD {
     _ensureItem(type) {
         if (this._items[type]) return this._items[type];
 
+        // Pull emoji from ResourceRegistry (resources.json). Falls back to ?
+        // only for truly unknown types.
+        let emoji = '\u2753';
+        try {
+            const def = ResourceRegistry.get(type);
+            if (def && def.emoji) emoji = def.emoji;
+        } catch (e) { /* unknown type, keep fallback */ }
+
         const item = document.createElement('div');
         item.className = 'hud-item';
         item.innerHTML = `
-            <span class="icon">${RESOURCE_EMOJI[type] || '\u2753'}</span>
+            <span class="icon">${emoji}</span>
             <span class="value">0</span>
         `;
         this.container.appendChild(item);
