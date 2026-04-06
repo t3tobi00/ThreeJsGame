@@ -173,10 +173,19 @@ class Game {
         // --- Unlock zones ---
         if (levelData.unlockZones) {
             for (const zoneDef of levelData.unlockZones) {
-                // Resolve position: cell-based or legacy world coordinates
+                // Resolve position: cell-based (cell = top-left corner, span = extent)
+                // or legacy world coordinates
                 let pos;
                 if (zoneDef.cell) {
-                    pos = this.grid.rowColToWorld(zoneDef.cell[0], zoneDef.cell[1]);
+                    const [row, col] = zoneDef.cell;
+                    const [spanR, spanC] = zoneDef.gridSpan || [2, 2];
+                    // Zone origin anchored to cell's top-left corner,
+                    // then offset to the center of the spanned area
+                    pos = new THREE.Vector3(
+                        this.grid.origin.x + col * this.grid.cellSize + (spanC * this.grid.cellSize) / 2,
+                        0,
+                        this.grid.origin.z + row * this.grid.cellSize + (spanR * this.grid.cellSize) / 2
+                    );
                 } else {
                     pos = new THREE.Vector3(zoneDef.position.x, zoneDef.position.y, zoneDef.position.z);
                 }
