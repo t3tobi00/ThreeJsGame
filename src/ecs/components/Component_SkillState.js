@@ -27,5 +27,10 @@ export class Component_SkillState {
 
         // Entity id of the target locked at windup start (so we don't lose it mid-charge)
         this.windupTargetId = null;
+
+        // Combo counter for melee weapons — increments on every successful swing.
+        // Used by skills with a "combo.finisherEvery" config to trigger a heavy
+        // finisher swing on every Nth hit. Does NOT reset on idle (by design).
+        this.comboCount = 0;
     }
 }

@@ -13,6 +13,7 @@ import { HUD } from './ui/HUD.js';
 import { GameOverUI } from './ui/GameOverUI.js';
 import { FloatingUI } from './ui/FloatingUI.js';
 import { WorldHealthBar } from './ui/WorldHealthBar.js';
+import { DamagePopupUI } from './ui/DamagePopupUI.js';
 
 // --- ECS Framework ---
 import { ECSManager } from './ecs/ECSManager.js';
@@ -20,6 +21,10 @@ import { EntityFactory } from './entities/EntityFactory.js';
 import { MovementSystem } from './systems/MovementSystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
 import { SkillSystem } from './systems/SkillSystem.js';
+// DISABLED: physical arm meshes replaced by SkillEffectSystem. Keep import
+// commented so we can re-enable quickly if we want arms back.
+// import { ArmAnimSystem } from './systems/ArmAnimSystem.js';
+import { SkillEffectSystem } from './systems/SkillEffectSystem.js';
 import { StackSystem } from './systems/StackSystem.js';
 import { CameraSystem } from './systems/CameraSystem.js';
 import { EnemySystem } from './systems/EnemySystem.js';
@@ -45,6 +50,10 @@ import { InstancedCharacterPool } from './rendering/InstancedCharacterPool.js';
 class Game {
     constructor() {
         this.clock = new THREE.Clock();
+        this._hitstopLeft = 0; // seconds of frozen gameplay (finisher impact)
+        EventBus.on('game:hitstop', ({ duration = 0.06 } = {}) => {
+            this._hitstopLeft = Math.max(this._hitstopLeft, duration);
+        });
         this.init();
     }
 
@@ -75,6 +84,19 @@ class Game {
         // (turrets) keep using CombatSystem until they're migrated.
         this.skillSystem = new SkillSystem(this.scene.instance, this.projectilePool);
         this.ecs.registerSystem(this.skillSystem, ['Transform', 'SkillLoadout', 'SkillState']);
+
+        // DISABLED: physical arm animations replaced by SkillEffectSystem.
+        // this.armAnimSystem = new ArmAnimSystem();
+        // this.ecs.registerSystem(this.armAnimSystem, ['Arms']);
+
+        // SkillEffectSystem — spawns per-skill visual effects (bow draw, muzzle
+        // flash, melee slash, etc.) in response to skill:windup_start / skill:fired.
+        // Non-ECS: update() is called from the animate loop below.
+        this.skillEffectSystem = new SkillEffectSystem(this.scene.instance);
+        this.skillEffectSystem.setECS(this.ecs);
+
+        // Damage popups (floating numbers over hit enemies)
+        this.damagePopupUI = new DamagePopupUI(this.camera.instance);
 
         this.combatSystem = new CombatSystem(this.scene.instance, this.projectilePool);
         this.ecs.registerSystem(this.combatSystem, ['Transform', 'Shooter']);
@@ -364,14 +386,25 @@ class Game {
 
     animate() {
         requestAnimationFrame(this.animate.bind(this));
-        const deltaTime = Math.min(this.clock.getDelta(), 0.1);
+        const realDt = Math.min(this.clock.getDelta(), 0.1);
 
-        // 1. ECS update (all registered systems)
+        // Hitstop — freeze gameplay updates for a few ms on finisher impact.
+        // Rendering keeps running so the screen doesn't go stale.
+        if (this._hitstopLeft > 0) {
+            this._hitstopLeft = Math.max(0, this._hitstopLeft - realDt);
+        }
+        const frozen = this._hitstopLeft > 0;
+        const deltaTime = frozen ? 0 : realDt;
+
+        // 1. ECS update (all registered systems) — paused during hitstop
         this.ecs.update(deltaTime);
 
-        // 2. Non-ECS visual systems
-        this.cameraSystem.update(deltaTime);
+        // 2. Non-ECS visual systems — camera shake still runs (we want the
+        // shake visible during freeze); particles/effects pause with gameplay.
+        this.cameraSystem.update(realDt);
         this.particleSystem.update(deltaTime);
+        this.skillEffectSystem.update(deltaTime);
+        this.damagePopupUI.update(realDt);
         this.floatingUI.update();
         this.playerHealthBar.update();
 

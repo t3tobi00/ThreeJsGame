@@ -100,7 +100,11 @@ export class SkillSystem {
                 state.windupLeft = skill.windup;
                 state.windupTargetId = targetInfo.entityId;
                 EventBus.emit('skill:windup_start', {
-                    entityId, skillId: skill.id, duration: skill.windup
+                    entityId,
+                    skillId: skill.id,
+                    duration: skill.windup,
+                    origin: transform.mesh.position.clone(),
+                    target: targetInfo.pos.clone()
                 });
             } else {
                 this._fire(entityId, transform, skill, targetInfo, state);
@@ -153,6 +157,7 @@ export class SkillSystem {
         state.windupLeft = 0;
         state.isWindingUp = false;
         state.windupTargetId = null;
+        state.comboCount = 0;
     }
 
     // ── Targeting ──────────────────────────────────────────────────
@@ -206,8 +211,123 @@ export class SkillSystem {
             case 'projectile':
                 this._executeProjectile(transform, skill, targetInfo);
                 break;
-            // Phase 4: case 'melee':
+            case 'melee':
+                this._executeMelee(shooterId, transform, skill, targetInfo, ecs);
+                break;
             // Phase 5: case 'harvest':
+        }
+    }
+
+    /**
+     * Melee swing — hits all valid enemies in a forward-facing cone.
+     *
+     * Flow:
+     *   1. Compute facing direction toward the primary (nearest) target
+     *   2. Increment combo count; check if this swing is a finisher
+     *   3. Find ALL enemies inside range + cone arc
+     *   4. Deal damage (x multiplier on finisher), push them back, spawn
+     *      hit sparks + damage popups per hit
+     *   5. Emit 'skill:melee_swing' so SkillEffectSystem can spawn the arc
+     *   6. On finisher-with-hits: emit camera shake + hitstop
+     */
+    _executeMelee(shooterId, transform, skill, primaryTarget, ecs) {
+        const range = skill.range || 3;
+        const cfgMelee = skill.melee || {};
+        const coneAngleRad = THREE.MathUtils.degToRad(cfgMelee.coneAngleDeg || 120);
+        const halfCone = coneAngleRad / 2;
+
+        // Facing direction: XZ-flattened vector from shooter to primary target
+        const origin = transform.mesh.position;
+        const facing = new THREE.Vector3().subVectors(primaryTarget.pos, origin);
+        facing.y = 0;
+        if (facing.lengthSq() < 0.0001) return;
+        facing.normalize();
+
+        // Combo + finisher logic
+        const state = ecs.getComponent(shooterId, 'SkillState');
+        const combo = skill.combo || {};
+        const finisherEvery = combo.finisherEvery || 0;
+        state.comboCount = (state.comboCount || 0) + 1;
+        const isFinisher = finisherEvery > 0 && (state.comboCount % finisherEvery === 0);
+
+        const damageMult   = isFinisher ? (combo.finisherDamageMult   || 2.5) : 1;
+        const knockbackMult= isFinisher ? (combo.finisherKnockbackMult|| 2.0) : 1;
+        const coneBonus    = isFinisher ? (combo.finisherConeBonusDeg || 40)  : 0;
+        const rangeBonus   = isFinisher ? (combo.finisherRangeBonus   || 1.0) : 0;
+
+        const effectiveRange = range + rangeBonus;
+        const effectiveHalfCone = halfCone + THREE.MathUtils.degToRad(coneBonus) / 2;
+
+        const damage = (skill.damage || 5) * damageMult;
+        const knockback = (skill.knockback || 0.5) * knockbackMult;
+
+        // Find all targets inside the cone
+        const factions = skill.targetFactions || ['enemy'];
+        const candidates = ecs.queryEntities(['Transform', 'Movement', 'Health']);
+
+        const hits = [];
+        for (const id of candidates) {
+            if (id === shooterId) continue;
+            const m = ecs.getComponent(id, 'Movement');
+            if (!factions.includes(m.faction)) continue;
+
+            const t = ecs.getComponent(id, 'Transform');
+            const toEnemy = new THREE.Vector3().subVectors(t.mesh.position, origin);
+            toEnemy.y = 0;
+            const dist = toEnemy.length();
+            if (dist > effectiveRange) continue;
+            if (dist < 0.0001) continue;
+            toEnemy.divideScalar(dist); // normalize
+
+            // Cone test via dot product
+            const dot = facing.dot(toEnemy);
+            const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+            if (angle > effectiveHalfCone) continue;
+
+            hits.push({ id, transform: t });
+        }
+
+        // Apply damage, knockback, spark, popup per hit
+        for (const hit of hits) {
+            EventBus.emit('entity:damaged', { entityId: hit.id, damage });
+
+            // Knockback — push enemy away from shooter
+            const kb = new THREE.Vector3().subVectors(hit.transform.mesh.position, origin);
+            kb.y = 0;
+            if (kb.lengthSq() > 0.0001) {
+                kb.normalize().multiplyScalar(knockback);
+                hit.transform.mesh.position.add(kb);
+            }
+
+            // Visual/UI hooks
+            const hitPos = hit.transform.mesh.position.clone();
+            hitPos.y += 1.0;
+            EventBus.emit('effect:hit_spark', {
+                position: hitPos,
+                isFinisher
+            });
+            EventBus.emit('damage:popup', {
+                position: hit.transform.mesh.position.clone().add(new THREE.Vector3(0, 1.8, 0)),
+                amount: Math.round(damage),
+                isCrit: isFinisher
+            });
+        }
+
+        // Tell the effect system to spawn the slash arc (always, even on a whiff —
+        // feels bad to swing and see nothing)
+        EventBus.emit('skill:melee_swing', {
+            entityId: shooterId,
+            skillId: skill.id,
+            origin: origin.clone(),
+            direction: facing.clone(),
+            isFinisher,
+            hitCount: hits.length
+        });
+
+        // Finisher juice — only when we actually connected
+        if (isFinisher && hits.length > 0) {
+            EventBus.emit('camera:shake', { amount: 0.35, duration: 0.15 });
+            EventBus.emit('game:hitstop', { duration: 0.06 });
         }
     }
 

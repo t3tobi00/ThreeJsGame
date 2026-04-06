@@ -1,10 +1,19 @@
 import * as THREE from 'three';
 import { CAMERA_CONFIG } from '../config/gameConfig.js';
+import EventBus from '../core/EventBus.js';
 
 export class CameraSystem {
     constructor(camera, target) {
         this.camera = camera;
         this.target = target;
+
+        // Screen shake — amplitude decays each frame. Triggered via 'camera:shake'.
+        this._shakeAmount = 0;
+        EventBus.on('camera:shake', ({ amount = 0.2 } = {}) => {
+            // Take the larger of current vs incoming so back-to-back shakes
+            // don't downgrade in strength
+            this._shakeAmount = Math.max(this._shakeAmount, amount);
+        });
     }
 
     update(deltaTime) {
@@ -48,5 +57,17 @@ export class CameraSystem {
         ));
 
         this.camera.instance.lookAt(lookAtPos);
+
+        // Apply screen shake AFTER lookAt so the offset isn't normalized away.
+        if (this._shakeAmount > 0.001) {
+            const sx = (Math.random() - 0.5) * this._shakeAmount * 2;
+            const sz = (Math.random() - 0.5) * this._shakeAmount * 2;
+            this.camera.instance.position.x += sx;
+            this.camera.instance.position.z += sz;
+            // Fast exponential decay — most of the shake is over in ~150ms
+            this._shakeAmount *= Math.pow(0.001, deltaTime);
+        } else {
+            this._shakeAmount = 0;
+        }
     }
 }

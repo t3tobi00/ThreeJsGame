@@ -19,6 +19,11 @@
     "duration": 0.15,
     "armSide": "right"
   },
+  "effect": {
+    "type": "gun_flash",
+    "color": "0xffee66",
+    "duration": 0.14
+  },
   "effects": {
     "muzzleFlash": true,
     "hitImpact": true

@@ -19,6 +19,10 @@
     "duration": 0.3,
     "armSide": "both"
   },
+  "effect": {
+    "type": "bow_draw",
+    "color": "0x8b4513"
+  },
   "effects": {
     "muzzleFlash": false,
     "hitImpact": true
