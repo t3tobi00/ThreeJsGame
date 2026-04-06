@@ -1,0 +1,26 @@
+{
+  "id": "pistol",
+  "name": "Pistol",
+  "type": "projectile",
+  "targetFactions": ["enemy"],
+  "range": 8,
+  "damage": 2,
+  "fireRate": 0.3,
+  "windup": 0,
+  "charges": 0,
+  "reloadTime": 0,
+  "projectile": {
+    "id": "bullet",
+    "count": 1,
+    "spreadDeg": 0
+  },
+  "animation": {
+    "type": "recoil",
+    "duration": 0.15,
+    "armSide": "right"
+  },
+  "effects": {
+    "muzzleFlash": true,
+    "hitImpact": true
+  }
+}

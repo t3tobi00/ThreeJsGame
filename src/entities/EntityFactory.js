@@ -24,6 +24,8 @@ import { Component_EnemyAI } from '../ecs/components/Component_EnemyAI.js';
 import { Component_Collider } from '../ecs/components/Component_Collider.js';
 import { Component_ZoneStatus } from '../ecs/components/Component_ZoneStatus.js';
 import { Component_InstanceRef } from '../ecs/components/Component_InstanceRef.js';
+import { Component_SkillLoadout } from '../ecs/components/Component_SkillLoadout.js';
+import { Component_SkillState } from '../ecs/components/Component_SkillState.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -51,6 +53,8 @@ const COMPONENT_MAP = {
     EnemyAI:         (d) => new Component_EnemyAI(d),
     Collider:        (d) => new Component_Collider(d),
     ZoneStatus:      ()  => new Component_ZoneStatus(),
+    SkillLoadout:    (d) => new Component_SkillLoadout(d),
+    SkillState:      ()  => new Component_SkillState(),
 };
 
 

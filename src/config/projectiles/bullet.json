@@ -1,0 +1,12 @@
+{
+  "id": "bullet",
+  "mesh": {
+    "preset": "sphere",
+    "color": "0xffff44",
+    "radius": 0.15
+  },
+  "speed": 18,
+  "lifetime": 2,
+  "alignToVelocity": false,
+  "trail": false
+}

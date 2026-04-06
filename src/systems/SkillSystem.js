@@ -1,0 +1,433 @@
+import * as THREE from 'three';
+import EventBus from '../core/EventBus.js';
+import SkillRegistry from '../core/SkillRegistry.js';
+
+/**
+ * SkillSystem — Dispatches skill use per entity.
+ *
+ * Queries: ['Transform', 'SkillLoadout', 'SkillState']
+ *
+ * Per frame, for each entity:
+ *   1. Resolve the active skill JSON via SkillRegistry
+ *   2. Tick cooldown / reload / windup on SkillState
+ *   3. If not reloading + not winding up → find target, start windup (or fire directly)
+ *   4. On fire → execute skill, apply cooldown, decrement charges, maybe start reload
+ *   5. Emit 'skill:fired' with { entityId, skillId, targetId }
+ *
+ * Skill executors are pluggable — dispatched by skill.type.
+ *   Phase 1-2: 'projectile' (count, spread, charges/reload, windup)
+ *   Phase 4:   'melee'
+ *   Phase 5:   'harvest'
+ *
+ * Events emitted:
+ *   'skill:fired'         { entityId, skillId, targetId, origin, target, animation }
+ *   'skill:windup_start'  { entityId, skillId, duration }
+ *   'skill:reload_start'  { entityId, skillId, duration }
+ *   'skill:reload_end'    { entityId, skillId }
+ */
+export class SkillSystem {
+    constructor(scene, projectilePool) {
+        this.scene = scene;
+        this.projectilePool = projectilePool;
+
+        // Live projectiles owned by this system
+        this._projectiles = [];
+
+        // Cached geometry/material per projectile id (so visual swap is cheap)
+        this._projectileVisuals = new Map();
+    }
+
+    update(entities, deltaTime, ecs) {
+        this._ecs = ecs;
+
+        for (const entityId of entities) {
+            const transform = ecs.getComponent(entityId, 'Transform');
+            const loadout   = ecs.getComponent(entityId, 'SkillLoadout');
+            const state     = ecs.getComponent(entityId, 'SkillState');
+            if (!transform || !loadout || !state) continue;
+            if (!loadout.activeSkill) continue;
+            if (!state.enabled) continue;
+
+            // Resolve skill definition
+            let skill;
+            try { skill = SkillRegistry.getSkill(loadout.activeSkill); }
+            catch (e) { continue; }
+
+            // Handle skill swap — reset state when active skill changes
+            if (state.trackedSkillId !== skill.id) {
+                this._initStateForSkill(state, skill);
+            }
+
+            // ── Tick timers ──
+            if (state.cooldownLeft > 0) state.cooldownLeft -= deltaTime;
+            if (state.reloadLeft > 0) {
+                state.reloadLeft -= deltaTime;
+                if (state.reloadLeft <= 0) {
+                    state.reloadLeft = 0;
+                    state.chargesLeft = skill.charges || 0;
+                    EventBus.emit('skill:reload_end', { entityId, skillId: skill.id });
+                }
+                continue; // reloading → cannot fire or wind up
+            }
+
+            // ── Windup in progress ──
+            if (state.isWindingUp) {
+                state.windupLeft -= deltaTime;
+                if (state.windupLeft <= 0) {
+                    // Windup complete → try to fire
+                    const target = this._resolveWindupTarget(entityId, transform, skill, state, ecs);
+                    state.isWindingUp = false;
+                    state.windupLeft = 0;
+                    state.windupTargetId = null;
+
+                    if (target) {
+                        this._fire(entityId, transform, skill, target, state);
+                    }
+                }
+                continue; // windup frame done
+            }
+
+            // ── Ready checks ──
+            if (state.cooldownLeft > 0) continue;
+
+            // Find a target
+            const targetInfo = this._findTarget(entityId, transform, skill, ecs);
+            if (!targetInfo) continue;
+
+            // ── Start windup (or fire directly) ──
+            if ((skill.windup || 0) > 0) {
+                state.isWindingUp = true;
+                state.windupLeft = skill.windup;
+                state.windupTargetId = targetInfo.entityId;
+                EventBus.emit('skill:windup_start', {
+                    entityId, skillId: skill.id, duration: skill.windup
+                });
+            } else {
+                this._fire(entityId, transform, skill, targetInfo, state);
+            }
+        }
+
+        // Update live projectiles (movement + collision + cull)
+        this._updateProjectiles(deltaTime, ecs);
+    }
+
+    // ── Fire ───────────────────────────────────────────────────────
+
+    _fire(entityId, transform, skill, targetInfo, state) {
+        // Execute by type
+        this._executeSkill(entityId, transform, skill, targetInfo, this._ecs);
+
+        // Apply cooldown
+        state.cooldownLeft = skill.fireRate || 0.3;
+
+        // Charges / reload bookkeeping
+        if ((skill.charges || 0) > 0) {
+            state.chargesLeft -= 1;
+            if (state.chargesLeft <= 0) {
+                state.chargesLeft = 0;
+                state.reloadLeft = skill.reloadTime || 1;
+                EventBus.emit('skill:reload_start', {
+                    entityId, skillId: skill.id, duration: state.reloadLeft
+                });
+            }
+        }
+
+        // Fired event — arms & effects react
+        EventBus.emit('skill:fired', {
+            entityId,
+            skillId: skill.id,
+            targetId: targetInfo.entityId,
+            origin: transform.mesh.position.clone(),
+            target: targetInfo.pos.clone(),
+            animation: skill.animation || null
+        });
+    }
+
+    // ── Initialization ─────────────────────────────────────────────
+
+    _initStateForSkill(state, skill) {
+        state.trackedSkillId = skill.id;
+        state.cooldownLeft = 0;
+        state.chargesLeft = skill.charges || 0;
+        state.reloadLeft = 0;
+        state.windupLeft = 0;
+        state.isWindingUp = false;
+        state.windupTargetId = null;
+    }
+
+    // ── Targeting ──────────────────────────────────────────────────
+
+    _findTarget(shooterId, shooterTransform, skill, ecs) {
+        const range = skill.range || 10;
+
+        if (skill.type === 'projectile' || skill.type === 'melee') {
+            const factions = skill.targetFactions || ['enemy'];
+            const candidates = ecs.queryEntities(['Transform', 'Movement', 'Health']);
+            let best = null;
+            let bestDist = range;
+            for (const id of candidates) {
+                if (id === shooterId) continue;
+                const m = ecs.getComponent(id, 'Movement');
+                if (!factions.includes(m.faction)) continue;
+                const t = ecs.getComponent(id, 'Transform');
+                const dist = shooterTransform.mesh.position.distanceTo(t.mesh.position);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = { entityId: id, pos: t.mesh.position };
+                }
+            }
+            return best;
+        }
+
+        // Phase 5: 'harvest' — tag-based targeting
+        return null;
+    }
+
+    /**
+     * At end-of-windup, prefer the originally-locked target if it's still valid and in range.
+     * Otherwise fall back to the current nearest target.
+     */
+    _resolveWindupTarget(shooterId, shooterTransform, skill, state, ecs) {
+        const lockedId = state.windupTargetId;
+        if (lockedId != null && ecs.hasComponents(lockedId, ['Transform', 'Movement', 'Health'])) {
+            const t = ecs.getComponent(lockedId, 'Transform');
+            const dist = shooterTransform.mesh.position.distanceTo(t.mesh.position);
+            if (dist <= (skill.range || 10)) {
+                return { entityId: lockedId, pos: t.mesh.position };
+            }
+        }
+        return this._findTarget(shooterId, shooterTransform, skill, ecs);
+    }
+
+    // ── Dispatch ───────────────────────────────────────────────────
+
+    _executeSkill(shooterId, transform, skill, targetInfo, ecs) {
+        switch (skill.type) {
+            case 'projectile':
+                this._executeProjectile(transform, skill, targetInfo);
+                break;
+            // Phase 4: case 'melee':
+            // Phase 5: case 'harvest':
+        }
+    }
+
+    _executeProjectile(transform, skill, targetInfo) {
+        const projId = skill.projectile?.id || 'bullet';
+        const projCfg = SkillRegistry.getProjectile(projId);
+
+        const count = skill.projectile?.count || 1;
+        const spreadDeg = skill.projectile?.spreadDeg || 0;
+        const spreadRad = THREE.MathUtils.degToRad(spreadDeg);
+
+        // Lift spawn point to roughly shoulder/chest height so projectiles don't
+        // fly along the ground. Both origin and target are lifted equally so the
+        // direction vector stays horizontal → projectile flies at constant Y.
+        const muzzleHeight = skill.muzzleHeight != null ? skill.muzzleHeight : 1.0;
+
+        const origin = transform.mesh.position.clone();
+        origin.y += muzzleHeight;
+
+        const targetAt = targetInfo.pos.clone();
+        targetAt.y += muzzleHeight;
+
+        const baseDir = new THREE.Vector3().subVectors(targetAt, origin).normalize();
+
+        for (let i = 0; i < count; i++) {
+            // Rotate base direction around world Y by a random offset within the cone.
+            // For a single projectile (count=1, spread=0) this is a no-op.
+            let dir = baseDir.clone();
+            if (spreadRad > 0) {
+                const offset = (Math.random() - 0.5) * spreadRad;
+                dir.applyAxisAngle(new THREE.Vector3(0, 1, 0), offset);
+            }
+
+            const p = this.projectilePool.get();
+            p.reset(origin, dir);
+
+            // Swap visual for this projectile type (cheap, cached)
+            this._applyProjectileVisual(p, projCfg);
+
+            // Override velocity using projectile config speed
+            if (projCfg.speed) {
+                p.velocity.copy(dir).multiplyScalar(projCfg.speed);
+            }
+
+            // Optional: orient mesh along velocity (for arrows) — lookAt() points
+            // the mesh's local -Z toward the target, which matches how we build
+            // arrow geometry (tip at -Z, fletching at +Z).
+            if (projCfg.alignToVelocity) {
+                const lookAt = origin.clone().add(dir);
+                p.lookAt(lookAt);
+            } else {
+                p.rotation.set(0, 0, 0);
+            }
+
+            p.damage = skill.damage || 1;
+            p._maxLifetime = projCfg.lifetime || 2;
+            p._elapsed = 0;
+            this.scene.add(p);
+            this._projectiles.push(p);
+        }
+    }
+
+    /**
+     * Swap the projectile mesh's geometry + material to match the projectile config.
+     * Cached per projectile id so we don't rebuild geometry every shot.
+     *
+     * For multi-part projectiles (e.g. arrow = shaft + tip), creates fresh child
+     * Mesh instances parented to the projectile. Children are removed when the
+     * projectile is reused for a different type.
+     */
+    _applyProjectileVisual(projectile, projCfg) {
+        if (projectile._projectileId === projCfg.id) return; // already correct
+
+        // Clean up any previous child decorations (e.g. arrow → bullet swap)
+        while (projectile.children.length > 0) {
+            projectile.remove(projectile.children[0]);
+        }
+
+        let visual = this._projectileVisuals.get(projCfg.id);
+        if (!visual) {
+            visual = this._buildProjectileVisual(projCfg);
+            this._projectileVisuals.set(projCfg.id, visual);
+        }
+
+        projectile.geometry = visual.geometry;
+        projectile.material = visual.material;
+
+        // Attach decoration parts as children (arrowhead, fletching, etc.)
+        if (visual.parts) {
+            for (const part of visual.parts) {
+                const partMesh = new THREE.Mesh(part.geometry, part.material);
+                partMesh.position.copy(part.position);
+                if (part.rotation) partMesh.rotation.copy(part.rotation);
+                projectile.add(partMesh);
+            }
+        }
+
+        projectile._projectileId = projCfg.id;
+    }
+
+    _buildProjectileVisual(projCfg) {
+        const mesh = projCfg.mesh || {};
+        const colorHex = typeof mesh.color === 'string' ? parseInt(mesh.color, 16) : (mesh.color || 0xffff44);
+        const preset = mesh.preset || 'sphere';
+
+        // ── Arrow: tapered shaft cylinder + pointed cone tip ──
+        // KNOWN BUG (TODO): the silver arrowhead currently points backward
+        // (toward the shooter, not the enemy). Root cause: Mesh.lookAt() orients
+        // a mesh's local +Z toward the target, but the cone apex is built at -Z
+        // via rotateX(-PI/2). To fix: rotate the cone the other way (rotateX(+PI/2))
+        // and place the tip at a positive Z offset. Leaving as-is for now — shape
+        // still reads as an arrow and gameplay is unaffected.
+        if (preset === 'arrow') {
+            const shaftLen = mesh.shaftLength != null ? mesh.shaftLength : 1.0;
+            const shaftRad = mesh.shaftRadius != null ? mesh.shaftRadius : 0.05;
+            const tipLen   = mesh.tipLength   != null ? mesh.tipLength   : 0.25;
+            const tipRad   = mesh.tipRadius   != null ? mesh.tipRadius   : 0.12;
+            const tipColor = typeof mesh.tipColor === 'string'
+                ? parseInt(mesh.tipColor, 16)
+                : (mesh.tipColor || 0xe0e0e0);
+
+            // Shaft — cylinder rotated so length runs along local Z
+            const shaftGeo = new THREE.CylinderGeometry(shaftRad, shaftRad, shaftLen, 10);
+            shaftGeo.rotateX(Math.PI / 2);
+            const shaftMat = new THREE.MeshStandardMaterial({
+                color: colorHex,
+                emissive: colorHex,
+                emissiveIntensity: 0.35,
+                roughness: 0.6
+            });
+
+            // Tip — cone whose apex points along -Z (forward / travel direction).
+            // ConeGeometry apex is at +Y by default; rotateX(-PI/2) sends +Y → -Z.
+            const tipGeo = new THREE.ConeGeometry(tipRad, tipLen, 10);
+            tipGeo.rotateX(-Math.PI / 2);
+            const tipMat = new THREE.MeshStandardMaterial({
+                color: tipColor,
+                emissive: tipColor,
+                emissiveIntensity: 0.6,
+                metalness: 0.6,
+                roughness: 0.3
+            });
+
+            // Cone center sits in front of the shaft's front face
+            const tipZ = -(shaftLen / 2 + tipLen / 2);
+
+            return {
+                geometry: shaftGeo,
+                material: shaftMat,
+                parts: [
+                    {
+                        geometry: tipGeo,
+                        material: tipMat,
+                        position: new THREE.Vector3(0, 0, tipZ)
+                    }
+                ]
+            };
+        }
+
+        // ── Generic presets ──
+        let geometry;
+        if (preset === 'box') {
+            geometry = new THREE.BoxGeometry(
+                mesh.width  || 0.1,
+                mesh.height || 0.1,
+                mesh.depth  || 0.5
+            );
+        } else if (preset === 'cylinder') {
+            geometry = new THREE.CylinderGeometry(
+                mesh.radiusTop    || 0.05,
+                mesh.radiusBottom || 0.05,
+                mesh.length       || 0.8,
+                8
+            );
+            geometry.rotateX(Math.PI / 2);
+        } else {
+            geometry = new THREE.SphereGeometry(mesh.radius || 0.15, 8, 8);
+        }
+
+        const material = new THREE.MeshStandardMaterial({
+            color: colorHex,
+            emissive: colorHex,
+            emissiveIntensity: mesh.emissiveIntensity != null ? mesh.emissiveIntensity : 0.8
+        });
+
+        return { geometry, material };
+    }
+
+    // ── Projectile tick ────────────────────────────────────────────
+
+    _updateProjectiles(deltaTime, ecs) {
+        for (let i = this._projectiles.length - 1; i >= 0; i--) {
+            const p = this._projectiles[i];
+            p.update(deltaTime);
+            p._elapsed += deltaTime;
+
+            // Collision — XZ distance only (ignore Y so chest-height projectiles
+            // still register on ground-level entity positions).
+            let hit = false;
+            const hittable = ecs.queryEntities(['Transform', 'Health', 'Movement']);
+            for (const entityId of hittable) {
+                const movement = ecs.getComponent(entityId, 'Movement');
+                if (movement.faction === 'player' || movement.faction === 'neutral') continue;
+
+                const t = ecs.getComponent(entityId, 'Transform');
+                const dx = p.position.x - t.mesh.position.x;
+                const dz = p.position.z - t.mesh.position.z;
+                if (dx * dx + dz * dz < 1.0) {
+                    EventBus.emit('entity:damaged', { entityId, damage: p.damage || 1 });
+                    hit = true;
+                    break;
+                }
+            }
+
+            const expired = (p._elapsed || 0) >= (p._maxLifetime || 2);
+            if (hit || !p.visible || expired || p.position.length() > 60) {
+                this.scene.remove(p);
+                this.projectilePool.release(p);
+                this._projectiles.splice(i, 1);
+            }
+        }
+    }
+}

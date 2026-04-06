@@ -1,0 +1,16 @@
+{
+  "id": "arrow",
+  "mesh": {
+    "preset": "arrow",
+    "color": "0x8b4513",
+    "shaftLength": 1.0,
+    "shaftRadius": 0.05,
+    "tipLength": 0.25,
+    "tipRadius": 0.12,
+    "tipColor": "0xdddddd"
+  },
+  "speed": 18,
+  "lifetime": 3,
+  "alignToVelocity": true,
+  "trail": false
+}

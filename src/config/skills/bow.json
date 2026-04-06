@@ -1,0 +1,26 @@
+{
+  "id": "bow",
+  "name": "Bow",
+  "type": "projectile",
+  "targetFactions": ["enemy"],
+  "range": 14,
+  "damage": 6,
+  "fireRate": 0.8,
+  "windup": 0.3,
+  "charges": 5,
+  "reloadTime": 2.0,
+  "projectile": {
+    "id": "arrow",
+    "count": 1,
+    "spreadDeg": 0
+  },
+  "animation": {
+    "type": "swing",
+    "duration": 0.3,
+    "armSide": "both"
+  },
+  "effects": {
+    "muzzleFlash": false,
+    "hitImpact": true
+  }
+}

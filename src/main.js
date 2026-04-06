@@ -6,6 +6,7 @@ import { Lighting } from './core/Lighting.js';
 import EventBus from './core/EventBus.js';
 import { loadArchetypes } from './core/ArchetypeLoader.js';
 import ResourceRegistry from './core/ResourceRegistry.js';
+import SkillRegistry from './core/SkillRegistry.js';
 import { SceneLoader } from './core/SceneLoader.js';
 import { Joystick } from './ui/Joystick.js';
 import { HUD } from './ui/HUD.js';
@@ -18,6 +19,7 @@ import { ECSManager } from './ecs/ECSManager.js';
 import { EntityFactory } from './entities/EntityFactory.js';
 import { MovementSystem } from './systems/MovementSystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
+import { SkillSystem } from './systems/SkillSystem.js';
 import { StackSystem } from './systems/StackSystem.js';
 import { CameraSystem } from './systems/CameraSystem.js';
 import { EnemySystem } from './systems/EnemySystem.js';
@@ -67,6 +69,12 @@ class Game {
         // 5. Register all systems (entity creation happens in loadLevel)
         this.movementSystem = new MovementSystem(this.joystick);
         this.ecs.registerSystem(this.movementSystem, ['Transform', 'Movement']);
+
+        // SkillSystem — new unified combat/harvest dispatcher. Runs before CombatSystem
+        // so skill-driven entities (player) use it, while legacy Shooter entities
+        // (turrets) keep using CombatSystem until they're migrated.
+        this.skillSystem = new SkillSystem(this.scene.instance, this.projectilePool);
+        this.ecs.registerSystem(this.skillSystem, ['Transform', 'SkillLoadout', 'SkillState']);
 
         this.combatSystem = new CombatSystem(this.scene.instance, this.projectilePool);
         this.ecs.registerSystem(this.combatSystem, ['Transform', 'Shooter']);
@@ -422,6 +430,7 @@ class Game {
 window.addEventListener('load', async () => {
     await loadArchetypes();
     await ResourceRegistry.load();
+    await SkillRegistry.load();
     const game = new Game();
     await game.loadLevel('./src/config/levels/level-1.json');
     game.animate();
