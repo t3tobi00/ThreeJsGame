@@ -1,5 +1,6 @@
 {
     "type": "Turret",
+    "emoji": "🏰",
     "mesh": { "preset": "turret", "color": "0xaaaaaa" },
     "components": {
         "Health": { "hp": 50, "maxHp": 50 },

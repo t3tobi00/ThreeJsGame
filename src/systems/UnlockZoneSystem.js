@@ -140,7 +140,8 @@ export class UnlockZoneSystem {
             }
         }
 
-        const ui = new UnlockZoneUI(group, zone.cost, outputType, size);
+        const outputCount = zone.outputCount || zone.spawnCount || 1;
+        const ui = new UnlockZoneUI(group, zone.cost, outputType, size, outputCount);
         this._uiMap.set(zoneId, ui);
         return ui;
     }

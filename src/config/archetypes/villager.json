@@ -1,5 +1,6 @@
 {
   "type": "Villager",
+  "emoji": "👤",
   "mesh": { "preset": "character", "color": "0x44bb44" },
   "behaviors": ["agent", "trader", "stacker"],
   "components": {

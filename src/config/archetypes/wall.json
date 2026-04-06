@@ -1,5 +1,6 @@
 {
     "type": "Wall",
+    "emoji": "🧱",
     "mesh": { "preset": "wall", "color": "0x888888" },
     "components": {
         "Health": { "hp": 100, "maxHp": 100 },

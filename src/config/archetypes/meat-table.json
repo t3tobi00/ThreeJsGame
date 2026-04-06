@@ -1,5 +1,6 @@
 {
   "type": "MeatTable",
+  "emoji": "🥩",
   "mesh": { "preset": "table", "color": "0x8B4513", "width": 4, "depth": 2 },
   "behaviors": ["storage"],
   "components": {

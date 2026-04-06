@@ -1,5 +1,6 @@
 {
   "type": "CoinTray",
+  "emoji": "💰",
   "mesh": { "preset": "table", "color": "0x8b4513", "width": 2, "depth": 2, "height": 0.3 },
   "behaviors": ["storage"],
   "components": {
