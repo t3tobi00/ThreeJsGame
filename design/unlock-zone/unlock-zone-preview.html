@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Unlock Zone — Variant Workbench</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ─────────────────────────────────────────────────────────────
+     Unlock Zone Variant Workbench
+     ─────────────────────────────────────────────────────────────
+     Three-pane interactive prototype:
+       · LEFT  — variant picker (click to switch)
+       · MID   — selected variant rendered live
+       · RIGHT — settings: inputs, output, speeds, progress, LED, play/pause
+
+     All palette + chrome values pulled from styles/main.css so the
+     card belongs to the existing HUD family. Animation timings are
+     CSS custom properties so the sliders update them without a
+     re-render.
+     ───────────────────────────────────────────────────────────── */
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: #1a1a1a;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont,
+                 "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: white;
+  }
+  body {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebars ──────────────────────────────────────────────── */
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    padding: 24px 18px;
+    background: #161616;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .sidebar.left  { border-right: 1px solid #2a2a2a; }
+  .sidebar.right { width: 300px; border-left: 1px solid #2a2a2a; }
+
+  .sidebar h2 {
+    font-size: 10px;
+    font-weight: 800;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #2a2a2a;
+  }
+
+  /* Variant picker buttons */
+  .variant-btn {
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 10px;
+    color: #ccc;
+    padding: 12px 14px;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 800;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .variant-btn:hover {
+    background: #2a2a2a;
+    border-color: #444;
+    color: white;
+  }
+  .variant-btn.active {
+    background: linear-gradient(180deg, #555 0%, #2c2c2c 100%);
+    border-color: #888;
+    color: white;
+    box-shadow:
+      0 4px 0 rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+  .variant-btn .sub {
+    font-size: 10px;
+    color: #888;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Middle: preview pane ──────────────────────────────────── */
+  .stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 32px;
+    gap: 14px;
+    background: radial-gradient(ellipse at center, #1f1f1f 0%, #141414 100%);
+  }
+  .stage .label {
+    font-size: 11px;
+    color: #777;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Settings form ─────────────────────────────────────────── */
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .field > label {
+    font-size: 11px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .field > label .val {
+    color: #ddd;
+    font-weight: 800;
+    text-transform: none;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: #dd1111;
+  }
+  input[type="text"], input[type="number"], select {
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: white;
+    padding: 6px 8px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    width: 100%;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus {
+    outline: none;
+    border-color: #666;
+  }
+
+  .input-row, .output-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .input-row .e-in { width: 50px; text-align: center; font-size: 18px; }
+  .input-row .n-in { width: 60px; }
+  .input-row .del {
+    background: #2a1414;
+    border: 1px solid #4a1d1d;
+    color: #ff8888;
+    border-radius: 6px;
+    width: 26px;
+    height: 28px;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 900;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .input-row .del:hover { background: #3a1818; }
+  .add-btn {
+    background: #1c2a1c;
+    border: 1px dashed #3a5a3a;
+    color: #88dd88;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font: inherit;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .add-btn:hover { background: #233a23; }
+
+  .output-row .e-out { width: 60px; text-align: center; font-size: 18px; }
+  .output-row .n-out { width: 70px; }
+
+  .toggle-row {
+    display: flex;
+    gap: 8px;
+  }
+  .toggle-row button {
+    flex: 1;
+    background: #222;
+    border: 1px solid #333;
+    color: #aaa;
+    border-radius: 6px;
+    padding: 8px;
+    font: inherit;
+    font-weight: 800;
+    font-size: 11px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .toggle-row button.active {
+    background: #2a3a2a;
+    border-color: #5a8a5a;
+    color: #aaffaa;
+  }
+
+  /* ═════════════════════════════════════════════════════════════
+     CARD STYLES — copied verbatim from the Phase D baseline so the
+     baseline + gearworks variants render exactly as approved.
+     CSS variables make the animation rates settings-driven.
+     ═════════════════════════════════════════════════════════════ */
+
+  .factory {
+    --gear-period: 1.6s;
+    --led-period: 1.4s;
+    --bob-period: 2.4s;
+    --tick-period: 2.4s;
+    --bar-period: 2s;
+    --flow-period: 2s;
+
+    display: inline-flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, #555 0%, #222 100%);
+    border: 3px solid #777;
+    border-radius: 22px;
+    box-shadow:
+      0 8px 0 rgba(0, 0, 0, 0.8),
+      0 12px 15px rgba(0, 0, 0, 0.5),
+      inset 0 2px 0 rgba(255, 255, 255, 0.12);
+    padding: 18px 16px 14px;
+    position: relative;
+  }
+  .factory.paused *,
+  .factory.paused {
+    animation-play-state: paused !important;
+  }
+
+  /* Rivets */
+  .factory::before, .factory::after,
+  .factory > .rv-l, .factory > .rv-r {
+    content: "";
+    position: absolute;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #ddd 0%, #888 55%, #333 100%);
+    box-shadow:
+      inset 0 -1px 1px rgba(0, 0, 0, 0.6),
+      0 1px 1px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+  }
+  .factory::before { top: 8px; left: 10px; }
+  .factory::after  { top: 8px; right: 10px; }
+  .factory .rv-l   { bottom: 8px; left: 10px; }
+  .factory .rv-r   { bottom: 8px; right: 10px; }
+
+  /* Status LED */
+  .led {
+    position: absolute;
+    top: 6px; left: 50%;
+    transform: translateX(-50%);
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.4);
+    animation: led-breathe var(--led-period) ease-in-out infinite;
+  }
+  .factory[data-led="idle"] .led {
+    background: radial-gradient(circle at 35% 35%, #ddd 0%, #888 50%, #333 100%);
+  }
+  .factory[data-led="draining"] .led {
+    background: radial-gradient(circle at 35% 35%, #fff7c2 0%, #ffd53d 50%, #b48400 100%);
+  }
+  .factory[data-led="done"] .led {
+    background: radial-gradient(circle at 35% 35%, #c8ffe0 0%, #00ff88 50%, #008844 100%);
+  }
+  @keyframes led-breathe {
+    0%, 100% { filter: brightness(0.85); }
+    50%      { filter: brightness(1.20); }
+  }
+
+  /* Stations row */
+  .stations {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 4px;
+    position: relative;
+  }
+  .pod {
+    background: rgba(0, 0, 0, 0.40);
+    border: 2px solid rgba(255, 255, 255, 0.10);
+    border-radius: 12px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pod.input {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    min-width: 56px;
+  }
+  .pod.proc {
+    width: 46px;
+    min-height: 46px;
+    align-self: center;
+    position: relative;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.45);
+  }
+  .pod.proc::before {
+    content: "";
+    position: absolute;
+    inset: -8px 0 -8px 0;
+    background: repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.05) 0px,
+      rgba(255, 255, 255, 0.05) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    animation: scan-drift 1.6s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes scan-drift {
+    from { transform: translateY(0); }
+    to   { transform: translateY(3px); }
+  }
+  .pod.output {
+    width: 64px;
+    min-height: 64px;
+    align-self: center;
+    padding: 8px;
+  }
+
+  .joint {
+    align-self: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #cfcfcf 0%, #6a6a6a 60%, #2b2b2b 100%);
+    box-shadow:
+      0 1px 1px rgba(0, 0, 0, 0.6),
+      inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .joint::after {
+    content: "";
+    position: absolute;
+    inset: 5px 2px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 1px;
+  }
+
+  /* Input rows */
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    line-height: 1;
+  }
+  .row .e {
+    font-size: 22px;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji",
+                 "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
+    line-height: 1;
+    display: inline-block;
+    animation: input-tick var(--tick-period) ease-in-out infinite;
+  }
+  .row .n {
+    font-size: 20px;
+    font-weight: 900;
+    color: white;
+    text-shadow: 1px 2px 3px rgba(0, 0, 0, 0.6);
+    letter-spacing: -0.02em;
+    min-width: 18px;
+  }
+  @keyframes input-tick {
+    0%, 70%, 100% { transform: scale(1);    }
+    80%           { transform: scale(1.35); }
+    90%           { transform: scale(0.92); }
+  }
+  .pod.input .row:nth-child(2) .e { animation-delay: calc(var(--tick-period) * 0.06); }
+  .pod.input .row:nth-child(3) .e { animation-delay: calc(var(--tick-period) * 0.12); }
+
+  /* Single-glyph gear (baseline variant) */
+  .gear {
+    font-size: 28px;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 1px 2px 3px rgba(0, 0, 0, 0.6);
+    line-height: 1;
+    z-index: 1;
+    display: inline-block;
+    transform-origin: 50% 55%;
+    animation: gear-spin var(--gear-period) linear infinite;
+  }
+  @keyframes gear-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  /* Output emoji */
+  .out {
+    font-size: 40px;
+    line-height: 1;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji",
+                 "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
+    filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.6));
+    display: inline-block;
+    animation: out-bob var(--bob-period) ease-in-out infinite;
+  }
+  @keyframes out-bob {
+    0%, 100% { transform: translateY(0)    scale(1);    }
+    50%      { transform: translateY(-5px) scale(1.10); }
+  }
+
+  /* Progress bar */
+  .bar {
+    margin-top: 12px;
+    height: 8px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 999px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.7);
+  }
+  .bar > span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(180deg, #ff6b6b 0%, #dd1111 100%);
+    border-radius: 999px;
+    position: relative;
+    overflow: hidden;
+    transition: width 0.25s ease-out;
+  }
+  .bar > span::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.55) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: bar-sheen var(--bar-period) linear infinite;
+  }
+  @keyframes bar-sheen {
+    0%   { transform: translateX(-100%); }
+    60%  { transform: translateX(100%);  }
+    100% { transform: translateX(100%);  }
+  }
+
+  /* ── Variant: gearworks ────────────────────────────────────── */
+  .factory.gearworks .pod.proc {
+    width: 116px;
+    min-height: 60px;
+    padding: 4px;
+  }
+  .factory.gearworks .pod.proc .gear { display: none; }
+  .factory.gearworks .pod.proc::before { opacity: 0.5; }
+
+  .factory.gearworks .gears {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 56px;
+    display: block;
+    overflow: visible;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+  }
+  .factory.gearworks .gears .disk { fill: #4a4a4a; stroke: #6f6f6f; stroke-width: 1; }
+  .factory.gearworks .gears .tooth { fill: #888; }
+  .factory.gearworks .gears .hub { fill: #1a1a1a; }
+  .factory.gearworks .gears .g-big .rot {
+    transform-box: fill-box;
+    transform-origin: center center;
+    animation: gear-spin calc(var(--gear-period) * 1.25) linear infinite;
+  }
+  .factory.gearworks .gears .g-small .rot {
+    transform-box: fill-box;
+    transform-origin: center center;
+    animation: gear-spin var(--gear-period) linear infinite reverse;
+  }
+
+  .factory.gearworks .flow-channel {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 4;
+  }
+  .factory.gearworks .particle {
+    position: absolute;
+    top: 50%;
+    font-size: 14px;
+    line-height: 1;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji",
+                 "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    will-change: left, opacity, transform;
+  }
+  .factory.gearworks .particle.p-in {
+    animation: flow-in var(--flow-period) linear infinite;
+    animation-delay: var(--delay, 0s);
+  }
+  .factory.gearworks .particle.p-out {
+    animation: flow-out var(--flow-period) linear infinite;
+    animation-delay: var(--delay, 0s);
+  }
+  @keyframes flow-in {
+    0%   { left: 28%;  opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+    12%  {             opacity: 1; }
+    55%  { left: 42%;  opacity: 1; transform: translate(-50%, -50%) scale(1);   }
+    72%  { left: 50%;  opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+    100% { left: 50%;  opacity: 0; }
+  }
+  @keyframes flow-out {
+    0%, 45% { left: 60%; opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+    55%     { left: 64%; opacity: 1; transform: translate(-50%, -50%) scale(1);   }
+    88%     { left: 78%; opacity: 1; transform: translate(-50%, -50%) scale(1);   }
+    100%    { left: 80%; opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════════════════════════
+       LEFT — Variant picker
+       ════════════════════════════════════════════════════════════ -->
+  <aside class="sidebar left">
+    <h2>Variants</h2>
+    <button class="variant-btn" data-variant="baseline">
+      Baseline
+      <span class="sub">single ⚙ glyph</span>
+    </button>
+    <button class="variant-btn active" data-variant="gearworks">
+      Gear Works
+      <span class="sub">2 meshing gears + flow</span>
+    </button>
+  </aside>
+
+  <!-- ════════════════════════════════════════════════════════════
+       MIDDLE — Live preview
+       ════════════════════════════════════════════════════════════ -->
+  <main class="stage">
+    <div id="preview"><!-- card injected here by JS --></div>
+    <div class="label" id="preview-label">gear works</div>
+  </main>
+
+  <!-- ════════════════════════════════════════════════════════════
+       RIGHT — Settings
+       ════════════════════════════════════════════════════════════ -->
+  <aside class="sidebar right">
+    <h2>Settings</h2>
+
+    <div class="field">
+      <label>Inputs</label>
+      <div id="input-list"></div>
+      <button class="add-btn" id="add-input">+ add input</button>
+    </div>
+
+    <div class="field">
+      <label>Output</label>
+      <div class="output-row">
+        <input type="text" class="e-out" id="out-emoji" maxlength="4" />
+        <input type="number" class="n-out" id="out-count" min="1" />
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Progress <span class="val" id="progress-val">70%</span></label>
+      <input type="range" id="progress" min="0" max="100" />
+    </div>
+
+    <div class="field">
+      <label>Gear period <span class="val" id="gear-val">1.6s</span></label>
+      <input type="range" id="gear-speed" min="0.4" max="4" step="0.1" />
+    </div>
+
+    <div class="field">
+      <label>Flow period <span class="val" id="flow-val">2.0s</span></label>
+      <input type="range" id="flow-speed" min="0.4" max="4" step="0.1" />
+    </div>
+
+    <div class="field">
+      <label>LED state</label>
+      <div class="toggle-row" id="led-toggle">
+        <button data-led="idle">Idle</button>
+        <button data-led="draining" class="active">Draining</button>
+        <button data-led="done">Done</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Animation</label>
+      <div class="toggle-row" id="anim-toggle">
+        <button data-anim="play" class="active">▶ Play</button>
+        <button data-anim="pause">❚❚ Pause</button>
+      </div>
+    </div>
+  </aside>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// Workbench state + render
+// ─────────────────────────────────────────────────────────────────
+
+const state = {
+  variant: 'gearworks',         // 'baseline' | 'gearworks'
+  inputs: [
+    { emoji: '🥩', count: 5 },
+    { emoji: '🪵', count: 2 },
+  ],
+  output: { emoji: '🍔', count: 1 },
+  progress: 70,
+  gearPeriod: 1.6,              // seconds
+  flowPeriod: 2.0,
+  led: 'draining',              // 'idle' | 'draining' | 'done'
+  paused: false,
+};
+
+// Build the SVG gear cluster used by the gearworks variant
+function gearClusterSVG() {
+  return `
+    <svg class="gears" viewBox="0 0 116 56" preserveAspectRatio="xMidYMid meet">
+      <g class="g-big" transform="translate(40,28)">
+        <g class="rot">
+          <circle class="disk" r="13"/>
+          ${[0,45,90,135,180,225,270,315].map(a =>
+            `<rect class="tooth" x="-3" y="-19" width="6" height="6" transform="rotate(${a})"/>`
+          ).join('')}
+          <circle class="hub" r="3"/>
+        </g>
+      </g>
+      <g class="g-small" transform="translate(72,28)">
+        <g class="rot">
+          <circle class="disk" r="9"/>
+          ${[0,60,120,180,240,300].map(a =>
+            `<rect class="tooth" x="-2.5" y="-14" width="5" height="5" transform="rotate(${a})"/>`
+          ).join('')}
+          <circle class="hub" r="2"/>
+        </g>
+      </g>
+    </svg>`;
+}
+
+// Build the flow particles for the gearworks variant
+function flowChannelHTML() {
+  const inParts = state.inputs.map((inp, i) =>
+    `<span class="particle p-in" style="--delay: ${(i * 0.5).toFixed(2)}s">${inp.emoji}</span>`
+  ).join('');
+  const outEmoji = state.output.emoji || '?';
+  const outParts = [0.25, 1.25].map(d =>
+    `<span class="particle p-out" style="--delay: ${d}s">${outEmoji}</span>`
+  ).join('');
+  return `<div class="flow-channel">${inParts}${outParts}</div>`;
+}
+
+function renderCard() {
+  const inputRowsHTML = state.inputs.map(inp =>
+    `<div class="row"><span class="e">${inp.emoji}</span><span class="n">${inp.count}</span></div>`
+  ).join('');
+
+  const procHTML = state.variant === 'gearworks'
+    ? `<div class="pod proc">${gearClusterSVG()}</div>`
+    : `<div class="pod proc"><span class="gear">⚙</span></div>`;
+
+  const flowHTML = state.variant === 'gearworks' ? flowChannelHTML() : '';
+
+  const cls = ['factory'];
+  if (state.variant === 'gearworks') cls.push('gearworks');
+  if (state.paused) cls.push('paused');
+
+  document.getElementById('preview').innerHTML = `
+    <div class="${cls.join(' ')}" data-led="${state.led}"
+         style="--gear-period:${state.gearPeriod}s; --flow-period:${state.flowPeriod}s;">
+      <span class="led"></span>
+      <span class="rv-l"></span><span class="rv-r"></span>
+      <div class="stations">
+        <div class="pod input">${inputRowsHTML}</div>
+        <span class="joint"></span>
+        ${procHTML}
+        <span class="joint"></span>
+        <div class="pod output"><span class="out">${state.output.emoji}</span></div>
+        ${flowHTML}
+      </div>
+      <div class="bar"><span style="width:${state.progress}%;"></span></div>
+    </div>`;
+
+  document.getElementById('preview-label').textContent =
+    state.variant === 'gearworks' ? 'gear works' : 'baseline';
+}
+
+// ── Settings panel ────────────────────────────────────────────
+
+function renderInputList() {
+  const list = document.getElementById('input-list');
+  list.innerHTML = state.inputs.map((inp, i) => `
+    <div class="input-row">
+      <input type="text"   class="e-in" data-i="${i}" data-k="emoji" value="${inp.emoji}" maxlength="4">
+      <input type="number" class="n-in" data-i="${i}" data-k="count" value="${inp.count}" min="0">
+      <button class="del" data-i="${i}" title="remove">×</button>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('input').forEach(el => {
+    el.addEventListener('input', () => {
+      const i = +el.dataset.i;
+      const k = el.dataset.k;
+      state.inputs[i][k] = k === 'count' ? +el.value : el.value;
+      renderCard();
+    });
+  });
+  list.querySelectorAll('.del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = +btn.dataset.i;
+      state.inputs.splice(i, 1);
+      renderInputList();
+      renderCard();
+    });
+  });
+}
+
+function bindSettings() {
+  // Variant picker
+  document.querySelectorAll('.variant-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.variant = btn.dataset.variant;
+      renderCard();
+    });
+  });
+
+  // Inputs
+  document.getElementById('add-input').addEventListener('click', () => {
+    state.inputs.push({ emoji: '❓', count: 1 });
+    renderInputList();
+    renderCard();
+  });
+
+  // Output
+  document.getElementById('out-emoji').value = state.output.emoji;
+  document.getElementById('out-count').value = state.output.count;
+  document.getElementById('out-emoji').addEventListener('input', e => {
+    state.output.emoji = e.target.value || '?';
+    renderCard();
+  });
+  document.getElementById('out-count').addEventListener('input', e => {
+    state.output.count = +e.target.value;
+    renderCard();
+  });
+
+  // Progress (live, no re-render)
+  const prog = document.getElementById('progress');
+  prog.value = state.progress;
+  prog.addEventListener('input', e => {
+    state.progress = +e.target.value;
+    document.getElementById('progress-val').textContent = state.progress + '%';
+    const fill = document.querySelector('.factory .bar > span');
+    if (fill) fill.style.width = state.progress + '%';
+  });
+
+  // Gear period (live via CSS var)
+  const gs = document.getElementById('gear-speed');
+  gs.value = state.gearPeriod;
+  gs.addEventListener('input', e => {
+    state.gearPeriod = +e.target.value;
+    document.getElementById('gear-val').textContent = state.gearPeriod.toFixed(1) + 's';
+    const card = document.querySelector('.factory');
+    if (card) card.style.setProperty('--gear-period', state.gearPeriod + 's');
+  });
+
+  // Flow period (live via CSS var)
+  const fs = document.getElementById('flow-speed');
+  fs.value = state.flowPeriod;
+  fs.addEventListener('input', e => {
+    state.flowPeriod = +e.target.value;
+    document.getElementById('flow-val').textContent = state.flowPeriod.toFixed(1) + 's';
+    const card = document.querySelector('.factory');
+    if (card) card.style.setProperty('--flow-period', state.flowPeriod + 's');
+  });
+
+  // LED state
+  document.getElementById('led-toggle').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#led-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.led = btn.dataset.led;
+      const card = document.querySelector('.factory');
+      if (card) card.dataset.led = state.led;
+    });
+  });
+
+  // Animation play/pause
+  document.getElementById('anim-toggle').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#anim-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.paused = btn.dataset.anim === 'pause';
+      const card = document.querySelector('.factory');
+      if (card) card.classList.toggle('paused', state.paused);
+    });
+  });
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+renderInputList();
+bindSettings();
+renderCard();
+</script>
+</body>
+</html>
