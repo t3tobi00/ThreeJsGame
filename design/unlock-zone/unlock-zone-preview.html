@@ -470,9 +470,11 @@
   }
 
   /* ── Variant: gearworks ────────────────────────────────────── */
+  /* Width/height are driven by CSS vars set inline on the card so the
+     proc pod auto-grows when the gear count or gear size changes. */
   .factory.gearworks .pod.proc {
-    width: 116px;
-    min-height: 60px;
+    width: var(--proc-w, 116px);
+    min-height: var(--proc-h, 60px);
     padding: 4px;
   }
   .factory.gearworks .pod.proc .gear { display: none; }
@@ -482,7 +484,7 @@
     position: relative;
     z-index: 2;
     width: 100%;
-    height: 56px;
+    height: var(--proc-h-inner, 56px);
     display: block;
     overflow: visible;
     filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
@@ -540,6 +542,172 @@
     88%     { left: 78%; opacity: 1; transform: translate(-50%, -50%) scale(1);   }
     100%    { left: 80%; opacity: 0; }
   }
+
+  /* Hide the progress bar in pads variant — proc pod ring + pods are the UI */
+  .factory.pads > .bar { display: none; }
+
+  /* ── Variant: pads (interactive recipe machine) ────────────────
+     The existing input pod IS the receiving zone (click-to-feed via
+     the drop tool). The existing output pod IS the output zone — it
+     hosts the stack column where real outputs accumulate. Recipe
+     numbers in the input pod show REMAINING needed. When all reach
+     zero, the machine processes for `processTime` seconds and pops
+     a fresh output onto the stack.
+     ───────────────────────────────────────────────────────────── */
+
+  /* Input pod is a click target. Dimmed by default (label only) and
+     brightens up while the player is mid-feed (machineState="filling")
+     so the live count-down is clearly visible. */
+  .factory.pads .pod.input {
+    cursor: pointer;
+    opacity: 0.38;
+    transition: opacity 0.25s ease-out, transform 0.1s ease-out, box-shadow 0.15s ease-out;
+  }
+  .factory.pads[data-machine-state="filling"] .pod.input {
+    opacity: 1;
+  }
+  .factory.pads .pod.input:hover {
+    box-shadow:
+      inset 0 2px 4px rgba(0, 0, 0, 0.6),
+      0 0 0 2px rgba(255, 213, 61, 0.6),
+      0 0 12px rgba(255, 213, 61, 0.35);
+  }
+  .factory.pads .pod.input:active { transform: scale(0.96); }
+  .factory.pads .pod.input.feed-flash {
+    animation: feed-flash 0.4s ease-out;
+  }
+  @keyframes feed-flash {
+    0%   { box-shadow: inset 0 2px 4px rgba(0,0,0,0.6),
+                       0 0 0 3px rgba(120, 255, 140, 0.95),
+                       0 0 18px rgba(120, 255, 140, 0.6); }
+    100% { box-shadow: inset 0 2px 4px rgba(0,0,0,0.6); }
+  }
+  /* Satisfied ingredient row — green tint when remaining hits 0 */
+  .factory.pads .pod.input .row.satisfied { opacity: 0.55; }
+  .factory.pads .pod.input .row.satisfied .n { color: #88ffaa; }
+
+  /* Output pod widens to hold a vertical stack column. The placeholder
+     glyph is always dim (it's just a label) — real stacked outputs
+     appear on top at full brightness. */
+  .factory.pads .pod.output {
+    width: 78px;
+    min-height: 78px;
+    position: relative;
+    overflow: visible;
+  }
+  .factory.pads .pod.output > .out {
+    opacity: 0.32;
+    filter: grayscale(0.55);
+    transition: opacity 0.25s ease-out, filter 0.25s ease-out;
+  }
+  /* Slightly dimmer when real outputs are stacked above (visual hierarchy) */
+  .factory.pads .pod.output.has-stack > .out {
+    opacity: 0.16;
+  }
+
+  /* Output stack column (mimics in-game ResourceStack settle) */
+  .factory.pads .pod.output .out-stack {
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+  .factory.pads .pod.output .stack-item {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    font-size: 28px;
+    line-height: 1;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji",
+                 "Noto Color Emoji", "Twemoji Mozilla", sans-serif;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.7));
+    transform: translate(-50%, calc(var(--idx) * -15px));
+    transition: transform 0.35s cubic-bezier(0.2, 1.2, 0.4, 1);
+    animation: out-stack-sway 2.2s ease-in-out infinite;
+    animation-delay: calc(var(--idx) * -0.18s);
+    transform-origin: 50% 100%;
+  }
+  @keyframes out-stack-sway {
+    0%, 100% { transform: translate(-50%, calc(var(--idx) * -15px)) rotate(-1.5deg); }
+    50%      { transform: translate(-50%, calc(var(--idx) * -15px)) rotate( 1.5deg); }
+  }
+  /* Pop-in flash for the most recently added output */
+  .factory.pads .pod.output .stack-item.fresh {
+    animation: out-stack-sway 2.2s ease-in-out infinite,
+               output-pop 0.5s ease-out;
+  }
+  @keyframes output-pop {
+    0%   { transform: translate(-50%, calc(var(--idx) * -15px - 22px)) scale(0.3); opacity: 0; }
+    55%  { transform: translate(-50%, calc(var(--idx) * -15px + 6px))  scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, calc(var(--idx) * -15px))        scale(1);   opacity: 1; }
+  }
+
+  /* Processing progress ring overlay on the proc pod */
+  .factory.pads .pod.proc .proc-progress {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    pointer-events: none;
+    background: conic-gradient(
+      from -90deg,
+      rgba(120, 255, 140, 0.65) 0%,
+      rgba(120, 255, 140, 0.65) calc(var(--proc, 0) * 100%),
+      rgba(255, 255, 255, 0.06) calc(var(--proc, 0) * 100%),
+      rgba(255, 255, 255, 0.06) 100%
+    );
+    -webkit-mask: radial-gradient(circle at center, transparent 60%, #000 62%, #000 72%, transparent 74%);
+            mask: radial-gradient(circle at center, transparent 60%, #000 62%, #000 72%, transparent 74%);
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+    z-index: 5;
+  }
+  .factory.pads[data-machine-state="processing"] .pod.proc .proc-progress {
+    opacity: 1;
+  }
+
+  /* ── Machine on/off behavior ─────────────────────────────────
+     The machine ONLY runs (gears spinning, flow particles flying,
+     LED breathing) while it's actually crafting. When idle/filling
+     it sits still — controlled by the `data-off-mode` toggle so
+     you can compare two looks: completely frozen vs quiet idle hum.
+     ───────────────────────────────────────────────────────────── */
+
+  /* Flow particles only exist while processing — hidden otherwise */
+  .factory.pads:not([data-machine-state="processing"]) .flow-channel {
+    display: none;
+  }
+
+  /* Off mode: FROZEN — gears stopped, scan-lines paused, LED dark */
+  .factory.pads[data-off-mode="frozen"]:not([data-machine-state="processing"]) .gears .rot,
+  .factory.pads[data-off-mode="frozen"]:not([data-machine-state="processing"]) .pod.proc .gear {
+    animation-play-state: paused;
+    opacity: 0.42;
+  }
+  .factory.pads[data-off-mode="frozen"]:not([data-machine-state="processing"]) .pod.proc::before {
+    animation-play-state: paused;
+    opacity: 0.15;
+  }
+  .factory.pads[data-off-mode="frozen"]:not([data-machine-state="processing"]) .led {
+    animation: none;
+    filter: brightness(0.35);
+  }
+
+  /* Off mode: HUM — gears creep slowly, LED breathes faintly */
+  .factory.pads[data-off-mode="hum"]:not([data-machine-state="processing"]) .gears .rot,
+  .factory.pads[data-off-mode="hum"]:not([data-machine-state="processing"]) .pod.proc .gear {
+    animation-duration: calc(var(--gear-period) * 6) !important;
+    opacity: 0.65;
+  }
+  .factory.pads[data-off-mode="hum"]:not([data-machine-state="processing"]) .pod.proc::before {
+    opacity: 0.35;
+  }
+  .factory.pads[data-off-mode="hum"]:not([data-machine-state="processing"]) .led {
+    filter: brightness(0.55);
+  }
+  /* While processing — defaults take over (full speed gears, particles, LED) */
+
 </style>
 </head>
 <body>
@@ -556,6 +724,10 @@
     <button class="variant-btn active" data-variant="gearworks">
       Gear Works
       <span class="sub">2 meshing gears + flow</span>
+    </button>
+    <button class="variant-btn" data-variant="pads">
+      Pads
+      <span class="sub">stand-on input + stacked output</span>
     </button>
   </aside>
 
@@ -603,12 +775,53 @@
     </div>
 
     <div class="field">
+      <label>Gear count</label>
+      <div class="toggle-row" id="gear-count-toggle">
+        <button data-count="1">1</button>
+        <button data-count="2" class="active">2</button>
+        <button data-count="3">3</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Gear size <span class="val" id="gear-size-val">1.0×</span></label>
+      <input type="range" id="gear-size" min="0.6" max="1.8" step="0.05" />
+    </div>
+
+    <div class="field">
       <label>LED state</label>
       <div class="toggle-row" id="led-toggle">
         <button data-led="idle">Idle</button>
         <button data-led="draining" class="active">Draining</button>
         <button data-led="done">Done</button>
       </div>
+    </div>
+
+    <div class="field">
+      <label>Process time <span class="val" id="proc-time-val">3.0s</span></label>
+      <input type="range" id="proc-time" min="0.5" max="10" step="0.5" />
+    </div>
+
+    <div class="field">
+      <label>Off-state look <span class="val" style="font-size:9px;color:#666">(pads)</span></label>
+      <div class="toggle-row" id="off-mode-toggle">
+        <button data-off="frozen" class="active">Frozen</button>
+        <button data-off="hum">Idle hum</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Drop tool <span class="val" style="font-size:9px;color:#666">(pads)</span></label>
+      <div class="output-row" style="margin-bottom:6px;">
+        <select id="drop-item" style="flex:1;"></select>
+        <input type="number" id="drop-amount" min="1" max="99" value="1" style="width:54px;" />
+      </div>
+      <button class="add-btn" id="drop-feed" style="width:100%;">drop into machine ▾</button>
+    </div>
+
+    <div class="field">
+      <label>Output</label>
+      <button class="add-btn" id="take-output" style="width:100%;">take output (clear stack)</button>
     </div>
 
     <div class="field">
@@ -626,7 +839,7 @@
 // ─────────────────────────────────────────────────────────────────
 
 const state = {
-  variant: 'gearworks',         // 'baseline' | 'gearworks'
+  variant: 'gearworks',         // 'baseline' | 'gearworks' | 'pads'
   inputs: [
     { emoji: '🥩', count: 5 },
     { emoji: '🪵', count: 2 },
@@ -635,32 +848,127 @@ const state = {
   progress: 70,
   gearPeriod: 1.6,              // seconds
   flowPeriod: 2.0,
+  gearCount: 2,                 // 1 | 2 | 3 — gears in the proc pod row
+  gearSize: 1.0,                // multiplier on the base gear radii (0.6–1.8)
   led: 'draining',              // 'idle' | 'draining' | 'done'
   paused: false,
+
+  // ── pads variant: live recipe machine ───────────────────────
+  machineState: 'idle',         // 'idle' | 'filling' | 'processing'
+  fed: [0, 0],                  // running deposit per input index
+  processTime: 3.0,             // seconds per craft
+  processProgress: 0,           // 0..1 while machineState === 'processing'
+  outputStack: [],              // array of {fresh:bool} per finished output
+  freshKey: 0,                  // monotonically increasing id for pop animations
+  dropTool: { itemIdx: 0, amount: 1 },
+  offMode: 'frozen',            // 'frozen' | 'hum' — look while not processing
 };
 
-// Build the SVG gear cluster used by the gearworks variant
+// Keep `state.fed` length in sync with the recipe and clamp dropTool index.
+function syncFed() {
+  while (state.fed.length < state.inputs.length) state.fed.push(0);
+  state.fed.length = state.inputs.length;
+  if (state.dropTool.itemIdx >= state.inputs.length) {
+    state.dropTool.itemIdx = Math.max(0, state.inputs.length - 1);
+  }
+}
+
+// Compute the next machine state from fed[] and processing flag.
+function deriveMachineState() {
+  if (state.machineState === 'processing') return 'processing';
+  const anyFed = state.fed.some(n => n > 0);
+  return anyFed ? 'filling' : 'idle';
+}
+
+// ── Gear cluster: dynamic count + size ───────────────────────
+// Base templates (per-gear) at gearSize === 1.0. The first three
+// entries cover counts 1, 2, 3 — appended in order. Each entry
+// describes one disk in viewBox units before the size multiplier
+// is applied.
+const GEAR_TEMPLATES = [
+  // Index 0 — big lead gear
+  { r: 13, teethCount: 8, toothLen: 6, toothW: 6,   hub: 3, alt: 'big'   },
+  // Index 1 — small partner
+  { r:  9, teethCount: 6, toothLen: 5, toothW: 5,   hub: 2, alt: 'small' },
+  // Index 2 — third trailing gear (bigger than the middle one so the
+  // 3-gear row reads as big → small → medium-big and feels balanced)
+  { r: 11, teethCount: 8, toothLen: 5, toothW: 5,   hub: 3, alt: 'big'   },
+];
+
+// Compute the layout for the current gearCount + gearSize. Returns
+// per-gear positions in viewBox units plus the overall viewBox size.
+// All gears sit on the horizontal centreline; centres are placed so
+// each pair just touches (radius + radius), giving the meshing look.
+function computeGearLayout() {
+  const count = Math.max(1, Math.min(3, state.gearCount | 0));
+  const s = state.gearSize;
+  const padX = 4;          // horizontal padding inside the viewBox
+  const padY = 4;          // vertical padding inside the viewBox
+  const gears = [];
+
+  // Scaled per-gear data
+  const scaled = GEAR_TEMPLATES.slice(0, count).map(t => ({
+    r:        t.r * s,
+    toothLen: t.toothLen * s,
+    toothW:   t.toothW * s,
+    hub:      t.hub * s,
+    teethCount: t.teethCount,
+    alt:      t.alt,
+  }));
+
+  // Place centres left-to-right; first centre = padX + r0 + toothLen0
+  // so the outermost tooth tips clear the edge. Each subsequent gear
+  // sits exactly one diameter-pair away.
+  let cx = padX + scaled[0].r + scaled[0].toothLen;
+  for (let i = 0; i < scaled.length; i++) {
+    if (i > 0) {
+      cx += scaled[i - 1].r + scaled[i].r;
+    }
+    gears.push({ ...scaled[i], cx });
+  }
+
+  // viewBox dimensions: width spans all gears + padding; height fits
+  // the tallest gear (radius + tooth length) on either side of centre.
+  const last = gears[gears.length - 1];
+  const viewBoxW = last.cx + last.r + last.toothLen + padX;
+  const maxOuter = Math.max(...gears.map(g => g.r + g.toothLen));
+  const viewBoxH = maxOuter * 2 + padY * 2;
+  const cy = viewBoxH / 2;
+
+  return { gears, viewBoxW, viewBoxH, cy };
+}
+
+// Build the SVG gear cluster used by the gearworks variant. The
+// number of gears and their size are driven by `state.gearCount`
+// and `state.gearSize` via computeGearLayout().
 function gearClusterSVG() {
+  const layout = computeGearLayout();
+  const { viewBoxW, viewBoxH, cy } = layout;
+  const gearsSVG = layout.gears.map((g, i) => {
+    // Tooth rectangles: evenly spaced around the disk; y position
+    // pushes them just outside the radius so they read as teeth.
+    const toothY = -(g.r + g.toothLen);
+    const teeth = Array.from({ length: g.teethCount }, (_, t) => {
+      const a = (360 / g.teethCount) * t;
+      return `<rect class="tooth" x="${(-g.toothW/2).toFixed(2)}" y="${toothY.toFixed(2)}" width="${g.toothW.toFixed(2)}" height="${g.toothLen.toFixed(2)}" transform="rotate(${a})"/>`;
+    }).join('');
+    // Alternate spin direction (alt class controls CSS animation
+    // direction + period). Index 0 + 2 = 'big' (slow forward),
+    // index 1 = 'small' (fast reverse).
+    const cls = g.alt === 'big' ? 'g-big' : 'g-small';
+    return `
+      <g class="${cls}" transform="translate(${g.cx.toFixed(2)},${cy.toFixed(2)})">
+        <g class="rot">
+          <circle class="disk" r="${g.r.toFixed(2)}"/>
+          ${teeth}
+          <circle class="hub" r="${g.hub.toFixed(2)}"/>
+        </g>
+      </g>`;
+  }).join('');
+
   return `
-    <svg class="gears" viewBox="0 0 116 56" preserveAspectRatio="xMidYMid meet">
-      <g class="g-big" transform="translate(40,28)">
-        <g class="rot">
-          <circle class="disk" r="13"/>
-          ${[0,45,90,135,180,225,270,315].map(a =>
-            `<rect class="tooth" x="-3" y="-19" width="6" height="6" transform="rotate(${a})"/>`
-          ).join('')}
-          <circle class="hub" r="3"/>
-        </g>
-      </g>
-      <g class="g-small" transform="translate(72,28)">
-        <g class="rot">
-          <circle class="disk" r="9"/>
-          ${[0,60,120,180,240,300].map(a =>
-            `<rect class="tooth" x="-2.5" y="-14" width="5" height="5" transform="rotate(${a})"/>`
-          ).join('')}
-          <circle class="hub" r="2"/>
-        </g>
-      </g>
+    <svg class="gears" viewBox="0 0 ${viewBoxW.toFixed(2)} ${viewBoxH.toFixed(2)}" preserveAspectRatio="xMidYMid meet">
+      ${gearsSVG}
     </svg>`;
 }
 
@@ -677,23 +985,75 @@ function flowChannelHTML() {
 }
 
 function renderCard() {
-  const inputRowsHTML = state.inputs.map(inp =>
-    `<div class="row"><span class="e">${inp.emoji}</span><span class="n">${inp.count}</span></div>`
-  ).join('');
+  // Pads variant inherits the gearworks machine visuals
+  const useGears = state.variant === 'gearworks' || state.variant === 'pads';
+  const isPads   = state.variant === 'pads';
 
-  const procHTML = state.variant === 'gearworks'
-    ? `<div class="pod proc">${gearClusterSVG()}</div>`
+  // Input rows: pads variant shows REMAINING needed (recipe.count - fed[i])
+  const inputRowsHTML = state.inputs.map((inp, i) => {
+    if (isPads) {
+      const remaining = Math.max(0, inp.count - (state.fed[i] || 0));
+      const cls = remaining === 0 ? 'row satisfied' : 'row';
+      return `<div class="${cls}"><span class="e">${inp.emoji}</span><span class="n">${remaining}</span></div>`;
+    }
+    return `<div class="row"><span class="e">${inp.emoji}</span><span class="n">${inp.count}</span></div>`;
+  }).join('');
+
+  const procExtra = isPads
+    ? `<div class="proc-progress" style="--proc:${state.processProgress.toFixed(3)}"></div>`
+    : '';
+
+  const procHTML = useGears
+    ? `<div class="pod proc">${gearClusterSVG()}${procExtra}</div>`
     : `<div class="pod proc"><span class="gear">⚙</span></div>`;
 
-  const flowHTML = state.variant === 'gearworks' ? flowChannelHTML() : '';
+  const flowHTML = useGears ? flowChannelHTML() : '';
 
   const cls = ['factory'];
-  if (state.variant === 'gearworks') cls.push('gearworks');
+  if (useGears) cls.push('gearworks');
+  if (isPads)   cls.push('pads');
   if (state.paused) cls.push('paused');
 
+  const machineStateAttr = isPads
+    ? ` data-machine-state="${state.machineState}" data-off-mode="${state.offMode}"`
+    : '';
+
+  // Compute the proc-pod size from the gear layout so the area
+  // auto-adjusts to gear count + size. With a single gear at the
+  // default size this collapses back to ~46×46, matching the
+  // Baseline variant's proc pod.
+  let procSizeStyle = '';
+  if (useGears) {
+    const layout = computeGearLayout();
+    const podW = Math.ceil(layout.viewBoxW) + 2;
+    const podH = Math.ceil(layout.viewBoxH) + 4;
+    procSizeStyle = ` --proc-w:${podW}px; --proc-h:${podH}px; --proc-h-inner:${Math.ceil(layout.viewBoxH)}px;`;
+  }
+
+  // Output pod: in pads variant, host the stack column inside it.
+  let outputPodHTML;
+  if (isPads) {
+    const outEmoji = state.output.emoji || '?';
+    const stackItems = state.outputStack.map((item, i) =>
+      `<span class="stack-item${item.fresh ? ' fresh' : ''}" style="--idx:${i}" data-key="${item.key}">${outEmoji}</span>`
+    ).join('');
+    const hasStack = state.outputStack.length > 0 ? ' has-stack' : '';
+    outputPodHTML = `<div class="pod output${hasStack}">
+      <span class="out">${outEmoji}</span>
+      <div class="out-stack">${stackItems}</div>
+    </div>`;
+  } else {
+    outputPodHTML = `<div class="pod output"><span class="out">${state.output.emoji}</span></div>`;
+  }
+
+  // Bar is hidden for pads variant.
+  const barHTML = isPads
+    ? ''
+    : `<div class="bar"><span style="width:${state.progress}%;"></span></div>`;
+
   document.getElementById('preview').innerHTML = `
-    <div class="${cls.join(' ')}" data-led="${state.led}"
-         style="--gear-period:${state.gearPeriod}s; --flow-period:${state.flowPeriod}s;">
+    <div class="${cls.join(' ')}" data-led="${state.led}"${machineStateAttr}
+         style="--gear-period:${state.gearPeriod}s; --flow-period:${state.flowPeriod}s;${procSizeStyle}">
       <span class="led"></span>
       <span class="rv-l"></span><span class="rv-r"></span>
       <div class="stations">
@@ -701,14 +1061,127 @@ function renderCard() {
         <span class="joint"></span>
         ${procHTML}
         <span class="joint"></span>
-        <div class="pod output"><span class="out">${state.output.emoji}</span></div>
+        ${outputPodHTML}
         ${flowHTML}
       </div>
-      <div class="bar"><span style="width:${state.progress}%;"></span></div>
+      ${barHTML}
     </div>`;
 
+  // Wire the input pod click → feed action (pads variant only)
+  if (isPads) {
+    const inputPod = document.querySelector('.factory.pads .pod.input');
+    if (inputPod) {
+      inputPod.addEventListener('click', () => {
+        feedSelected();
+        inputPod.classList.remove('feed-flash');
+        // force reflow so the animation restarts
+        void inputPod.offsetWidth;
+        inputPod.classList.add('feed-flash');
+      });
+    }
+    // After render, items lose their "fresh" flag so the pop only plays once
+    requestAnimationFrame(() => {
+      state.outputStack.forEach(it => it.fresh = false);
+    });
+  }
+
+  const labels = { gearworks: 'gear works', pads: 'pads', baseline: 'baseline' };
   document.getElementById('preview-label').textContent =
-    state.variant === 'gearworks' ? 'gear works' : 'baseline';
+    labels[state.variant] || 'baseline';
+}
+
+// ── Pads variant simulation ──────────────────────────────────
+
+// Drop `amount` of inputs[itemIdx] into the machine. Caps at recipe.
+// If the recipe is fully met, kicks off processing.
+function feedMachine(itemIdx, amount) {
+  if (state.machineState === 'processing') return; // busy
+  if (itemIdx < 0 || itemIdx >= state.inputs.length) return;
+  const need = state.inputs[itemIdx].count;
+  state.fed[itemIdx] = Math.min(need, (state.fed[itemIdx] || 0) + amount);
+  // Are all ingredients satisfied?
+  const allSatisfied = state.inputs.every((inp, i) => state.fed[i] >= inp.count);
+  if (allSatisfied) {
+    startProcessing();
+  } else {
+    state.machineState = deriveMachineState();
+  }
+  renderCard();
+}
+
+function feedSelected() {
+  feedMachine(state.dropTool.itemIdx, Math.max(1, state.dropTool.amount | 0));
+}
+
+function startProcessing() {
+  state.machineState = 'processing';
+  state.processProgress = 0;
+  // Set LED to draining for visual feedback
+  state.led = 'draining';
+  syncLedButtons();
+}
+
+function completeProcess() {
+  // Pop a fresh output onto the stack
+  state.outputStack.push({ key: ++state.freshKey, fresh: true });
+  // Reset fed for the next batch
+  state.fed = state.inputs.map(() => 0);
+  state.processProgress = 0;
+  // Exit processing FIRST so deriveMachineState can recompute correctly.
+  // Without this, deriveMachineState early-returns 'processing' and the
+  // machine immediately starts another (empty) batch.
+  state.machineState = 'idle';
+  state.machineState = deriveMachineState();
+  // Brief "done" LED pulse, then back to idle/draining
+  state.led = 'done';
+  syncLedButtons();
+  setTimeout(() => {
+    if (state.machineState !== 'processing') {
+      state.led = state.machineState === 'idle' ? 'idle' : 'draining';
+      syncLedButtons();
+    }
+  }, 350);
+  renderCard();
+}
+
+function takeOutput() {
+  if (state.outputStack.length === 0) return;
+  state.outputStack = [];
+  // Don't change machine state — it might still be processing the next batch
+  if (state.machineState !== 'processing') {
+    state.machineState = deriveMachineState();
+  }
+  renderCard();
+}
+
+function syncLedButtons() {
+  document.querySelectorAll('#led-toggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.led === state.led);
+  });
+  const card = document.querySelector('.factory');
+  if (card) card.dataset.led = state.led;
+}
+
+// rAF loop drives the processing timer + the proc-progress ring.
+let _lastTickMs = 0;
+function tick(nowMs) {
+  const dtMs = _lastTickMs ? (nowMs - _lastTickMs) : 0;
+  _lastTickMs = nowMs;
+  if (state.variant === 'pads' &&
+      state.machineState === 'processing' &&
+      !state.paused) {
+    const dt = dtMs / 1000;
+    state.processProgress += dt / Math.max(0.1, state.processTime);
+    if (state.processProgress >= 1) {
+      state.processProgress = 1;
+      completeProcess();
+    } else {
+      // Update just the ring var without a full re-render
+      const ring = document.querySelector('.factory.pads .pod.proc .proc-progress');
+      if (ring) ring.style.setProperty('--proc', state.processProgress.toFixed(3));
+    }
+  }
+  requestAnimationFrame(tick);
 }
 
 // ── Settings panel ────────────────────────────────────────────
@@ -728,6 +1201,11 @@ function renderInputList() {
       const i = +el.dataset.i;
       const k = el.dataset.k;
       state.inputs[i][k] = k === 'count' ? +el.value : el.value;
+      // Editing the recipe resets the in-flight batch
+      state.fed = state.inputs.map(() => 0);
+      state.machineState = 'idle';
+      state.processProgress = 0;
+      renderDropToolItems();
       renderCard();
     });
   });
@@ -735,10 +1213,28 @@ function renderInputList() {
     btn.addEventListener('click', () => {
       const i = +btn.dataset.i;
       state.inputs.splice(i, 1);
+      state.fed.splice(i, 1);
+      syncFed();
+      state.machineState = 'idle';
+      state.processProgress = 0;
       renderInputList();
+      renderDropToolItems();
       renderCard();
     });
   });
+}
+
+// Refresh the drop-tool item dropdown to mirror the current inputs.
+function renderDropToolItems() {
+  const sel = document.getElementById('drop-item');
+  if (!sel) return;
+  const prev = state.dropTool.itemIdx;
+  sel.innerHTML = state.inputs.map((inp, i) =>
+    `<option value="${i}">${inp.emoji}  (need ${inp.count})</option>`
+  ).join('');
+  const clamped = Math.max(0, Math.min(prev, state.inputs.length - 1));
+  state.dropTool.itemIdx = clamped;
+  sel.value = String(clamped);
 }
 
 function bindSettings() {
@@ -755,7 +1251,11 @@ function bindSettings() {
   // Inputs
   document.getElementById('add-input').addEventListener('click', () => {
     state.inputs.push({ emoji: '❓', count: 1 });
+    state.fed.push(0);
+    state.machineState = 'idle';
+    state.processProgress = 0;
     renderInputList();
+    renderDropToolItems();
     renderCard();
   });
 
@@ -801,6 +1301,33 @@ function bindSettings() {
     if (card) card.style.setProperty('--flow-period', state.flowPeriod + 's');
   });
 
+  // Gear count (1 / 2 / 3) — re-renders so the SVG cluster + proc pod
+  // size both update. Active markers are re-synced from current state.
+  const syncGearCountButtons = () => {
+    document.querySelectorAll('#gear-count-toggle button').forEach(b => {
+      b.classList.toggle('active', +b.dataset.count === state.gearCount);
+    });
+  };
+  syncGearCountButtons();
+  document.getElementById('gear-count-toggle').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.gearCount = +btn.dataset.count;
+      syncGearCountButtons();
+      renderCard();
+    });
+  });
+
+  // Gear size — single multiplier shared across all gears. Triggers a
+  // re-render because the proc pod width is recomputed from the layout.
+  const sizeInp = document.getElementById('gear-size');
+  sizeInp.value = state.gearSize;
+  document.getElementById('gear-size-val').textContent = state.gearSize.toFixed(2) + '×';
+  sizeInp.addEventListener('input', e => {
+    state.gearSize = +e.target.value;
+    document.getElementById('gear-size-val').textContent = state.gearSize.toFixed(2) + '×';
+    renderCard();
+  });
+
   // LED state
   document.getElementById('led-toggle').querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -811,6 +1338,51 @@ function bindSettings() {
       if (card) card.dataset.led = state.led;
     });
   });
+
+  // Process time (pads variant) — seconds per craft cycle
+  const procTime = document.getElementById('proc-time');
+  procTime.value = state.processTime;
+  document.getElementById('proc-time-val').textContent = state.processTime.toFixed(1) + 's';
+  procTime.addEventListener('input', e => {
+    state.processTime = +e.target.value;
+    document.getElementById('proc-time-val').textContent = state.processTime.toFixed(1) + 's';
+  });
+
+  // Off-state look (pads) — Frozen vs Idle hum
+  document.getElementById('off-mode-toggle').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#off-mode-toggle button')
+        .forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.offMode = btn.dataset.off;
+      const card = document.querySelector('.factory.pads');
+      if (card) card.dataset.offMode = state.offMode;
+    });
+  });
+
+  // Drop tool — selected input + amount per click
+  renderDropToolItems();
+  const dropItem = document.getElementById('drop-item');
+  dropItem.addEventListener('change', e => {
+    state.dropTool.itemIdx = +e.target.value;
+  });
+  const dropAmount = document.getElementById('drop-amount');
+  dropAmount.value = state.dropTool.amount;
+  dropAmount.addEventListener('input', e => {
+    state.dropTool.amount = Math.max(1, +e.target.value | 0);
+  });
+  document.getElementById('drop-feed').addEventListener('click', () => {
+    feedSelected();
+    const inputPod = document.querySelector('.factory.pads .pod.input');
+    if (inputPod) {
+      inputPod.classList.remove('feed-flash');
+      void inputPod.offsetWidth;
+      inputPod.classList.add('feed-flash');
+    }
+  });
+
+  // Take output — clears the stacked outputs
+  document.getElementById('take-output').addEventListener('click', takeOutput);
 
   // Animation play/pause
   document.getElementById('anim-toggle').querySelectorAll('button').forEach(btn => {
@@ -825,9 +1397,11 @@ function bindSettings() {
 }
 
 // ── Boot ──────────────────────────────────────────────────────
+syncFed();
 renderInputList();
 bindSettings();
 renderCard();
+requestAnimationFrame(tick);
 </script>
 </body>
 </html>
