@@ -2,12 +2,16 @@ import * as THREE from 'three';
 import { Renderer } from './core/Renderer.js';
 import { Camera } from './core/Camera.js';
 import { Scene } from './core/Scene.js';
+import { SceneDiorama } from './core/SceneDiorama.js';
 import { Lighting } from './core/Lighting.js';
+import { LightingDiorama } from './core/LightingDiorama.js';
 import EventBus from './core/EventBus.js';
 import { loadArchetypes } from './core/ArchetypeLoader.js';
 import ResourceRegistry from './core/ResourceRegistry.js';
 import SkillRegistry from './core/SkillRegistry.js';
 import { SceneLoader } from './core/SceneLoader.js';
+import { SceneLoaderDiorama } from './core/SceneLoaderDiorama.js';
+import { isDioramaMode } from './core/SceneMode.js';
 import { Joystick } from './ui/Joystick.js';
 import { HUD } from './ui/HUD.js';
 import { GameOverUI } from './ui/GameOverUI.js';
@@ -19,6 +23,8 @@ import { DamagePopupUI } from './ui/DamagePopupUI.js';
 import { ECSManager } from './ecs/ECSManager.js';
 import { EntityFactory } from './entities/EntityFactory.js';
 import { MovementSystem } from './systems/MovementSystem.js';
+import { PlayerAnimSystem } from './systems/PlayerAnimSystem.js';
+import { AnimationSystem } from './systems/AnimationSystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
 import { SkillSystem } from './systems/SkillSystem.js';
 // DISABLED: physical arm meshes replaced by SkillEffectSystem. Keep import
@@ -60,10 +66,15 @@ class Game {
 
     init() {
         // 1. Core Engine
+        // Scene mode is resolved once at boot. Diorama uses parallel
+        // SceneDiorama + LightingDiorama; legacy stays untouched.
+        const diorama = isDioramaMode();
         this.renderer = new Renderer();
-        this.scene = new Scene();
+        this.scene = diorama ? new SceneDiorama() : new Scene();
         this.camera = new Camera();
-        this.lighting = new Lighting(this.scene.instance);
+        this.lighting = diorama
+            ? new LightingDiorama(this.scene.instance)
+            : new Lighting(this.scene.instance);
 
         // 2. UI
         this.joystick = new Joystick();
@@ -79,6 +90,22 @@ class Game {
         // 5. Register all systems (entity creation happens in loadLevel)
         this.movementSystem = new MovementSystem(this.joystick);
         this.ecs.registerSystem(this.movementSystem, ['Transform', 'Movement']);
+
+        // PlayerAnimSystem — procedural walk/idle anims for hero-tier characters
+        // (those whose mesh exposes named limb pivots, e.g. 'character-player').
+        // Runs after MovementSystem so it sees the latest position; runs before
+        // StackSystem so the body bob is in place when the stack anchor is read.
+        this.playerAnimSystem = new PlayerAnimSystem();
+        this.ecs.registerSystem(this.playerAnimSystem, ['Transform', 'Movement', 'WalkAnim']);
+
+        // AnimationSystem — keyframe animation player for hero-tier characters.
+        // Runs AFTER PlayerAnimSystem so action animations (sword swing, jump,
+        // etc.) override walk results on the bones they touch — additive
+        // layer, no-op when no clip is active. Triggered by 'skill:fired'
+        // (looks up skill.animation) and 'animation:play' events. Clips live
+        // in src/config/animations.json.
+        this.animationSystem = new AnimationSystem();
+        this.ecs.registerSystem(this.animationSystem, ['Transform', 'Animator']);
 
         // SkillSystem — new unified combat/harvest dispatcher. Runs before CombatSystem
         // so skill-driven entities (player) use it, while legacy Shooter entities
@@ -140,8 +167,11 @@ class Game {
      * No hardcoded positions or entity references in main.js.
      */
     async loadLevel(path) {
+        // In diorama mode, use the wrapping loader so the dioramaWorld
+        // block in the level JSON is built on top of the legacy ground.
+        const Loader = isDioramaMode() ? SceneLoaderDiorama : SceneLoader;
         const { grid, levelData, gridOverlay, fenceGroup, fenceEdges, propEntities } =
-            await SceneLoader.load(path, this.scene.instance);
+            await Loader.load(path, this.scene.instance);
         this.grid = grid;
 
         // --- Grid toggle ---
@@ -480,6 +510,9 @@ window.addEventListener('load', async () => {
     await ResourceRegistry.load();
     await SkillRegistry.load();
     const game = new Game();
-    await game.loadLevel('./src/config/levels/level-1.json');
+    const levelPath = isDioramaMode()
+        ? './src/config/levels/level-1-diorama.json'
+        : './src/config/levels/level-1.json';
+    await game.loadLevel(levelPath);
     game.animate();
 });

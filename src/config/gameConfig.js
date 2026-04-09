@@ -164,3 +164,11 @@ export const PARTICLE_CONFIG = {
     duration: 0.8,
     size: 0.1
 };
+
+// Scene mode — toggles the parallel "Cardboard Diorama" world (4 distinct
+// corner biomes + landmarks + Hive). The legacy scene stays the default;
+// flip this OR pass `?diorama` in the URL to opt in. See
+// `src/core/SceneMode.js` for the resolution helper.
+export const SCENE_CONFIG = {
+    mode: 'legacy' // 'legacy' | 'diorama'
+};

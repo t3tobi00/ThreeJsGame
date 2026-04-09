@@ -1,0 +1,191 @@
+{
+    "name": "Lone Outpost — Cardboard Diorama v2",
+    "_comment": "Parallel diorama variant of level-1.json. ALL gameplay (grid, safeZone, gates, fences, villagers, enemies, unlockZones, entities) is identical to level-1 — anything you see below that matches level-1.json must STAY in sync. The only addition is the dioramaWorld block, which the SceneLoaderDiorama renders on top of the existing ground (and which replaces the cute log fence with razor wire).",
+    "grid": {
+        "origin": { "x": -30, "z": -30 },
+        "cellSize": 2,
+        "cols": 30,
+        "rows": 30
+    },
+    "ground": {
+        "safeZone": {
+            "size": 20,
+            "color": "0x66cc66",
+            "texture": "turf"
+        },
+        "dangerZone": {
+            "size": 100,
+            "color": "0x4d6633"
+        }
+    },
+    "props": {
+        "rocks": 0,
+        "deadTrees": 0,
+        "spawnRadius": { "min": 12.6, "max": 37.6 }
+    },
+    "_removedFromLegacy": "fence/gates/safeZone are intentionally OMITTED in the diorama. Their gameplay logic (basecamp perimeter colliders, 4-gates-alive safe zone check, gate HP) is bypassed by removing the data — the systems themselves still exist in code for legacy mode. Re-add these blocks to restore the legacy basecamp protection logic.",
+    "entities": [
+        { "archetype": "coin-tray", "position": { "x": -3, "y": 0, "z": -5 } },
+        { "archetype": "coin-tray", "position": { "x": 3, "y": 0, "z": -5 } },
+        { "archetype": "tree", "position": { "x": -6, "y": 0, "z": 2 } },
+        { "archetype": "tree", "position": { "x": 6, "y": 0, "z": 2 } },
+        { "archetype": "tree", "position": { "x": -4, "y": 0, "z": 5 } },
+        { "archetype": "rock", "position": { "x": 4, "y": 0, "z": 5 } },
+        { "archetype": "rock", "position": { "x": 0, "y": 0, "z": 7 } }
+    ],
+    "spawners": {
+        "player": {
+            "cell": [14, 14],
+            "position": { "x": 0, "y": 0, "z": 0 }
+        },
+        "villagers": {
+            "spawnPoint": { "x": 0, "z": -24 },
+            "initialCount": 4
+        },
+        "enemies": {
+            "spawnDistance": 35,
+            "spawnInterval": 2,
+            "countMin": 8,
+            "countMax": 10
+        }
+    },
+    "unlockZones": [
+        {
+            "cell": [17, 11],
+            "gridSpan": [2, 2],
+            "type": "build",
+            "cost": { "meat": 10, "coin": 10 },
+            "builds": "turret"
+        },
+        {
+            "cell": [21, 12],
+            "type": "convert",
+            "cost": { "meat": 10 },
+            "output": "coin",
+            "outputCount": 5,
+            "outputTarget": { "tag": "tray" }
+        },
+        {
+            "cell": [17, 17],
+            "type": "convert",
+            "cost": { "meat": 1 },
+            "output": "coin",
+            "outputCount": 10,
+            "outputTarget": { "carrier": true }
+        }
+    ],
+    "road": {
+        "position": { "x": 0, "z": -16.7 },
+        "width": 3.0,
+        "length": 15
+    },
+    "debug": { "showGrid": false },
+
+    "_dioramaComment": "Coordinate convention: +Z = south, -Z = north, +X = east, -X = west. Basecamp safe zone spans x[-10..10] z[-10..10]. Restaurant sits just outside the NORTH gate (z<-10). Factory sits just outside the EAST gate (x>10). Jungle sprawls across the entire west side. Mountains form a far backdrop on the NW arc. Hive holds the SW combat frontier. The big razor-wire wall is the only fence — it runs full map width along z=14, with a 4-unit central gap for the player to walk through to the combat front.",
+    "dioramaWorld": {
+        "bigFence": {
+            "z": 14,
+            "xStart": -48,
+            "xEnd":  48,
+            "gap": { "center": 0, "width": 4 }
+        },
+
+        "landmarks": [
+            { "preset": "dio-neon-arch",     "x":   0, "z": -14, "rotY": 3.1416 },
+            { "preset": "dio-smokestack",    "x":  16, "z":   0 },
+            { "preset": "dio-watchtower",    "x": -26, "z":  19 },
+            { "preset": "dio-hive",          "x": -24, "z":  28 },
+            { "preset": "dio-fortress-gate", "x":   0, "z":  14 }
+        ],
+
+        "mountains": [
+            { "x": -30, "z": -38, "height": 14, "radius": 6 },
+            { "x": -40, "z": -30, "height": 16, "radius": 7 },
+            { "x": -45, "z": -18, "height": 13, "radius": 6 },
+            { "x": -45, "z":  -5, "height": 12, "radius": 5 },
+            { "x": -42, "z":   8, "height": 11, "radius": 5, "snowCap": false },
+            { "x": -18, "z": -42, "height": 15, "radius": 6 },
+            { "x":  -5, "z": -44, "height": 12, "radius": 5 },
+            { "x":   8, "z": -42, "height": 10, "radius": 4, "snowCap": false }
+        ],
+
+        "scatter": [
+            "_RESTAURANT (just outside the north gate): patio dressing around the neon arch",
+            { "preset": "dio-patio-table",   "x": -3, "z": -16 },
+            { "preset": "dio-patio-table",   "x":  3, "z": -16 },
+            { "preset": "dio-patio-table",   "x": -2, "z": -18 },
+            { "preset": "dio-patio-table",   "x":  2, "z": -18 },
+            { "preset": "dio-queue-rope",    "x": -1, "z": -12, "rotY": 1.5708 },
+            { "preset": "dio-queue-rope",    "x":  1, "z": -12, "rotY": 1.5708 },
+            { "preset": "dio-awning-stripe", "x":  0, "z": -19 },
+
+            "_FACTORY (just outside the east gate): industrial dressing around the smokestack",
+            { "preset": "dio-pipe-arch",     "x": 13, "z":  2 },
+            { "preset": "dio-crate-stack",   "x": 18, "z": -2 },
+            { "preset": "dio-crate-stack",   "x": 15, "z": -3, "rotY": 0.4 },
+            { "preset": "dio-conveyor-stub", "x": 17, "z":  3, "rotY": 0.3 },
+            { "preset": "dio-locked-plinth", "x": 19, "z":  1 },
+            { "preset": "dio-locked-plinth", "x": 14, "z":  4 },
+            { "preset": "dio-locked-plinth", "x": 20, "z": -4 },
+
+            "_COMBAT FRONT (SW, all south of the big fence at z=14): sandbags and wreckage scattered toward the Hive",
+            { "preset": "dio-sandbag-stack", "x": -14, "z":  17 },
+            { "preset": "dio-sandbag-stack", "x": -18, "z":  20, "rotY": 0.5 },
+            { "preset": "dio-sandbag-stack", "x": -14, "z":  23, "rotY": 1.0 },
+            { "preset": "dio-sandbag-stack", "x": -20, "z":  25, "rotY": 0.3 },
+            { "preset": "dio-broken-car",    "x": -18, "z":  22, "rotY": 0.6 },
+            { "preset": "dio-broken-car",    "x": -28, "z":  24, "rotY": -0.4 },
+            { "preset": "dio-broken-car",    "x": -16, "z":  29, "rotY": 1.2 },
+
+            "_JUNGLE SPRAWL (organic, no border): palms across the entire west side",
+            { "preset": "dio-palm-tree",     "x": -14, "z":  -8 },
+            { "preset": "dio-palm-tree",     "x": -18, "z":  -3, "scale": 1.1 },
+            { "preset": "dio-palm-tree",     "x": -22, "z": -10 },
+            { "preset": "dio-palm-tree",     "x": -15, "z":   5, "scale": 0.9 },
+            { "preset": "dio-palm-tree",     "x": -25, "z":   0 },
+            { "preset": "dio-palm-tree",     "x": -30, "z":  -8, "scale": 1.2 },
+            { "preset": "dio-palm-tree",     "x": -12, "z": -16 },
+            { "preset": "dio-palm-tree",     "x": -25, "z": -18, "scale": 0.95 },
+            { "preset": "dio-palm-tree",     "x": -32, "z":  -3 },
+            { "preset": "dio-palm-tree",     "x": -20, "z":   8 },
+            { "preset": "dio-palm-tree",     "x": -28, "z":   5, "scale": 1.1 },
+            { "preset": "dio-palm-tree",     "x": -34, "z":  10 },
+            { "preset": "dio-palm-tree",     "x": -36, "z":  -8 },
+            { "preset": "dio-palm-tree",     "x": -38, "z":   2, "scale": 0.85 },
+
+            "_JUNGLE: ferns as ground cover",
+            { "preset": "dio-fern",          "x": -16, "z": -12 },
+            { "preset": "dio-fern",          "x": -20, "z":  -5, "scale": 1.2 },
+            { "preset": "dio-fern",          "x": -14, "z":   0 },
+            { "preset": "dio-fern",          "x": -18, "z":   2 },
+            { "preset": "dio-fern",          "x": -26, "z":  -3 },
+            { "preset": "dio-fern",          "x": -22, "z": -14 },
+            { "preset": "dio-fern",          "x": -28, "z": -12, "scale": 0.85 },
+            { "preset": "dio-fern",          "x": -32, "z":   0 },
+            { "preset": "dio-fern",          "x": -13, "z":   8 },
+            { "preset": "dio-fern",          "x": -17, "z":   7, "scale": 1.1 },
+            { "preset": "dio-fern",          "x": -23, "z":   6 },
+            { "preset": "dio-fern",          "x": -34, "z":  -2 },
+            { "preset": "dio-fern",          "x": -36, "z":   5 },
+            { "preset": "dio-fern",          "x": -30, "z":  12 },
+
+            "_JUNGLE: mossy boulders",
+            { "preset": "dio-mossy-boulder", "x": -16, "z": -16 },
+            { "preset": "dio-mossy-boulder", "x": -24, "z":  -8, "scale": 1.2 },
+            { "preset": "dio-mossy-boulder", "x": -20, "z":   4 },
+            { "preset": "dio-mossy-boulder", "x": -30, "z":  -3, "scale": 0.85 },
+            { "preset": "dio-mossy-boulder", "x": -26, "z":  10 },
+            { "preset": "dio-mossy-boulder", "x": -33, "z":   6 }
+        ],
+
+        "rim": [
+            { "x":   0, "z":  38, "rotY": 3.1416 },
+            { "x":  15, "z":  35, "rotY": -2.6 },
+            { "x":  30, "z":  22, "rotY": -2.1 },
+            { "x":  38, "z":   5, "rotY": -1.5708 },
+            { "x":  35, "z": -10, "rotY": -1.0 },
+            { "x":  28, "z": -25, "rotY": -0.5 },
+            { "x":  15, "z": -35, "rotY":  0 }
+        ]
+    }
+}
