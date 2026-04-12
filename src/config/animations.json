@@ -1,0 +1,344 @@
+{
+  "_doc": [
+    "Animation registry — keyframe-based clips for hero-tier characters.",
+    "",
+    "Format:",
+    "  {",
+    "    \"clip-name\": {",
+    "      \"loop\":     true | false,    // wrap forever (walk/run/idle)",
+    "      \"hold\":     true | false,    // clamp at last keyframe (sit/sleep)",
+    "      \"duration\": 0.5,             // seconds",
+    "      \"keyframes\": [",
+    "        { \"t\": 0.0, \"pose\": { ...partial pose, see below... } },",
+    "        { \"t\": 1.0, \"pose\": {} }",
+    "      ]",
+    "    }",
+    "  }",
+    "",
+    "Bones (one segment unless noted):",
+    "  torso, body, head",
+    "  leftArm, leftElbow, rightArm, rightElbow",
+    "  leftLeg, leftKnee, rightLeg, rightKnee",
+    "  root        (special — animates the whole entity mesh)",
+    "",
+    "Per-bone target (any combination):",
+    "  rot   { x, y, z }   euler radians (replaces rest rotation)",
+    "  scale { x, y, z }   multiplier (replaces rest scale = 1)",
+    "  pos   { x, y, z }   OFFSET added to rest position",
+    "",
+    "Bones not mentioned in the clip are never touched — animations layer",
+    "additively on top of the walk anim.",
+    "",
+    "Conventions for this rig:",
+    "  Limbs hang straight down at rest. Negative rot.x swings the limb",
+    "  FORWARD (toward +Z). Positive rot.z raises the arm OUT to the side.",
+    "  Use scale.y > 1 to stretch a limb longer (cartoon effect)."
+  ],
+
+  "idle": {
+    "loop": true,
+    "duration": 2.4,
+    "keyframes": [
+      { "t": 0.0, "pose": {
+        "body": { "pos": { "y": 0 } },
+        "head": { "rot": { "x": 0 } }
+      } },
+      { "t": 0.5, "pose": {
+        "body": { "pos": { "y": 0.025 } },
+        "head": { "rot": { "x": -0.04 } }
+      } },
+      { "t": 1.0, "pose": {
+        "body": { "pos": { "y": 0 } },
+        "head": { "rot": { "x": 0 } }
+      } }
+    ]
+  },
+
+  "walk": {
+    "loop": true,
+    "duration": 0.7,
+    "keyframes": [
+      { "t": 0.0, "pose": {
+        "leftLeg":  { "rot": { "x": -0.5 } },
+        "rightLeg": { "rot": { "x":  0.5 } },
+        "leftKnee": { "rot": { "x":  0.0 } },
+        "rightKnee":{ "rot": { "x":  0.4 } },
+        "leftArm":  { "rot": { "x":  0.4 } },
+        "rightArm": { "rot": { "x": -0.4 } },
+        "torso":    { "rot": { "x":  0.05 } },
+        "body":     { "pos": { "y": 0 } }
+      } },
+      { "t": 0.25, "pose": {
+        "leftLeg":  { "rot": { "x": 0 } },
+        "rightLeg": { "rot": { "x": 0 } },
+        "leftKnee": { "rot": { "x": 0.2 } },
+        "rightKnee":{ "rot": { "x": 0.2 } },
+        "leftArm":  { "rot": { "x": 0 } },
+        "rightArm": { "rot": { "x": 0 } },
+        "body":     { "pos": { "y": 0.05 } }
+      } },
+      { "t": 0.5, "pose": {
+        "leftLeg":  { "rot": { "x":  0.5 } },
+        "rightLeg": { "rot": { "x": -0.5 } },
+        "leftKnee": { "rot": { "x":  0.4 } },
+        "rightKnee":{ "rot": { "x":  0.0 } },
+        "leftArm":  { "rot": { "x": -0.4 } },
+        "rightArm": { "rot": { "x":  0.4 } },
+        "torso":    { "rot": { "x":  0.05 } },
+        "body":     { "pos": { "y": 0 } }
+      } },
+      { "t": 0.75, "pose": {
+        "leftLeg":  { "rot": { "x": 0 } },
+        "rightLeg": { "rot": { "x": 0 } },
+        "leftKnee": { "rot": { "x": 0.2 } },
+        "rightKnee":{ "rot": { "x": 0.2 } },
+        "leftArm":  { "rot": { "x": 0 } },
+        "rightArm": { "rot": { "x": 0 } },
+        "body":     { "pos": { "y": 0.05 } }
+      } },
+      { "t": 1.0, "pose": {
+        "leftLeg":  { "rot": { "x": -0.5 } },
+        "rightLeg": { "rot": { "x":  0.5 } },
+        "leftKnee": { "rot": { "x":  0.0 } },
+        "rightKnee":{ "rot": { "x":  0.4 } },
+        "leftArm":  { "rot": { "x":  0.4 } },
+        "rightArm": { "rot": { "x": -0.4 } },
+        "torso":    { "rot": { "x":  0.05 } },
+        "body":     { "pos": { "y": 0 } }
+      } }
+    ]
+  },
+
+  "run": {
+    "loop": true,
+    "duration": 0.45,
+    "keyframes": [
+      { "t": 0.0, "pose": {
+        "leftLeg":  { "rot": { "x": -0.85 } },
+        "rightLeg": { "rot": { "x":  0.55 } },
+        "leftKnee": { "rot": { "x":  0.30 } },
+        "rightKnee":{ "rot": { "x":  1.20 } },
+        "leftArm":  { "rot": { "x":  0.85 } },
+        "leftElbow":{ "rot": { "x":  1.10 } },
+        "rightArm": { "rot": { "x": -0.85 } },
+        "rightElbow":{ "rot": { "x":  1.10 } },
+        "torso":    { "rot": { "x":  0.20 } },
+        "body":     { "pos": { "y": 0 } }
+      } },
+      { "t": 0.25, "pose": {
+        "leftLeg":  { "rot": { "x": 0 } },
+        "rightLeg": { "rot": { "x": 0 } },
+        "leftKnee": { "rot": { "x": 0.7 } },
+        "rightKnee":{ "rot": { "x": 0.7 } },
+        "leftArm":  { "rot": { "x": 0 } },
+        "rightArm": { "rot": { "x": 0 } },
+        "body":     { "pos": { "y": 0.10 } }
+      } },
+      { "t": 0.5, "pose": {
+        "leftLeg":  { "rot": { "x":  0.55 } },
+        "rightLeg": { "rot": { "x": -0.85 } },
+        "leftKnee": { "rot": { "x":  1.20 } },
+        "rightKnee":{ "rot": { "x":  0.30 } },
+        "leftArm":  { "rot": { "x": -0.85 } },
+        "leftElbow":{ "rot": { "x":  1.10 } },
+        "rightArm": { "rot": { "x":  0.85 } },
+        "rightElbow":{ "rot": { "x":  1.10 } },
+        "torso":    { "rot": { "x":  0.20 } },
+        "body":     { "pos": { "y": 0 } }
+      } },
+      { "t": 0.75, "pose": {
+        "leftLeg":  { "rot": { "x": 0 } },
+        "rightLeg": { "rot": { "x": 0 } },
+        "leftKnee": { "rot": { "x": 0.7 } },
+        "rightKnee":{ "rot": { "x": 0.7 } },
+        "leftArm":  { "rot": { "x": 0 } },
+        "rightArm": { "rot": { "x": 0 } },
+        "body":     { "pos": { "y": 0.10 } }
+      } },
+      { "t": 1.0, "pose": {
+        "leftLeg":  { "rot": { "x": -0.85 } },
+        "rightLeg": { "rot": { "x":  0.55 } },
+        "leftKnee": { "rot": { "x":  0.30 } },
+        "rightKnee":{ "rot": { "x":  1.20 } },
+        "leftArm":  { "rot": { "x":  0.85 } },
+        "leftElbow":{ "rot": { "x":  1.10 } },
+        "rightArm": { "rot": { "x": -0.85 } },
+        "rightElbow":{ "rot": { "x":  1.10 } },
+        "torso":    { "rot": { "x":  0.20 } }
+      } }
+    ]
+  },
+
+  "wave": {
+    "loop": false,
+    "duration": 1.6,
+    "keyframes": [
+      { "t": 0.0,  "pose": { "rightArm": { "rot": { "x": 0, "z": 0 } }, "rightElbow": { "rot": { "x": 0 } } } },
+      { "t": 0.15, "pose": { "rightArm": { "rot": { "x": -0.4, "z": -1.6 } }, "rightElbow": { "rot": { "x": -1.0 } }, "head": { "rot": { "y": 0.2 } } } },
+      { "t": 0.35, "pose": { "rightArm": { "rot": { "x": -0.4, "z": -1.9 } }, "rightElbow": { "rot": { "x": -0.6 } } } },
+      { "t": 0.55, "pose": { "rightArm": { "rot": { "x": -0.4, "z": -1.4 } }, "rightElbow": { "rot": { "x": -1.2 } } } },
+      { "t": 0.75, "pose": { "rightArm": { "rot": { "x": -0.4, "z": -1.9 } }, "rightElbow": { "rot": { "x": -0.6 } } } },
+      { "t": 0.92, "pose": { "rightArm": { "rot": { "x": -0.3, "z": -1.4 } }, "rightElbow": { "rot": { "x": -1.0 } }, "head": { "rot": { "y": 0.2 } } } },
+      { "t": 1.0,  "pose": { "rightArm": { "rot": { "x": 0, "z": 0 } }, "rightElbow": { "rot": { "x": 0 } }, "head": { "rot": { "y": 0 } } } }
+    ]
+  },
+
+  "jump": {
+    "loop": false,
+    "duration": 1.0,
+    "keyframes": [
+      { "t": 0.0, "pose": {
+        "leftLeg":  { "rot": { "x": 0 } }, "leftKnee":  { "rot": { "x": 0 } },
+        "rightLeg": { "rot": { "x": 0 } }, "rightKnee": { "rot": { "x": 0 } },
+        "leftArm":  { "rot": { "x": 0 } }, "rightArm":  { "rot": { "x": 0 } },
+        "body":     { "pos": { "y": 0 } },
+        "root":     { "scale": { "x": 1, "y": 1, "z": 1 } }
+      } },
+      { "t": 0.20, "pose": {
+        "leftLeg":  { "rot": { "x":  0.3 } }, "leftKnee":  { "rot": { "x": 1.4 } },
+        "rightLeg": { "rot": { "x":  0.3 } }, "rightKnee": { "rot": { "x": 1.4 } },
+        "leftArm":  { "rot": { "x":  1.2 } }, "rightArm":  { "rot": { "x": 1.2 } },
+        "torso":    { "rot": { "x":  0.4 } },
+        "body":     { "pos": { "y": -0.18 } },
+        "root":     { "scale": { "x": 1.1, "y": 0.85, "z": 1.1 } }
+      } },
+      { "t": 0.38, "pose": {
+        "leftLeg":  { "rot": { "x":  0.0 } }, "leftKnee":  { "rot": { "x": 0 } },
+        "rightLeg": { "rot": { "x":  0.0 } }, "rightKnee": { "rot": { "x": 0 } },
+        "leftArm":  { "rot": { "x": -1.6 } }, "rightArm":  { "rot": { "x": -1.6 } },
+        "torso":    { "rot": { "x": -0.05 } },
+        "body":     { "pos": { "y": 0.15 } },
+        "root":     { "scale": { "x": 0.9, "y": 1.25, "z": 0.9 } }
+      } },
+      { "t": 0.60, "pose": {
+        "leftLeg":  { "rot": { "x": -0.3 } }, "leftKnee":  { "rot": { "x": 1.0 } },
+        "rightLeg": { "rot": { "x": -0.3 } }, "rightKnee": { "rot": { "x": 1.0 } },
+        "leftArm":  { "rot": { "x": -1.0 } }, "rightArm":  { "rot": { "x": -1.0 } },
+        "torso":    { "rot": { "x": 0.1 } },
+        "body":     { "pos": { "y": 0.05 } },
+        "root":     { "scale": { "x": 1.0, "y": 1.05, "z": 1.0 } }
+      } },
+      { "t": 0.78, "pose": {
+        "leftLeg":  { "rot": { "x":  0.4 } }, "leftKnee":  { "rot": { "x": 1.5 } },
+        "rightLeg": { "rot": { "x":  0.4 } }, "rightKnee": { "rot": { "x": 1.5 } },
+        "leftArm":  { "rot": { "x":  0.8 } }, "rightArm":  { "rot": { "x": 0.8 } },
+        "torso":    { "rot": { "x":  0.45 } },
+        "body":     { "pos": { "y": -0.22 } },
+        "root":     { "scale": { "x": 1.18, "y": 0.78, "z": 1.18 } }
+      } },
+      { "t": 1.0, "pose": {
+        "leftLeg":  { "rot": { "x": 0 } }, "leftKnee":  { "rot": { "x": 0 } },
+        "rightLeg": { "rot": { "x": 0 } }, "rightKnee": { "rot": { "x": 0 } },
+        "leftArm":  { "rot": { "x": 0 } }, "rightArm":  { "rot": { "x": 0 } },
+        "torso":    { "rot": { "x": 0 } },
+        "body":     { "pos": { "y": 0 } },
+        "root":     { "scale": { "x": 1, "y": 1, "z": 1 } }
+      } }
+    ]
+  },
+
+  "sword-slash": {
+    "loop": false,
+    "duration": 0.55,
+    "keyframes": [
+      { "t": 0.0, "pose": {
+        "rightArm":  { "rot": { "x": 0, "y": 0, "z": 0 }, "scale": { "y": 1 }, "pos": { "x": 0, "y": 0, "z": 0 } },
+        "rightElbow":{ "rot": { "x": 0 } },
+        "leftArm":   { "rot": { "x": 0, "z": 0 } },
+        "torso":     { "rot": { "x": 0, "y": 0 } },
+        "body":      { "pos": { "y": 0 } }
+      } },
+      { "t": 0.25, "pose": {
+        "rightArm":  { "rot": { "x": -0.5, "y": 0.3, "z": 1.5 }, "scale": { "y": 1.05 } },
+        "rightElbow":{ "rot": { "x": -0.6 } },
+        "leftArm":   { "rot": { "x": 0.3, "z": -0.3 } },
+        "torso":     { "rot": { "x": 0.05, "y": 0.5 } },
+        "body":      { "pos": { "y": -0.04 } }
+      } },
+      { "t": 0.42, "pose": {
+        "rightArm":  { "rot": { "x": 0.3, "y": -0.6, "z": -1.7 }, "scale": { "y": 1.55 }, "pos": { "z": 0.18 } },
+        "rightElbow":{ "rot": { "x": 0.2 } },
+        "leftArm":   { "rot": { "x": -0.5, "z": 0.6 } },
+        "torso":     { "rot": { "x": 0.25, "y": -0.6 } },
+        "body":      { "pos": { "y": -0.06 }, "scale": { "y": 0.9, "x": 1.08, "z": 1.08 } }
+      } },
+      { "t": 0.65, "pose": {
+        "rightArm":  { "rot": { "x": 0.4, "y": -0.4, "z": -1.2 }, "scale": { "y": 1.1 } },
+        "rightElbow":{ "rot": { "x": 0.4 } },
+        "leftArm":   { "rot": { "x": -0.3, "z": 0.4 } },
+        "torso":     { "rot": { "x": 0.15, "y": -0.4 } },
+        "body":      { "pos": { "y": -0.02 } }
+      } },
+      { "t": 1.0, "pose": {
+        "rightArm":  { "rot": { "x": 0, "y": 0, "z": 0 }, "scale": { "y": 1 }, "pos": { "x": 0, "y": 0, "z": 0 } },
+        "rightElbow":{ "rot": { "x": 0 } },
+        "leftArm":   { "rot": { "x": 0, "z": 0 } },
+        "torso":     { "rot": { "x": 0, "y": 0 } },
+        "body":      { "pos": { "y": 0 }, "scale": { "y": 1, "x": 1, "z": 1 } }
+      } }
+    ]
+  },
+
+  "dramatic-stretch": {
+    "loop": false,
+    "duration": 1.2,
+    "keyframes": [
+      { "t": 0.0, "pose": {
+        "rightArm":  { "rot": { "z": 0 },    "scale": { "y": 1 }, "pos": { "z": 0 } },
+        "leftArm":   { "rot": { "z": 0 },    "scale": { "y": 1 } },
+        "body":      { "scale": { "y": 1, "x": 1, "z": 1 } },
+        "head":      { "rot": { "x": 0 } }
+      } },
+      { "t": 0.30, "pose": {
+        "rightArm":  { "rot": { "x": -0.6, "z": -0.8 }, "scale": { "y": 1.2 }, "pos": { "z": 0.05 } },
+        "leftArm":   { "rot": { "x": -0.3, "z":  0.3 }, "scale": { "y": 1.1 } },
+        "body":      { "scale": { "y": 1.15, "x": 0.92, "z": 0.92 } },
+        "head":      { "rot": { "x": -0.2 } }
+      } },
+      { "t": 0.55, "pose": {
+        "rightArm":  { "rot": { "x": -1.4, "z": -1.5 }, "scale": { "y": 2.2 }, "pos": { "z": 0.35, "y": 0.2 } },
+        "leftArm":   { "rot": { "x": -0.6, "z":  0.6 }, "scale": { "y": 1.6 }, "pos": { "z": 0.15 } },
+        "body":      { "scale": { "y": 1.35, "x": 0.82, "z": 0.82 } },
+        "torso":     { "rot": { "x": -0.3 } },
+        "head":      { "rot": { "x": -0.4 } }
+      } },
+      { "t": 0.72, "pose": {
+        "rightArm":  { "rot": { "x": -1.4, "z": -1.5 }, "scale": { "y": 2.2 }, "pos": { "z": 0.35, "y": 0.2 } },
+        "leftArm":   { "rot": { "x": -0.6, "z":  0.6 }, "scale": { "y": 1.6 }, "pos": { "z": 0.15 } },
+        "body":      { "scale": { "y": 1.35, "x": 0.82, "z": 0.82 } },
+        "torso":     { "rot": { "x": -0.3 } }
+      } },
+      { "t": 1.0, "pose": {
+        "rightArm":  { "rot": { "x": 0, "z": 0 }, "scale": { "y": 1 }, "pos": { "z": 0, "y": 0 } },
+        "leftArm":   { "rot": { "x": 0, "z": 0 }, "scale": { "y": 1 } },
+        "body":      { "scale": { "y": 1, "x": 1, "z": 1 } },
+        "torso":     { "rot": { "x": 0 } },
+        "head":      { "rot": { "x": 0 } }
+      } }
+    ]
+  },
+
+  "sit": {
+    "loop": false,
+    "hold": true,
+    "duration": 0.6,
+    "keyframes": [
+      { "t": 0.0, "pose": {
+        "leftLeg":  { "rot": { "x": 0 } }, "leftKnee":  { "rot": { "x": 0 } },
+        "rightLeg": { "rot": { "x": 0 } }, "rightKnee": { "rot": { "x": 0 } },
+        "torso":    { "rot": { "x": 0 } },
+        "body":     { "pos": { "y": 0 } },
+        "leftArm":  { "rot": { "x": 0, "z": 0 } },
+        "rightArm": { "rot": { "x": 0, "z": 0 } }
+      } },
+      { "t": 1.0, "pose": {
+        "leftLeg":  { "rot": { "x": -1.55 } }, "leftKnee":  { "rot": { "x": 1.55 } },
+        "rightLeg": { "rot": { "x": -1.55 } }, "rightKnee": { "rot": { "x": 1.55 } },
+        "torso":    { "rot": { "x": 0.15 } },
+        "body":     { "pos": { "y": -0.15 } },
+        "leftArm":  { "rot": { "x": -0.2, "z":  0.15 } },
+        "rightArm": { "rot": { "x": -0.2, "z": -0.15 } }
+      } }
+    ]
+  }
+}

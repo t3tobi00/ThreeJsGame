@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Player Animation Lab</title>
+    <style>
+        html, body {
+            margin: 0; padding: 0; height: 100%;
+            background: #1f2936; overflow: hidden;
+            font-family: -apple-system, system-ui, sans-serif;
+            color: #eee;
+            user-select: none;
+        }
+
+        #sidebar {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: 240px;
+            background: rgba(18, 22, 30, 0.94);
+            box-shadow: 2px 0 12px rgba(0,0,0,0.4);
+            overflow-y: auto;
+            padding: 18px 0 24px 0;
+            z-index: 10;
+        }
+        #sidebar h1 {
+            margin: 0 18px 4px 18px;
+            font-size: 15px; letter-spacing: 0.5px;
+            color: #b8e0ff;
+        }
+        #sidebar .sub {
+            margin: 0 18px 16px 18px;
+            font-size: 10px; color: #889; line-height: 1.4;
+        }
+
+        .section-label {
+            margin: 14px 18px 8px 18px;
+            font-size: 10px; color: #7fb8ff;
+            letter-spacing: 1.2px; font-weight: 700;
+            border-top: 1px solid #2d3a4a;
+            padding-top: 12px;
+        }
+        .section-label:first-of-type { border-top: none; padding-top: 0; }
+
+        .anim-list {
+            display: flex; flex-direction: column;
+            gap: 4px;
+            margin: 0 12px;
+        }
+        .anim-btn {
+            display: flex; align-items: center; gap: 10px;
+            background: #1e2a3a;
+            color: #d8e6f5;
+            border: 1px solid #2d3a4a;
+            padding: 11px 14px;
+            border-radius: 5px;
+            font-size: 12px; font-weight: 600;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.1s, border-color 0.1s;
+        }
+        .anim-btn:hover {
+            background: #2a3a4a;
+            border-color: #3d5066;
+        }
+        .anim-btn.active {
+            background: linear-gradient(180deg, #2d4a6a, #1f3a5a);
+            border-color: #7fb8ff;
+            color: #fff;
+        }
+        .anim-btn .play-icon {
+            width: 0; height: 0;
+            border-left: 8px solid #7fb8ff;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            flex-shrink: 0;
+        }
+        .anim-btn.active .play-icon {
+            border: none;
+            width: 8px; height: 9px;
+            border-left: 3px solid #fff;
+            border-right: 3px solid #fff;
+            margin-left: 1px;
+        }
+        .anim-btn .name { flex: 1; }
+        .anim-btn .flags {
+            font-size: 9px;
+            color: #6a7d92;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+        .anim-btn.active .flags { color: #b8e0ff; }
+
+        .stop-btn {
+            margin: 12px 18px 0 18px;
+            background: transparent;
+            color: #ff8888;
+            border: 1px solid #5a2a2a;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            width: calc(100% - 36px);
+        }
+        .stop-btn:hover { background: rgba(90, 42, 42, 0.4); }
+
+        #hud {
+            position: fixed; top: 14px; right: 18px;
+            background: rgba(18, 22, 30, 0.85);
+            border: 1px solid #2d3a4a;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 11px;
+            z-index: 5;
+            min-width: 170px;
+            line-height: 1.7;
+        }
+        #hud .row { display: flex; justify-content: space-between; gap: 14px; }
+        #hud .k { color: #889; }
+        #hud .v { color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; }
+        #hud .clip-name { color: #ffe066; font-weight: 800; }
+
+        #hint {
+            position: fixed; bottom: 14px; left: 256px;
+            background: rgba(18, 22, 30, 0.7);
+            padding: 6px 12px; border-radius: 4px;
+            font-size: 10px; color: #889;
+            z-index: 5;
+        }
+
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h1>Animation Lab</h1>
+        <div class="sub">Pick an animation. Edit the JSON. See it play. The same JSON drives the in-game player — what works here ships unchanged.</div>
+
+        <div class="section-label">ANIMATIONS</div>
+        <div class="anim-list" id="anim-list">
+            <div style="font-size: 10px; color: #667; margin: 8px 6px;">Loading…</div>
+        </div>
+
+        <button class="stop-btn" id="b-stop">■ STOP</button>
+    </div>
+
+    <div id="hud">
+        <div class="row"><span class="k">Playing</span><span class="v clip-name" id="h-clip">—</span></div>
+        <div class="row"><span class="k">Time</span><span class="v" id="h-time">0.00s</span></div>
+        <div class="row"><span class="k">Loop</span><span class="v" id="h-loop">—</span></div>
+    </div>
+
+    <div id="hint">Drag canvas to orbit · Scroll to zoom</div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="./lab.js"></script>
+</body>
+</html>

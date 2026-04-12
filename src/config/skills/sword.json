@@ -12,6 +12,9 @@
   "reloadTime": 0,
   "knockback": 0.6,
 
+  "animation": "sword-slash",
+
+
   "melee": {
     "coneAngleDeg": 130
   },

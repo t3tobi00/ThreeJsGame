@@ -27,6 +27,7 @@ import { Component_InstanceRef } from '../ecs/components/Component_InstanceRef.j
 import { Component_SkillLoadout } from '../ecs/components/Component_SkillLoadout.js';
 import { Component_SkillState } from '../ecs/components/Component_SkillState.js';
 import { Component_Arms } from '../ecs/components/Component_Arms.js';
+import { Component_Animator } from '../ecs/components/Component_Animator.js';
 import { Component_Harvestable } from '../ecs/components/Component_Harvestable.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
@@ -58,6 +59,7 @@ const COMPONENT_MAP = {
     SkillLoadout:    (d) => new Component_SkillLoadout(d),
     SkillState:      ()  => new Component_SkillState(),
     Arms:            ()  => new Component_Arms(),
+    Animator:        ()  => new Component_Animator(),
     Harvestable:     (d) => new Component_Harvestable(d),
 };
 
@@ -132,21 +134,13 @@ export class EntityFactory {
             harvestable.spawnPos = pos.clone();
         }
 
-        // ─── DISABLED: physical arm meshes ───
-        // Replaced by SkillEffectSystem (spawns effect visuals per skill instead).
-        // Leaving this + _buildCharacterArms() + Component_Arms in place so we can
-        // re-enable by uncommenting this block and the ArmAnimSystem registration
-        // in main.js.
-        // if (!instanceRef
-        //     && archetype.mesh?.preset === 'character'
-        //     && this.ecs.getComponent(id, 'Arms')) {
-        //     const armsComp = this.ecs.getComponent(id, 'Arms');
-        //     const rawColor = archetype.mesh.color;
-        //     const armColor = typeof rawColor === 'string' ? parseInt(rawColor, 16) : (rawColor || 0xaaaaaa);
-        //     const { left, right } = this._buildCharacterArms(mesh, armColor);
-        //     armsComp.leftArm  = left;
-        //     armsComp.rightArm = right;
-        // }
+        // Wire Component_Arms to the named limb pivots built into the mesh preset
+        // (e.g. 'character-player'). PlayerAnimSystem reads these refs to swing arms.
+        if (!instanceRef && this.ecs.getComponent(id, 'Arms')) {
+            const armsComp = this.ecs.getComponent(id, 'Arms');
+            armsComp.leftArm  = mesh.getObjectByName('leftArm')  || null;
+            armsComp.rightArm = mesh.getObjectByName('rightArm') || null;
+        }
 
         // Emit spawn event
         EventBus.emit('entity:spawned', { entityId: id, type: archetype.type });
@@ -168,37 +162,6 @@ export class EntityFactory {
     }
 
     // ─── Private ────────────────────────────────────────────────────────────────
-
-    /**
-     * Build two arm pivot groups parented at the character's shoulders.
-     * Each pivot hosts a capsule "arm" hanging below it — rotating the pivot
-     * swings the arm from the shoulder.
-     *
-     * Returns { left, right } Group refs so the caller can store them on
-     * Component_Arms.
-     */
-    _buildCharacterArms(characterGroup, colorHex) {
-        const armMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.7 });
-        const armGeo = new THREE.CapsuleGeometry(0.08, 0.30, 3, 6);
-
-        const makeArm = (xSign) => {
-            const pivot = new THREE.Group();
-            pivot.position.set(xSign * 0.28, 0.85, 0); // shoulder
-
-            const armMesh = new THREE.Mesh(armGeo, armMat);
-            armMesh.position.y = -0.22; // hang below pivot
-            armMesh.castShadow = true;
-            pivot.add(armMesh);
-
-            characterGroup.add(pivot);
-            return pivot;
-        };
-
-        return {
-            left:  makeArm(-1),
-            right: makeArm(+1)
-        };
-    }
 
     _createMesh(archetype, pos) {
         let mesh;

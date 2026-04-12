@@ -44,12 +44,6 @@ export class MovementSystem {
                 // Snappy rotation toward movement direction
                 const angle = Math.atan2(velocity.x, velocity.z);
                 mesh.rotation.y = angle;
-
-                // Visual "wobble" (Squash and stretch based on velocity length)
-                const speedScale = 1.0 + Math.sin(Date.now() * 0.015) * 0.05;
-                mesh.scale.set(1, speedScale, 1);
-            } else {
-                mesh.scale.set(1, 1, 1);
             }
         }
     }
