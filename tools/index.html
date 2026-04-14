@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThesisGame2 — Dev Tools</title>
+    <style>
+        :root {
+            --bg: #1a1a1f;
+            --panel: #24242c;
+            --panel-light: #2f2f38;
+            --border: #3a3a45;
+            --text: #e8e8ec;
+            --text-dim: #8a8a94;
+            --accent: #4fc3f7;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 48px 24px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        .wrap { max-width: 720px; margin: 0 auto; }
+        h1 {
+            margin: 0 0 8px 0;
+            font-size: 28px;
+            color: var(--accent);
+        }
+        .subtitle {
+            color: var(--text-dim);
+            margin-bottom: 32px;
+        }
+        .tool-list {
+            display: grid;
+            gap: 16px;
+        }
+        .tool-card {
+            display: block;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px 24px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.15s;
+        }
+        .tool-card:hover {
+            border-color: var(--accent);
+            background: var(--panel-light);
+            transform: translateY(-1px);
+        }
+        .tool-card h2 {
+            margin: 0 0 6px 0;
+            font-size: 18px;
+            color: var(--accent);
+        }
+        .tool-card p {
+            margin: 0;
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            color: var(--text-dim);
+            font-size: 12px;
+        }
+        code {
+            background: var(--panel-light);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>Dev Tools</h1>
+        <p class="subtitle">UI utilities for editing game config without touching JSON by hand.</p>
+
+        <div class="tool-list">
+            <a class="tool-card" href="./player/editor.html">
+                <h2>🧍 Player Editor</h2>
+                <p>Tweak the player archetype — speed, stack spacing, accepted resources, health, animation curves, and more. Outputs the full <code>player.json</code> ready to paste back.</p>
+            </a>
+
+            <a class="tool-card" href="./unlock-zone/builder.html">
+                <h2>🟦 Unlock Zone Builder</h2>
+                <p>Build unlock-zone JSON for level files — build/spawner/convert types, costs, and output targets. Outputs a single zone entry to paste into <code>level-1.json</code>.</p>
+            </a>
+
+            <a class="tool-card" href="./machine/builder.html">
+                <h2>⚙ Machine Builder</h2>
+                <p>Configure gearworks machines — select input resources, amounts, output type, and frame dimensions. Live 3D preview with copyable JSON for <code>level-1-diorama.json</code>.</p>
+            </a>
+        </div>
+
+        <p class="footer">
+            Run a local web server from the project root (e.g. <code>python3 -m http.server</code>)
+            then open <code>tools/index.html</code> in your browser. The tools fetch live config from
+            <code>src/config/</code>, so any new archetypes/resources show up automatically.
+        </p>
+    </div>
+</body>
+</html>

@@ -17,10 +17,20 @@ export class BuildSystem {
         this.particleSystem = particleSystem;
         this._ecs = null;
         this._resourceTransfer = new ResourceTransfer();
+        this._stackConfig = {};
+
+        fetch('./src/config/stackConfig.json')
+            .then(r => r.json())
+            .then(json => { this._stackConfig = json.resources || {}; })
+            .catch(() => {});
 
         EventBus.on('zone:funded', (data) => {
             this._handleFunded(data);
         });
+    }
+
+    _getStackConfig(type) {
+        return this._stackConfig[type] || { stackScale: 1, stackOffset: 0.22 };
     }
 
     setECS(ecs) { this._ecs = ecs; }
@@ -79,8 +89,57 @@ export class BuildSystem {
             if (!zone) return;
 
             const resourceType = zone.output || 'coin';
+            const ud = transform.mesh.userData;
 
-            // Resolve output target
+            // Machine output: fly stacked resources to output section, then register as collectible
+            if (ud && ud.machineMesh && ud.outputLocalCenter) {
+                // Hide the decorative display mesh on first production
+                if (ud.outputDisplayGroup && ud.outputDisplayGroup.visible) {
+                    ud.outputDisplayGroup.visible = false;
+                }
+
+                const outLocal = ud.outputLocalCenter;
+                const outWorld = new THREE.Vector3(outLocal.x, outLocal.y, outLocal.z);
+                ud.machineMesh.localToWorld(outWorld);
+
+                const count = zone.outputCount || 1;
+                const resConfig = this._getStackConfig(resourceType);
+                ud._outputStackCount = ud._outputStackCount || 0;
+
+                for (let i = 0; i < count; i++) {
+                    const mesh = ResourceRegistry.createMesh(resourceType, 'stacked');
+                    mesh.scale.setScalar(resConfig.stackScale);
+
+                    const startPos = pos.clone();
+                    startPos.y += 0.5 + i * 0.1;
+                    mesh.position.copy(startPos);
+                    this.scene.add(mesh);
+
+                    const stackIndex = ud._outputStackCount + i;
+                    const toPos = outWorld.clone();
+                    toPos.y += stackIndex * resConfig.stackOffset;
+
+                    const resType = resourceType;
+                    this._resourceTransfer.send(mesh, startPos.clone(), toPos, {
+                        arcHeight: 2.0 + i * 0.3,
+                        duration: 0.4 + i * 0.08,
+                        spin: false,
+                        onArrive: (m) => {
+                            m.position.copy(toPos);
+                            EventBus.emit('resource:place', { mesh: m, type: resType });
+                        }
+                    });
+                }
+                ud._outputStackCount += count;
+
+                // Reset zone progress so it's reusable
+                for (const key of Object.keys(zone.progress)) {
+                    zone.progress[key] = 0;
+                }
+                return;
+            }
+
+            // Standard convert: send to target inventory
             const targetId = this._resolveOutputTarget(zone, pos, carrierId);
             if (!targetId) return;
 

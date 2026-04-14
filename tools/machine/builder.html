@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gearworks Machine Builder</title>
+    <style>
+        :root {
+            --bg: #1a1a1f;
+            --panel: #24242c;
+            --panel-light: #2f2f38;
+            --border: #3a3a45;
+            --text: #e8e8ec;
+            --text-dim: #8a8a94;
+            --accent: #4fc3f7;
+            --green: #44ff88;
+            --green-dim: #225544;
+        }
+        * { box-sizing: border-box; margin: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            padding: 48px 24px;
+        }
+        .wrap { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+        h1 { font-size: 22px; color: var(--accent); }
+        .subtitle { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+
+        .section {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .section h2 {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+            margin-bottom: 12px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .row:last-child { margin-bottom: 0; }
+        .row label {
+            width: 70px;
+            flex-shrink: 0;
+            color: var(--text-dim);
+            font-size: 12px;
+        }
+        select, input[type="number"] {
+            background: var(--panel-light);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 5px;
+            padding: 6px 10px;
+            font-size: 13px;
+            flex: 1;
+            min-width: 0;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .toggle-group { display: flex; gap: 4px; flex: 1; }
+        .toggle-group button {
+            flex: 1;
+            padding: 6px 0;
+            background: var(--panel-light);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+        .toggle-group button.active {
+            background: var(--green-dim);
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .slot-card {
+            background: var(--panel-light);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .slot-card:last-child { margin-bottom: 0; }
+        .slot-card .slot-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+        }
+
+        .res-preview {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .btn-row { display: flex; gap: 8px; }
+        .btn {
+            flex: 1;
+            padding: 10px 0;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--panel);
+            color: var(--text);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+        }
+        .btn:hover { border-color: var(--accent); background: var(--panel-light); }
+        .btn.primary { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+        .btn.primary:hover { background: #2a6648; }
+
+        .json-output {
+            background: var(--panel-light);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: "SF Mono", "Fira Code", monospace;
+            font-size: 11px;
+            color: var(--green);
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .paste-hint {
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+        .paste-hint code {
+            background: var(--panel-light);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+
+        .toast {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-60px);
+            background: var(--green-dim);
+            border: 1px solid var(--green);
+            color: var(--green);
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: transform 0.25s;
+            z-index: 100;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+
+<div class="wrap">
+    <div>
+        <h1>Machine Builder</h1>
+        <p class="subtitle">Configure gearworks machine inputs &amp; output. Copy JSON into your level file.</p>
+    </div>
+
+    <!-- INPUTS -->
+    <div class="section">
+        <h2>Inputs</h2>
+        <div class="row">
+            <label>Count</label>
+            <div class="toggle-group" id="inputCountToggle">
+                <button data-count="1" class="active">1</button>
+                <button data-count="2">2</button>
+            </div>
+        </div>
+        <div id="inputSlots"></div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="section">
+        <h2>Output</h2>
+        <div class="slot-card">
+            <div class="row">
+                <label>Resource</label>
+                <div class="res-preview" id="outputPreview"></div>
+                <select id="outputType"></select>
+            </div>
+            <div class="row">
+                <label>Count</label>
+                <input type="number" id="outputCount" value="1" min="1" max="99">
+            </div>
+        </div>
+    </div>
+
+    <!-- PLACEMENT -->
+    <div class="section">
+        <h2>Placement</h2>
+        <div class="row">
+            <label>Grid Col</label>
+            <input type="number" id="gridCol" value="4" min="0" max="29" step="1">
+        </div>
+        <div class="row">
+            <label>Grid Row</label>
+            <input type="number" id="gridRow" value="15" min="0" max="29" step="1">
+        </div>
+        <div class="row">
+            <label>Orient</label>
+            <div class="toggle-group" id="orientToggle">
+                <button data-orient="horizontal" class="active">Horizontal (W→E)</button>
+                <button data-orient="vertical">Vertical (S→N)</button>
+            </div>
+        </div>
+        <div class="row" style="margin-top:6px;">
+            <label></label>
+            <span style="font-size:11px;color:var(--text-dim);">Grid: 30x30, origin (-30,-30), cell 2u. Horizontal = input west, output east. Vertical = input south, output north.</span>
+        </div>
+    </div>
+
+    <!-- FRAME -->
+    <div class="section">
+        <h2>Frame</h2>
+        <div class="row">
+            <label>Width</label>
+            <input type="number" id="frameWidth" value="14" min="6" max="30" step="0.5">
+        </div>
+        <div class="row">
+            <label>Depth</label>
+            <input type="number" id="frameDepth" value="3.6" min="2" max="10" step="0.2">
+        </div>
+    </div>
+
+    <!-- JSON -->
+    <div class="section">
+        <h2>JSON Output</h2>
+        <div class="json-output" id="jsonOutput"></div>
+        <p class="paste-hint">Paste into <code>src/config/levels/level-1-diorama.json</code> &rarr; <code>dioramaWorld.landmarks[]</code></p>
+        <div style="height: 10px;"></div>
+        <div class="btn-row">
+            <button class="btn primary" id="btnCopy">Copy JSON</button>
+            <button class="btn" id="btnReset">Reset</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast">Copied!</div>
+
+<script>
+const RESOURCES_PATH = '../../src/config/resources.json';
+const RES_COLORS = {
+    meat: '#ff3333', coin: '#ffdd00',
+    essence: '#aa44ff', essenceCandy: '#ff66cc',
+};
+
+// Grid config — matches level-1-diorama.json
+const GRID = { originX: -30, originZ: -30, cellSize: 2 };
+
+function gridToWorld(col, row) {
+    return {
+        x: GRID.originX + col * GRID.cellSize + GRID.cellSize / 2,
+        z: GRID.originZ + row * GRID.cellSize + GRID.cellSize / 2,
+    };
+}
+
+function getOrientation() {
+    return document.querySelector('#orientToggle button.active').dataset.orient;
+}
+
+let resources = {};
+
+async function init() {
+    const res = await fetch(RESOURCES_PATH);
+    resources = await res.json();
+    populateUI();
+    updateJSON();
+}
+
+function populateUI() {
+    const types = Object.keys(resources);
+
+    // Output dropdown
+    const outSel = document.getElementById('outputType');
+    outSel.innerHTML = '';
+    for (const t of types) {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = `${resources[t].emoji || ''} ${t}`;
+        outSel.appendChild(opt);
+    }
+    outSel.value = 'coin';
+    updateSwatch('outputPreview', 'coin');
+
+    buildInputSlotUI(getInputCount());
+}
+
+function getInputCount() {
+    return parseInt(document.querySelector('#inputCountToggle button.active').dataset.count);
+}
+
+function buildInputSlotUI(count) {
+    const container = document.getElementById('inputSlots');
+    container.innerHTML = '';
+    const types = Object.keys(resources);
+    const defaults = ['essence', 'coin'];
+
+    for (let i = 0; i < count; i++) {
+        const card = document.createElement('div');
+        card.className = 'slot-card';
+        const defType = defaults[i] || types[0];
+
+        card.innerHTML = `
+            <div class="slot-title">Slot ${i + 1}</div>
+            <div class="row">
+                <label>Resource</label>
+                <div class="res-preview" id="inputPreview${i}"></div>
+                <select class="input-type" data-index="${i}">
+                    ${types.map(t =>
+                        `<option value="${t}" ${t === defType ? 'selected' : ''}>${resources[t].emoji || ''} ${t}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="row">
+                <label>Amount</label>
+                <input type="number" class="input-amount" data-index="${i}" value="${i === 0 ? 10 : 5}" min="1" max="999">
+            </div>
+        `;
+        container.appendChild(card);
+        setTimeout(() => updateSwatch(`inputPreview${i}`, defType), 0);
+    }
+
+    container.querySelectorAll('.input-type').forEach(sel => {
+        sel.addEventListener('change', () => {
+            updateSwatch(`inputPreview${sel.dataset.index}`, sel.value);
+            updateJSON();
+        });
+    });
+    container.querySelectorAll('.input-amount').forEach(inp => {
+        inp.addEventListener('input', () => updateJSON());
+    });
+}
+
+function updateSwatch(id, type) {
+    const el = document.getElementById(id);
+    if (el) el.style.background = RES_COLORS[type] || '#666';
+}
+
+function readConfig() {
+    const inputCount = getInputCount();
+    const cost = {};
+    for (let i = 0; i < inputCount; i++) {
+        const typeSel = document.querySelector(`.input-type[data-index="${i}"]`);
+        const amtInp = document.querySelector(`.input-amount[data-index="${i}"]`);
+        if (typeSel && amtInp) cost[typeSel.value] = parseInt(amtInp.value) || 1;
+    }
+    return {
+        cost,
+        output: document.getElementById('outputType').value,
+        outputCount: parseInt(document.getElementById('outputCount').value) || 1,
+        frameWidth: parseFloat(document.getElementById('frameWidth').value) || 14,
+        frameDepth: parseFloat(document.getElementById('frameDepth').value) || 3.6,
+    };
+}
+
+function updateJSON() {
+    const cfg = readConfig();
+    const col = parseInt(document.getElementById('gridCol').value) || 0;
+    const row = parseInt(document.getElementById('gridRow').value) || 0;
+    const orient = getOrientation();
+
+    // Grid corner (not center) — the south-west corner of the cell
+    const cornerX = GRID.originX + col * GRID.cellSize;
+    const cornerZ = GRID.originZ + row * GRID.cellSize;
+
+    const fw = cfg.frameWidth;
+    const fd = cfg.frameDepth;
+
+    let x, z, rotY;
+    if (orient === 'horizontal') {
+        // Machine long axis along +X (input W, output E)
+        // Corner = south-west of machine = input-side, front edge
+        rotY = 0;
+        x = cornerX + fw / 2;   // center offset along long axis
+        z = cornerZ + fd / 2;   // center offset along short axis
+    } else {
+        // Machine long axis along +Z (input S, output N)
+        // rotY 90° rotates X→Z, so local X becomes world Z
+        rotY = 1.5708;
+        x = cornerX + fd / 2;   // short axis becomes world X
+        z = cornerZ + fw / 2;   // long axis becomes world Z
+    }
+
+    const json = {
+        preset: 'gearworks-machine',
+        ...cfg,
+        x: Math.round(x * 100) / 100,
+        y: 0.04,
+        z: Math.round(z * 100) / 100,
+        rotY,
+    };
+    document.getElementById('jsonOutput').textContent = JSON.stringify(json, null, 2);
+}
+
+// ── Events ──
+document.querySelectorAll('#inputCountToggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#inputCountToggle button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        buildInputSlotUI(parseInt(btn.dataset.count));
+        updateJSON();
+    });
+});
+
+document.getElementById('outputType').addEventListener('change', (e) => {
+    updateSwatch('outputPreview', e.target.value);
+    updateJSON();
+});
+document.getElementById('outputCount').addEventListener('input', () => updateJSON());
+document.getElementById('gridCol').addEventListener('input', () => updateJSON());
+document.getElementById('gridRow').addEventListener('input', () => updateJSON());
+document.querySelectorAll('#orientToggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#orientToggle button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateJSON();
+    });
+});
+document.getElementById('frameWidth').addEventListener('input', () => updateJSON());
+document.getElementById('frameDepth').addEventListener('input', () => updateJSON());
+
+document.getElementById('btnCopy').addEventListener('click', () => {
+    const text = document.getElementById('jsonOutput').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const toast = document.getElementById('toast');
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+    });
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+    document.getElementById('frameWidth').value = 14;
+    document.getElementById('frameDepth').value = 3.6;
+    document.getElementById('outputType').value = 'coin';
+    document.getElementById('outputCount').value = 1;
+    updateSwatch('outputPreview', 'coin');
+    document.querySelectorAll('#inputCountToggle button').forEach(b => b.classList.remove('active'));
+    document.querySelector('#inputCountToggle button[data-count="2"]').classList.add('active');
+    buildInputSlotUI(2);
+    updateJSON();
+});
+
+init();
+</script>
+</body>
+</html>

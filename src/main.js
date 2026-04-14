@@ -50,9 +50,11 @@ import { SafeZoneSystem } from './systems/SafeZoneSystem.js';
 import { Component_SafeZone } from './ecs/components/Component_SafeZone.js';
 import { Component_Transform } from './ecs/components/Component_Transform.js';
 import { Component_Collider } from './ecs/components/Component_Collider.js';
+import { Component_UnlockZone } from './ecs/components/Component_UnlockZone.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
 import { InstancedCharacterPool } from './rendering/InstancedCharacterPool.js';
+import { ResourceWell } from './zones/basecamp/ResourceWell.js';
 
 class Game {
     constructor() {
@@ -170,7 +172,7 @@ class Game {
         // In diorama mode, use the wrapping loader so the dioramaWorld
         // block in the level JSON is built on top of the legacy ground.
         const Loader = isDioramaMode() ? SceneLoaderDiorama : SceneLoader;
-        const { grid, levelData, gridOverlay, fenceGroup, fenceEdges, propEntities } =
+        const { grid, levelData, gridOverlay, fenceGroup, fenceEdges, propEntities, machines } =
             await Loader.load(path, this.scene.instance);
         this.grid = grid;
 
@@ -285,7 +287,7 @@ class Game {
                     outputTarget = { tag: zoneDef.outputTag };
                 }
 
-                this.factory.create('unlock-turret', pos, {
+                const zoneEntityId = this.factory.create('unlock-turret', pos, {
                     UnlockZone: {
                         type: zoneDef.type,
                         cost: zoneDef.cost,
@@ -300,6 +302,36 @@ class Game {
                         spawnsAt
                     }
                 });
+
+            }
+        }
+
+        // --- Gearworks machines (diorama only) ---
+        if (Array.isArray(machines)) {
+            for (const { mesh, config } of machines) {
+                // Create a proxy Object3D at the pad's world position for proximity detection.
+                // The machine mesh is the visual root; the pad is offset from its center.
+                const padLocal = mesh.userData.padLocalCenter || { x: 0, z: 0 };
+                const padWorld = new THREE.Vector3(padLocal.x, 0, padLocal.z);
+                mesh.localToWorld(padWorld);
+
+                const proxy = new THREE.Object3D();
+                proxy.position.copy(padWorld);
+                // Carry machine data so the adapter and systems can find them
+                proxy.userData = mesh.userData;
+                proxy.userData.machineMesh = mesh;
+                this.scene.instance.add(proxy);
+
+                const entityId = this.ecs.createEntity();
+                this.ecs.addComponent(entityId, 'Transform', new Component_Transform(proxy));
+                this.ecs.addComponent(entityId, 'UnlockZone', new Component_UnlockZone({
+                    type: 'convert',
+                    cost: config.cost || { essence: 10 },
+                    drainRate: 0.15,
+                    range: 3.5,
+                    output: config.output || 'coin',
+                    outputCount: config.outputCount || 1
+                }));
             }
         }
 
@@ -408,6 +440,19 @@ class Game {
                 this.agentAISystem.register(villagerId, i);
             }
         }
+
+        // --- Resource Wells (diorama basecamp testing) ---
+        this._resourceWells = [];
+        if (isDioramaMode()) {
+            // Grid 11/20 → world x=-7, z=11  (essence)
+            // Grid 18/19 → world x=7, z=9   (essenceCandy)
+            const essenceWell = new ResourceWell('essence', { x: -7, z: 11 });
+            const candyWell = new ResourceWell('essenceCandy', { x: 7, z: 9 });
+            essenceWell.init();
+            candyWell.init();
+            this._resourceWells.push(essenceWell, candyWell);
+        }
+
     }
 
     _createGridToggle(overlay) {
@@ -449,6 +494,7 @@ class Game {
         this.particleSystem.update(deltaTime);
         this.skillEffectSystem.update(deltaTime);
         this.harvestNodeSystem.update(deltaTime);
+        for (const well of this._resourceWells) well.update(deltaTime, this.scene.instance);
         this.damagePopupUI.update(realDt);
         this.floatingUI.update();
         this.playerHealthBar.update();

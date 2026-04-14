@@ -3,6 +3,7 @@ import { ObjectPool } from '../utils/ObjectPool.js';
 import { ResourceTransfer } from '../utils/ResourceTransfer.js';
 import EventBus from '../core/EventBus.js';
 import ResourceRegistry from '../core/ResourceRegistry.js';
+import { FEATURE_FLAGS } from '../config/gameConfig.js';
 
 /**
  * CollectorSystem — ECS-driven resource collection.
@@ -28,6 +29,23 @@ export class CollectorSystem {
                     this._spawnDisks(position, type);
                 }
             }
+        });
+
+        // Generic resource spawn — used by ResourceWells and other non-combat sources.
+        EventBus.on('resource:spawn', ({ position, type }) => {
+            this._spawnDisks(position, type);
+        });
+
+        // Pre-positioned collectible — mesh already in scene at its final position.
+        // Used by machine output to register items for magnet collection.
+        EventBus.on('resource:place', ({ mesh, type }) => {
+            mesh._resourceType = type;
+            mesh.isFlying = false;
+            mesh.collected = false;
+            mesh.targetEntityId = null;
+            mesh.curve = null;
+            mesh.flightElapsed = 0;
+            this._disks.push(mesh);
         });
     }
 
@@ -152,6 +170,10 @@ export class CollectorSystem {
     }
 
     _spawnDisks(pos, resourceType) {
+        // Feature flag: replace meat drops with essence (reversible toggle).
+        if (FEATURE_FLAGS.USE_ESSENCE_DROPS && resourceType === 'meat') {
+            resourceType = 'essence';
+        }
         const count = 1;
         const pool = this._getPool(resourceType);
         for (let i = 0; i < count; i++) {
@@ -211,8 +233,13 @@ export class CollectorSystem {
                 || (disk.userData && disk.userData.resourceType)
                 || 'meat';
 
-            const clone = disk.clone();
-            clone.userData = { ...disk.userData, resourceType };
+            // Multi-state resources (e.g. essence) get a fresh "stacked" mesh
+            // so the carried form can differ from the ground form. For
+            // single-mesh resources (meat, coin, ...) ResourceRegistry returns
+            // the same shape as before.
+            const clone = ResourceRegistry.createMesh(resourceType, 'stacked');
+            clone.position.copy(disk.position);
+            clone.userData = { ...clone.userData, resourceType };
             EventBus.emit('item:collected', {
                 collectorId: disk.targetEntityId,
                 itemType: resourceType,

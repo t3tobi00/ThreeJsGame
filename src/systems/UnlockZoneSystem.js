@@ -81,8 +81,7 @@ export class UnlockZoneSystem {
                     zone.progress[resourceType]++;
 
                     const fromPos = mesh.position.clone();
-                    const toPos = zoneTransform.mesh.position.clone();
-                    toPos.y = 0.5;
+                    const toPos = this._getDrainTarget(zoneTransform, resourceType);
                     this._transfer.send(mesh, fromPos, toPos, {
                         arcHeight: 3,
                         duration: 0.5,
@@ -129,6 +128,21 @@ export class UnlockZoneSystem {
         if (this._uiMap.has(zoneId)) return this._uiMap.get(zoneId);
 
         const group = transform.mesh;
+
+        // Gearworks machines have built-in 3D counters — use adapter instead of HTML UI
+        if (group.userData && group.userData.inputCounters) {
+            const counters = group.userData.inputCounters;
+            const adapter = {
+                updateProgress(progress) {
+                    for (const c of counters) c.update(progress[c.type] || 0);
+                },
+                animate() {},
+                setActive() {},
+                destroy() {}
+            };
+            this._uiMap.set(zoneId, adapter);
+            return adapter;
+        }
         const outputType = zone.builds || zone.spawns || zone.output || 'unknown';
 
         // Read size from the mesh preset (base plane child)
@@ -152,6 +166,27 @@ export class UnlockZoneSystem {
             ui.destroy();
             this._uiMap.delete(zoneId);
         }
+    }
+
+    _getDrainTarget(zoneTransform, resourceType) {
+        const ud = zoneTransform.mesh.userData;
+        // For machines: fly items to the matching input slot on the machine mesh
+        if (ud && ud.inputCounters && ud.machineMesh) {
+            const counter = ud.inputCounters.find(c => c.type === resourceType);
+            if (counter && counter.localPos) {
+                const target = new THREE.Vector3(
+                    counter.localPos.x,
+                    counter.localPos.y,
+                    counter.localPos.z
+                );
+                ud.machineMesh.localToWorld(target);
+                return target;
+            }
+        }
+        // Default: fly to zone position
+        const pos = zoneTransform.mesh.position.clone();
+        pos.y = 0.5;
+        return pos;
     }
 
     _isFunded(zone) {
