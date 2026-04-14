@@ -16,8 +16,6 @@ export class HUD {
         this._playerId = playerId;
         this._items = {};
 
-        this._ensureItem('meat');
-
         EventBus.on('stack:changed', ({ entityId }) => {
             if (entityId === this._playerId) {
                 const inventory = this._ecs.getComponent(this._playerId, 'InventoryStack');
@@ -52,6 +50,7 @@ export class HUD {
     updateResources(slotSummary) {
         const activeTypes = new Set();
         for (const { type, count } of slotSummary) {
+            if (count <= 0) continue;
             activeTypes.add(type);
             const item = this._ensureItem(type);
             if (item.valueText.textContent !== count.toString()) {
@@ -60,8 +59,9 @@ export class HUD {
             }
         }
         for (const [type, item] of Object.entries(this._items)) {
-            if (!activeTypes.has(type) && item.valueText.textContent !== '0') {
-                item.valueText.textContent = '0';
+            if (!activeTypes.has(type)) {
+                item.element.remove();
+                delete this._items[type];
             }
         }
     }
