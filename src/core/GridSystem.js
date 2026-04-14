@@ -1,15 +1,48 @@
 import * as THREE from 'three';
 
 /**
- * GridSystem — 2D grid mapping numbered cells to world positions.
+ * GridSystem — single source of truth for grid ↔ world math.
  *
- * Cell numbering: left-to-right, top-to-bottom.
- *   0  1  2  3  4
- *   5  6  7  8  9
- *  10 11 12 13 14
+ * ──────────────────────────────────────────────────────────────────────────
+ * Grid layout
+ * ──────────────────────────────────────────────────────────────────────────
+ *   • Cells numbered left-to-right, top-to-bottom (row-major):
+ *        0  1  2  3  4
+ *        5  6  7  8  9
+ *       10 11 12 13 14
+ *   • "Top" = most negative Z, "Bottom" = most positive Z.
+ *   • row → world Z, col → world X. Y is always handled separately.
+ *   • Grid is configured per-level in levelData.grid
+ *     ({ origin: {x, z}, cellSize, cols, rows }) and instantiated once
+ *     in SceneLoader.load(). To cover more ground later, bump `cols`/`rows`
+ *     and push `origin` further negative — no code changes required.
  *
- * "Top" = most negative Z, "Bottom" = most positive Z.
+ * ──────────────────────────────────────────────────────────────────────────
+ * Anchors (compass aligned to grid axes)
+ * ──────────────────────────────────────────────────────────────────────────
+ *   Describes WHERE within the footprint the returned world point sits.
+ *
+ *          n  (−Z)
+ *      nw ─┬─ ne
+ *       │  │  │
+ *  w ───┼──c──┼─── e     (c = 'center', default)
+ *       │  │  │
+ *      sw ─┴─ se
+ *          s  (+Z)
+ *
+ *   Single-letter anchors return the midpoint of that edge of the span;
+ *   two-letter anchors return the corresponding corner. Use corner/edge
+ *   anchors when you need an object flush with a specific cell boundary
+ *   (e.g. a machine that starts at the outer edge of cell [17, 2]:
+ *        grid.toWorld({ row: 17, col: 2, anchor: 'nw' })).
  */
+
+const ANCHORS = new Set([
+    'center', 'c',
+    'n', 's', 'e', 'w',
+    'nw', 'ne', 'sw', 'se',
+]);
+
 export class GridSystem {
     constructor({ origin, cellSize, cols, rows }) {
         this.origin = origin;
@@ -19,29 +52,79 @@ export class GridSystem {
         this.totalCells = cols * rows;
     }
 
-    getRow(cellId) {
-        return Math.floor(cellId / this.cols);
+    // ─── Cell id helpers ────────────────────────────────────────────────
+    getRow(cellId) { return Math.floor(cellId / this.cols); }
+    getCol(cellId) { return cellId % this.cols; }
+
+    // ─── Canonical grid → world conversion ──────────────────────────────
+
+    /**
+     * Convert a grid footprint to a world position.
+     *
+     * @param {Object} opts
+     * @param {number} opts.row              Top (−Z) row of the footprint.
+     * @param {number} opts.col              Left (−X) column of the footprint.
+     * @param {[number, number]} [opts.span] [rows, cols]. Default [1, 1].
+     * @param {string} [opts.anchor]         'center' | n/s/e/w | nw/ne/sw/se.
+     * @param {number} [opts.y]              World Y. Default 0.
+     * @param {{x?:number, z?:number}} [opts.offset] Post-anchor world-space nudge.
+     * @returns {THREE.Vector3}
+     */
+    toWorld({ row, col, span = [1, 1], anchor = 'center', y = 0, offset = null } = {}) {
+        if (!ANCHORS.has(anchor)) {
+            throw new Error(`GridSystem.toWorld: unknown anchor "${anchor}"`);
+        }
+        const { minX, maxX, minZ, maxZ } = this.toWorldBounds({ row, col, span });
+        const midX = (minX + maxX) / 2;
+        const midZ = (minZ + maxZ) / 2;
+
+        let x, z;
+        switch (anchor) {
+            case 'nw': x = minX; z = minZ; break;
+            case 'ne': x = maxX; z = minZ; break;
+            case 'sw': x = minX; z = maxZ; break;
+            case 'se': x = maxX; z = maxZ; break;
+            case 'n':  x = midX; z = minZ; break;
+            case 's':  x = midX; z = maxZ; break;
+            case 'w':  x = minX; z = midZ; break;
+            case 'e':  x = maxX; z = midZ; break;
+            default:   x = midX; z = midZ; // center / c
+        }
+
+        if (offset) {
+            if (offset.x) x += offset.x;
+            if (offset.z) z += offset.z;
+        }
+        return new THREE.Vector3(x, y, z);
     }
 
-    getCol(cellId) {
-        return cellId % this.cols;
+    /**
+     * Axis-aligned world-space bounds of a grid footprint. Used by zone
+     * bookkeeping and collision AABBs. Corner-based (not center-based),
+     * so the returned rectangle exactly matches the drawn cells.
+     */
+    toWorldBounds({ row, col, span = [1, 1] } = {}) {
+        const [spanR, spanC] = span;
+        const s = this.cellSize;
+        return {
+            minX: this.origin.x + col * s,
+            maxX: this.origin.x + (col + spanC) * s,
+            minZ: this.origin.z + row * s,
+            maxZ: this.origin.z + (row + spanR) * s,
+        };
+    }
+
+    // ─── Back-compat shims ──────────────────────────────────────────────
+    /** Shorthand for a single-cell, centered lookup. Stable across grid resizes. */
+    rowColToWorld(row, col) {
+        return this.toWorld({ row, col });
     }
 
     cellToWorld(cellId) {
-        const row = this.getRow(cellId);
-        const col = this.getCol(cellId);
-        return this.rowColToWorld(row, col);
+        return this.toWorld({ row: this.getRow(cellId), col: this.getCol(cellId) });
     }
 
-    /** Convert [row, col] to world position (cell center). Stable regardless of grid size. */
-    rowColToWorld(row, col) {
-        return new THREE.Vector3(
-            this.origin.x + col * this.cellSize + this.cellSize / 2,
-            0,
-            this.origin.z + row * this.cellSize + this.cellSize / 2
-        );
-    }
-
+    // ─── World → grid ───────────────────────────────────────────────────
     worldToCell(pos) {
         const col = Math.floor((pos.x - this.origin.x) / this.cellSize);
         const row = Math.floor((pos.z - this.origin.z) / this.cellSize);

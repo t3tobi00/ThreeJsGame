@@ -50,7 +50,6 @@ import { SafeZoneSystem } from './systems/SafeZoneSystem.js';
 import { Component_SafeZone } from './ecs/components/Component_SafeZone.js';
 import { Component_Transform } from './ecs/components/Component_Transform.js';
 import { Component_Collider } from './ecs/components/Component_Collider.js';
-import { Component_UnlockZone } from './ecs/components/Component_UnlockZone.js';
 import { ObjectPool } from './utils/ObjectPool.js';
 import { Projectile } from './entities/Projectile.js';
 import { InstancedCharacterPool } from './rendering/InstancedCharacterPool.js';
@@ -248,38 +247,52 @@ class Game {
 
         // --- Unlock zones ---
         if (levelData.unlockZones) {
+            // Resolve a cell-shaped field that is either [row, col] (legacy) or
+            // { cell:[row,col], span?, anchor? } (new). All routes through GridSystem.
+            const resolveCell = (field, defaults = {}) => {
+                if (!field) return null;
+                const isArray = Array.isArray(field);
+                const cell = isArray ? field : field.cell;
+                if (!cell) return null;
+                return this.grid.toWorld({
+                    row: cell[0],
+                    col: cell[1],
+                    span: (isArray ? null : field.span) || defaults.span || [1, 1],
+                    anchor: (isArray ? null : field.anchor) || defaults.anchor || 'center',
+                });
+            };
+
             for (const zoneDef of levelData.unlockZones) {
-                // Resolve position: cell-based (cell = top-left corner, span = extent)
-                // or legacy world coordinates
+                // Resolve position: cell-based (cell = top-left of footprint,
+                // gridSpan = extent, anchor = where in the footprint the origin sits)
+                // or legacy world coordinates.
                 let pos;
                 if (zoneDef.cell) {
-                    const [row, col] = zoneDef.cell;
-                    const [spanR, spanC] = zoneDef.gridSpan || [2, 2];
-                    // Zone origin anchored to cell's top-left corner,
-                    // then offset to the center of the spanned area
-                    pos = new THREE.Vector3(
-                        this.grid.origin.x + col * this.grid.cellSize + (spanC * this.grid.cellSize) / 2,
-                        0,
-                        this.grid.origin.z + row * this.grid.cellSize + (spanR * this.grid.cellSize) / 2
-                    );
+                    pos = this.grid.toWorld({
+                        row: zoneDef.cell[0],
+                        col: zoneDef.cell[1],
+                        span: zoneDef.gridSpan || [2, 2],
+                        anchor: zoneDef.anchor || 'center',
+                    });
                 } else {
                     pos = new THREE.Vector3(zoneDef.position.x, zoneDef.position.y, zoneDef.position.z);
                 }
 
                 // Pre-resolve optional cell overrides to world positions
-                const buildsAt = zoneDef.buildsAt
-                    ? this.grid.rowColToWorld(zoneDef.buildsAt[0], zoneDef.buildsAt[1])
-                    : null;
-                const spawnsAt = zoneDef.spawnsAt
-                    ? this.grid.rowColToWorld(zoneDef.spawnsAt[0], zoneDef.spawnsAt[1])
-                    : null;
+                const buildsAt = resolveCell(zoneDef.buildsAt);
+                const spawnsAt = resolveCell(zoneDef.spawnsAt);
 
                 // Resolve outputTarget — cell form gets pre-resolved to worldPos
                 let outputTarget = zoneDef.outputTarget || null;
                 if (outputTarget && outputTarget.cell) {
                     outputTarget = {
                         ...outputTarget,
-                        worldPos: this.grid.rowColToWorld(outputTarget.cell[0], outputTarget.cell[1])
+                        worldPos: this.grid.toWorld({
+                            row: outputTarget.cell[0],
+                            col: outputTarget.cell[1],
+                            span: outputTarget.span || [1, 1],
+                            anchor: outputTarget.anchor || 'center',
+                        })
                     };
                 }
                 // Legacy fallback
@@ -308,30 +321,30 @@ class Game {
 
         // --- Gearworks machines (diorama only) ---
         if (Array.isArray(machines)) {
-            for (const { mesh, config } of machines) {
-                // Create a proxy Object3D at the pad's world position for proximity detection.
-                // The machine mesh is the visual root; the pad is offset from its center.
-                const padLocal = mesh.userData.padLocalCenter || { x: 0, z: 0 };
-                const padWorld = new THREE.Vector3(padLocal.x, 0, padLocal.z);
-                mesh.localToWorld(padWorld);
-
-                const proxy = new THREE.Object3D();
-                proxy.position.copy(padWorld);
-                // Carry machine data so the adapter and systems can find them
-                proxy.userData = mesh.userData;
-                proxy.userData.machineMesh = mesh;
-                this.scene.instance.add(proxy);
-
-                const entityId = this.ecs.createEntity();
-                this.ecs.addComponent(entityId, 'Transform', new Component_Transform(proxy));
-                this.ecs.addComponent(entityId, 'UnlockZone', new Component_UnlockZone({
-                    type: 'convert',
-                    cost: config.cost || { essence: 10 },
-                    drainRate: 0.15,
-                    range: 3.5,
-                    output: config.output || 'coin',
-                    outputCount: config.outputCount || 1
-                }));
+            for (const { config } of machines) {
+                // Prefer grid-based placement (cell/anchor/offset) when present.
+                // Falls back to raw x/y/z for legacy entries.
+                const pos = config.cell
+                    ? this.grid.toWorld({
+                        row:    config.cell[0],
+                        col:    config.cell[1],
+                        span:   config.span   || [1, 1],
+                        anchor: config.anchor || 'center',
+                        offset: config.offset || null,
+                        y:      config.y ?? 0,
+                      })
+                    : new THREE.Vector3(config.x || 0, config.y || 0, config.z || 0);
+                this.factory.create('gearworks-machine', pos, {
+                    _meshOpts: { ...config },
+                    UnlockZone: {
+                        type: 'convert',
+                        cost: config.cost || { essence: 10 },
+                        output: config.output || 'coin',
+                        outputCount: config.outputCount || 1,
+                        drainRate: 0.15,
+                        range: 3.5
+                    }
+                });
             }
         }
 
@@ -444,13 +457,19 @@ class Game {
         // --- Resource Wells (diorama basecamp testing) ---
         this._resourceWells = [];
         if (isDioramaMode()) {
-            // Grid 11/20 → world x=-7, z=11  (essence)
-            // Grid 18/19 → world x=7, z=9   (essenceCandy)
-            const essenceWell = new ResourceWell('essence', { x: -7, z: 11 });
-            const candyWell = new ResourceWell('essenceCandy', { x: 7, z: 9 });
+            // Grid 11/20 → world x=-7, z=11  (essence,       SW)
+            // Grid 18/19 → world x=7,  z=9   (essenceCandy,  SE)
+            // Grid 10/11 → world x=-9, z=-7  (coin,          NW)
+            // Grid 19/11 → world x=9,  z=-7  (wood,          NE)
+            const essenceWell = new ResourceWell('essence',      { x: -7, z: 11 });
+            const candyWell   = new ResourceWell('essenceCandy', { x:  7, z:  9 });
+            const coinWell    = new ResourceWell('coin',         { x: -9, z: -7 });
+            const woodWell    = new ResourceWell('wood',         { x:  9, z: -7 });
             essenceWell.init();
             candyWell.init();
-            this._resourceWells.push(essenceWell, candyWell);
+            coinWell.init();
+            woodWell.init();
+            this._resourceWells.push(essenceWell, candyWell, coinWell, woodWell);
         }
 
     }

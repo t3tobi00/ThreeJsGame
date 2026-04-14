@@ -66,13 +66,17 @@ export class SafeZoneSystem {
 
     /** Compute world-space AABB of zone bounds. Called once per frame. */
     _worldBounds(bounds) {
-        const { origin, cellSize } = this._grid;
-        return {
-            minX: origin.x + bounds.minCol * cellSize,
-            maxX: origin.x + (bounds.maxCol + 1) * cellSize,
-            minZ: origin.z + bounds.minRow * cellSize,
-            maxZ: origin.z + (bounds.maxRow + 1) * cellSize,
-        };
+        // bounds are inclusive on both ends — a zone spanning cols [minCol..maxCol]
+        // covers maxCol - minCol + 1 columns. Delegate to GridSystem so this stays
+        // consistent with every other grid→world conversion in the codebase.
+        return this._grid.toWorldBounds({
+            row: bounds.minRow,
+            col: bounds.minCol,
+            span: [
+                bounds.maxRow - bounds.minRow + 1,
+                bounds.maxCol - bounds.minCol + 1,
+            ],
+        });
     }
 
     /**

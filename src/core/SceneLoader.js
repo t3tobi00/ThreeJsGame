@@ -78,6 +78,7 @@ export class SceneLoader {
             const dangerGeo = new THREE.PlaneGeometry(dz.size, dz.size);
             const dangerMat = new THREE.MeshStandardMaterial({ color: dzColor, roughness: 0.9, metalness: 0.1 });
             const dangerPlane = new THREE.Mesh(dangerGeo, dangerMat);
+            dangerPlane.name = 'danger-zone-ground';
             dangerPlane.rotation.x = -Math.PI / 2;
             dangerPlane.position.y = -0.01;
             dangerPlane.receiveShadow = true;
@@ -105,7 +106,6 @@ export class SceneLoader {
         const spacing    = 0.35;
         const THICKNESS  = 0.15; // half-depth of each fence edge collider
         const fenceGroup = new THREE.Group();
-        const half       = grid.cellSize / 2; // 1.0 for cellSize=2
         const fenceEdges = []; // plain data — main.js turns these into ECS collider entities
 
         const spawnLogsAlongEdge = (start, end) => {
@@ -124,17 +124,21 @@ export class SceneLoader {
 
         // Records the world-space centre and half-extents of each fence edge.
         // SceneLoader stays visual-only; main.js creates ECS collider entities from this data.
-        const recordEdge = (start, end, isHorizontal) => {
+        const recordEdge = (start, end, isHorizontal, edgeLength) => {
             fenceEdges.push({
                 x:     (start.x + end.x) / 2,
                 z:     (start.z + end.z) / 2,
-                width: isHorizontal ? half : THICKNESS,
-                depth: isHorizontal ? THICKNESS : half,
+                width: isHorizontal ? edgeLength : THICKNESS,
+                depth: isHorizontal ? THICKNESS  : edgeLength,
             });
         };
 
         for (const [row, col] of fence.cells) {
-            const center = grid.rowColToWorld(row, col);
+            // Pull corner positions from GridSystem instead of hand-rolling
+            // `center ± half` — one source of truth for cell geometry.
+            const nw = grid.toWorld({ row, col, anchor: 'nw' });
+            const se = grid.toWorld({ row, col, anchor: 'se' });
+            const edgeLen = se.x - nw.x; // == cellSize, but derived not hardcoded
 
             const checkEdge = (nRow, nCol, x1, z1, x2, z2, isHorizontal) => {
                 const nKey = toKey(nRow, nCol);
@@ -151,14 +155,14 @@ export class SceneLoader {
                 const start = new THREE.Vector3(x1, 0, z1);
                 const end   = new THREE.Vector3(x2, 0, z2);
                 spawnLogsAlongEdge(start, end);
-                recordEdge(start, end, isHorizontal);
+                recordEdge(start, end, isHorizontal, edgeLen);
             };
 
             // Top edge (−Z), Bottom edge (+Z), Left edge (−X), Right edge (+X)
-            checkEdge(row-1, col, center.x-half, center.z-half, center.x+half, center.z-half, true);
-            checkEdge(row+1, col, center.x-half, center.z+half, center.x+half, center.z+half, true);
-            checkEdge(row, col-1, center.x-half, center.z-half, center.x-half, center.z+half, false);
-            checkEdge(row, col+1, center.x+half, center.z-half, center.x+half, center.z+half, false);
+            checkEdge(row-1, col, nw.x, nw.z, se.x, nw.z, true);
+            checkEdge(row+1, col, nw.x, se.z, se.x, se.z, true);
+            checkEdge(row, col-1, nw.x, nw.z, nw.x, se.z, false);
+            checkEdge(row, col+1, se.x, nw.z, se.x, se.z, false);
         }
 
         scene.add(fenceGroup);

@@ -269,14 +269,24 @@ const RES_COLORS = {
     essence: '#aa44ff', essenceCandy: '#ff66cc',
 };
 
-// Grid config — matches level-1-diorama.json
+// Grid config — matches level-1-diorama.json.
+// Kept here only for the tiny preview helper below; the real math at runtime
+// lives in src/core/GridSystem.js, which is the single source of truth.
 const GRID = { originX: -30, originZ: -30, cellSize: 2 };
 
-function gridToWorld(col, row) {
-    return {
-        x: GRID.originX + col * GRID.cellSize + GRID.cellSize / 2,
-        z: GRID.originZ + row * GRID.cellSize + GRID.cellSize / 2,
-    };
+// Mirrors GridSystem.toWorld(). Used only for the "resolves to …" preview line;
+// the emitted JSON stays grid-native (cell/anchor/offset), so the loader
+// re-runs this math via the real GridSystem at load time.
+function previewToWorld({ row, col, anchor = 'nw', offset = null }) {
+    const s = GRID.cellSize;
+    const minX = GRID.originX + col * s;
+    const minZ = GRID.originZ + row * s;
+    const maxX = minX + s;
+    const maxZ = minZ + s;
+    const pick = { nw: [minX, minZ], center: [(minX + maxX) / 2, (minZ + maxZ) / 2] }[anchor] || [minX, minZ];
+    let [x, z] = pick;
+    if (offset) { x += offset.x || 0; z += offset.z || 0; }
+    return { x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100 };
 }
 
 function getOrientation() {
@@ -384,37 +394,38 @@ function updateJSON() {
     const row = parseInt(document.getElementById('gridRow').value) || 0;
     const orient = getOrientation();
 
-    // Grid corner (not center) — the south-west corner of the cell
-    const cornerX = GRID.originX + col * GRID.cellSize;
-    const cornerZ = GRID.originZ + row * GRID.cellSize;
-
     const fw = cfg.frameWidth;
     const fd = cfg.frameDepth;
 
-    let x, z, rotY;
-    if (orient === 'horizontal') {
-        // Machine long axis along +X (input W, output E)
-        // Corner = south-west of machine = input-side, front edge
-        rotY = 0;
-        x = cornerX + fw / 2;   // center offset along long axis
-        z = cornerZ + fd / 2;   // center offset along short axis
-    } else {
-        // Machine long axis along +Z (input S, output N)
-        // rotY 90° rotates X→Z, so local X becomes world Z
-        rotY = 1.5708;
-        x = cornerX + fd / 2;   // short axis becomes world X
-        z = cornerZ + fw / 2;   // long axis becomes world Z
-    }
+    // The machine's frame extends EAST + SOUTH from the picked cell's
+    // NW corner. The `offset` nudges the model's center to the frame's
+    // midpoint. Rotation swaps which frame axis lines up with world X/Z.
+    const rotY = orient === 'horizontal' ? 0 : 1.5708;
+    const offset = orient === 'horizontal'
+        ? { x: fw / 2, z: fd / 2 }  // long axis along +X
+        : { x: fd / 2, z: fw / 2 }; // long axis along +Z
 
+    // JSON is grid-native: the game's GridSystem.toWorld() resolves
+    // { cell, anchor, offset } to world XYZ at load time. Keeps this tool
+    // and the runtime using the exact same math.
     const json = {
         preset: 'gearworks-machine',
         ...cfg,
-        x: Math.round(x * 100) / 100,
+        cell: [row, col],
+        anchor: 'nw',
+        offset: {
+            x: Math.round(offset.x * 100) / 100,
+            z: Math.round(offset.z * 100) / 100,
+        },
         y: 0.04,
-        z: Math.round(z * 100) / 100,
         rotY,
     };
-    document.getElementById('jsonOutput').textContent = JSON.stringify(json, null, 2);
+
+    // Preview only — what GridSystem.toWorld() will resolve this to.
+    const p = previewToWorld({ row, col, anchor: 'nw', offset });
+    document.getElementById('jsonOutput').textContent =
+        JSON.stringify(json, null, 2) +
+        `\n\n// resolves at runtime to x=${p.x}, z=${p.z}`;
 }
 
 // ── Events ──
