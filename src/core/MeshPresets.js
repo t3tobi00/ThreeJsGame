@@ -90,6 +90,15 @@ MeshPresets.register('character-player', ({ color = 0x3366ff } = {}) => {
     torso.name = 'torso';
     root.add(torso);
 
+    // ── Pelvis pivot ──
+    // Sits between root and the legs at hip Y. Lowering pelvis.position.y in
+    // an animation drags both legs (and visually the body, since the body is
+    // anchored above) downward together — needed for sit / crouch / lunge.
+    const pelvis = new THREE.Group();
+    pelvis.name = 'pelvis';
+    pelvis.position.y = 0.55;
+    root.add(pelvis);
+
     const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
     const limbMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
 
@@ -159,16 +168,17 @@ MeshPresets.register('character-player', ({ color = 0x3366ff } = {}) => {
     rightArmPair.joint.name    = 'rightElbow';
     torso.add(rightArmPair.shoulder);
 
-    // ── Legs ── attach to ROOT so the body bob doesn't lift the feet
-    const leftLegPair = makeTwoSegmentLimb(-0.13, 0.55);
+    // ── Legs ── attach to PELVIS (not root) so the pelvis pivot can lower
+    // the whole hip column. yOrigin = 0 because pelvis is already at y=0.55.
+    const leftLegPair = makeTwoSegmentLimb(-0.13, 0);
     leftLegPair.shoulder.name = 'leftLeg';
     leftLegPair.joint.name    = 'leftKnee';
-    root.add(leftLegPair.shoulder);
+    pelvis.add(leftLegPair.shoulder);
 
-    const rightLegPair = makeTwoSegmentLimb(0.13, 0.55);
+    const rightLegPair = makeTwoSegmentLimb(0.13, 0);
     rightLegPair.shoulder.name = 'rightLeg';
     rightLegPair.joint.name    = 'rightKnee';
-    root.add(rightLegPair.shoulder);
+    pelvis.add(rightLegPair.shoulder);
 
     // Stash rest-Y for PlayerAnimSystem body bob
     root.userData.bodyRestY = body.position.y;
@@ -195,10 +205,292 @@ MeshPresets.register('disk', ({ color = 0xff3333, radius = 0.3, height = 0.1 } =
     return mesh;
 });
 
-MeshPresets.register('coin', ({ color = 0xffdd00, radius = 0.15, height = 0.05 } = {}) => {
-    const geo = new THREE.CylinderGeometry(radius, radius, height, 12);
-    const mat = new THREE.MeshStandardMaterial({ color, metalness: 0.6, roughness: 0.3 });
-    return new THREE.Mesh(geo, mat);
+MeshPresets.register('wood-log', ({ radius = 0.18, length = 0.5 } = {}) => {
+    const group = new THREE.Group();
+
+    const makeCanvas = (size) => {
+        const c = document.createElement('canvas');
+        c.width = c.height = size;
+        return { c, ctx: c.getContext('2d') };
+    };
+    const texFromCanvas = (c) => {
+        const t = new THREE.CanvasTexture(c);
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.anisotropy = 8;
+        t.needsUpdate = true;
+        return t;
+    };
+
+    // Bark texture — vertical fiber streaks with knots
+    const bark = (() => {
+        const { c, ctx } = makeCanvas(512);
+        ctx.fillStyle = '#6b3e1c';
+        ctx.fillRect(0, 0, 512, 512);
+        for (let i = 0; i < 60; i++) {
+            const x = Math.random() * 512;
+            ctx.strokeStyle = 'rgba(' + (30 + Math.random() * 30) + ', ' + (15 + Math.random() * 20) + ', 5, ' + (0.3 + Math.random() * 0.4) + ')';
+            ctx.lineWidth = 1 + Math.random() * 3;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.bezierCurveTo(
+                x + (Math.random() - 0.5) * 30, 170,
+                x + (Math.random() - 0.5) * 30, 340,
+                x + (Math.random() - 0.5) * 20, 512
+            );
+            ctx.stroke();
+        }
+        for (let i = 0; i < 30; i++) {
+            const x = Math.random() * 512;
+            ctx.strokeStyle = 'rgba(180, 130, 70, ' + (0.15 + Math.random() * 0.2) + ')';
+            ctx.lineWidth = 1 + Math.random() * 2;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x + (Math.random() - 0.5) * 20, 512);
+            ctx.stroke();
+        }
+        for (let i = 0; i < 4; i++) {
+            const x = Math.random() * 512, y = Math.random() * 512;
+            const grd = ctx.createRadialGradient(x, y, 1, x, y, 18);
+            grd.addColorStop(0, '#1a0d04');
+            grd.addColorStop(1, 'rgba(60,30,10,0)');
+            ctx.fillStyle = grd;
+            ctx.fillRect(x - 20, y - 20, 40, 40);
+        }
+        const t = texFromCanvas(c);
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.repeat.set(2, 1);
+        return t;
+    })();
+
+    // Growth-ring end-cap texture
+    const rings = (() => {
+        const { c, ctx } = makeCanvas(512);
+        ctx.fillStyle = '#c89060';
+        ctx.fillRect(0, 0, 512, 512);
+        for (let i = 12; i > 0; i--) {
+            ctx.beginPath();
+            ctx.arc(256, 256, i * 18 + Math.random() * 5, 0, Math.PI * 2);
+            ctx.strokeStyle = i % 2 === 0
+                ? 'rgba(60, 30, 10, ' + (0.45 + Math.random() * 0.2) + ')'
+                : 'rgba(150, 90, 40, ' + (0.3 + Math.random() * 0.2) + ')';
+            ctx.lineWidth = 2 + Math.random() * 3;
+            ctx.stroke();
+        }
+        for (let i = 0; i < 6; i++) {
+            const a = Math.random() * Math.PI * 2;
+            ctx.strokeStyle = 'rgba(40, 20, 5, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(256, 256);
+            ctx.lineTo(256 + Math.cos(a) * 230, 256 + Math.sin(a) * 230);
+            ctx.stroke();
+        }
+        ctx.fillStyle = '#3a1f08';
+        ctx.beginPath();
+        ctx.arc(256, 256, 6, 0, Math.PI * 2);
+        ctx.fill();
+        return texFromCanvas(c);
+    })();
+
+    const sideMat = new THREE.MeshStandardMaterial({ map: bark, roughness: 0.85 });
+    const capMat = new THREE.MeshStandardMaterial({ map: rings, roughness: 0.7 });
+
+    const logGeo = new THREE.CylinderGeometry(radius, radius, length, 28, 1, false);
+    const log = new THREE.Mesh(logGeo, [sideMat, capMat, capMat]);
+    log.rotation.z = Math.PI / 2;
+    log.position.y = radius;
+    log.castShadow = true;
+    log.receiveShadow = true;
+    group.add(log);
+
+    return group;
+});
+
+MeshPresets.register('coin', ({ radius = 0.78, height = 0.16 } = {}) => {
+    const group = new THREE.Group();
+
+    // ── Face texture: Sacagawea-style $1 coin ──
+    const faceTex = (() => {
+        const c = document.createElement('canvas');
+        c.width = c.height = 1024;
+        const ctx = c.getContext('2d');
+        const cx = 512, cy = 512;
+
+        // Base brassy gold gradient
+        const base = ctx.createRadialGradient(cx - 120, cy - 160, 60, cx, cy, 540);
+        base.addColorStop(0, '#fbd884');
+        base.addColorStop(0.55, '#dba23a');
+        base.addColorStop(1, '#a26a18');
+        ctx.fillStyle = base;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 500, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Outer dark rim ring
+        ctx.lineWidth = 14;
+        ctx.strokeStyle = 'rgba(70, 40, 5, 0.55)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 480, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner highlight ring
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255, 240, 180, 0.7)';
+        ctx.beginPath();
+        ctx.arc(cx, cy, 462, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Curved text helper
+        const drawCurvedText = (text, radius, centerAngle, fontPx, flip = false) => {
+            ctx.save();
+            ctx.fillStyle = '#5a3408';
+            ctx.font = `bold ${fontPx}px "Times New Roman", serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const widths = [];
+            let total = 0;
+            for (const ch of text) {
+                const w = ctx.measureText(ch).width;
+                widths.push(w);
+                total += w + 6;
+            }
+            const span = total / radius;
+            let a = centerAngle - span / 2;
+            for (let i = 0; i < text.length; i++) {
+                const charSpan = (widths[i] + 6) / radius;
+                a += charSpan / 2;
+                ctx.save();
+                ctx.translate(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius);
+                if (flip) ctx.rotate(a - Math.PI / 2);
+                else      ctx.rotate(a + Math.PI / 2);
+                ctx.fillStyle = 'rgba(255, 235, 170, 0.55)';
+                ctx.fillText(text[i], 0, -1.5);
+                ctx.fillStyle = '#5a3408';
+                ctx.fillText(text[i], 0, 0);
+                ctx.restore();
+                a += charSpan / 2;
+            }
+            ctx.restore();
+        };
+
+        drawCurvedText('UNITED STATES OF AMERICA', 410, -Math.PI / 2, 50, false);
+        drawCurvedText('ONE DOLLAR', 410, Math.PI / 2, 56, true);
+
+        // Stars
+        const drawStar = (sx, sy, r) => {
+            ctx.save();
+            ctx.translate(sx, sy);
+            ctx.beginPath();
+            for (let i = 0; i < 10; i++) {
+                const ra = i % 2 === 0 ? r : r * 0.45;
+                const aa = (i / 10) * Math.PI * 2 - Math.PI / 2;
+                const px = Math.cos(aa) * ra, py = Math.sin(aa) * ra;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(255, 235, 170, 0.6)';
+            ctx.fill();
+            ctx.translate(0, 1.5);
+            ctx.beginPath();
+            for (let i = 0; i < 10; i++) {
+                const ra = i % 2 === 0 ? r : r * 0.45;
+                const aa = (i / 10) * Math.PI * 2 - Math.PI / 2;
+                const px = Math.cos(aa) * ra, py = Math.sin(aa) * ra;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fillStyle = '#5a3408';
+            ctx.fill();
+            ctx.restore();
+        };
+
+        const starR = 350;
+        const sideAngles = [
+            -Math.PI * 0.22, -Math.PI * 0.10, -Math.PI * 0.02,
+             Math.PI * 0.08,  Math.PI * 0.18,  Math.PI * 0.28,
+             Math.PI - 0.22,  Math.PI - 0.10,  Math.PI - 0.02,
+            -Math.PI + 0.08, -Math.PI + 0.18, -Math.PI + 0.28
+        ];
+        for (const a of sideAngles) {
+            drawStar(cx + Math.cos(a) * starR, cy + Math.sin(a) * starR, 9);
+        }
+
+        // Eagle
+        ctx.save();
+        ctx.translate(cx + 40, cy + 20);
+        const drawEagle = (offsetY, fillStyle) => {
+            ctx.save();
+            ctx.translate(0, offsetY);
+            ctx.fillStyle = fillStyle;
+            ctx.beginPath(); ctx.ellipse(0, 0, 50, 22, -0.15, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(-58, -12, 22, 16, -0.1, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-78, -12); ctx.lineTo(-94, -8); ctx.lineTo(-78, -2); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-10, -10); ctx.bezierCurveTo(40, -130, 140, -200, 220, -150); ctx.bezierCurveTo(180, -120, 110, -60, 30, -10); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-10, 10); ctx.bezierCurveTo(30, 110, 130, 140, 200, 110); ctx.bezierCurveTo(150, 80, 80, 30, 20, 12); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(40, -5); ctx.lineTo(95, -25); ctx.lineTo(105, 0); ctx.lineTo(95, 25); ctx.closePath(); ctx.fill();
+            ctx.restore();
+        };
+        drawEagle(-2, 'rgba(255, 235, 170, 0.75)');
+        drawEagle(0, '#6a3e0a');
+        ctx.strokeStyle = 'rgba(255, 235, 170, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 8; i++) {
+            const t = i / 7;
+            ctx.beginPath(); ctx.moveTo(t * 30, -10 - t * 30); ctx.lineTo(40 + t * 130, -120 - t * 30); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(t * 25, 10 + t * 20); ctx.lineTo(30 + t * 120, 80 + t * 20); ctx.stroke();
+        }
+        ctx.restore();
+
+        // Motto
+        ctx.fillStyle = '#5a3408';
+        ctx.font = 'bold 30px "Times New Roman", serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('E', cx - 200, cy - 80);
+        ctx.font = 'bold 26px "Times New Roman", serif';
+        ctx.fillText('PLURIBUS', cx - 200, cy - 40);
+        ctx.fillText('UNUM', cx - 200, cy);
+
+        // Highlight crescent
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 478, 0, Math.PI * 2);
+        ctx.clip();
+        const hl = ctx.createRadialGradient(cx - 200, cy - 220, 30, cx - 200, cy - 220, 360);
+        hl.addColorStop(0, 'rgba(255, 250, 220, 0.45)');
+        hl.addColorStop(1, 'rgba(255, 250, 220, 0)');
+        ctx.fillStyle = hl;
+        ctx.fillRect(0, 0, 1024, 1024);
+        ctx.restore();
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 8;
+        tex.needsUpdate = true;
+        return tex;
+    })();
+
+    // Coin body — high-segment cylinder, warm brass
+    const bodyGeo = new THREE.CylinderGeometry(radius, radius, height, 64);
+    const bodySideMat = new THREE.MeshStandardMaterial({
+        color: 0xdaa520, metalness: 0.5, roughness: 0.3, emissive: 0x3a2800, emissiveIntensity: 0.3
+    });
+    const faceMat = new THREE.MeshStandardMaterial({
+        map: faceTex, metalness: 0.5, roughness: 0.3, emissive: 0x3a2800, emissiveIntensity: 0.2
+    });
+    const body = new THREE.Mesh(bodyGeo, [bodySideMat, faceMat, faceMat]);
+    group.add(body);
+
+    // Beveled rim — torus around the edge
+    const rim = new THREE.Mesh(
+        new THREE.TorusGeometry(radius, height * 0.5, 12, 80),
+        new THREE.MeshStandardMaterial({ color: 0xf0c050, metalness: 0.5, roughness: 0.25, emissive: 0x4a3000, emissiveIntensity: 0.3 })
+    );
+    rim.rotation.x = Math.PI / 2;
+    group.add(rim);
+
+    return group;
 });
 
 MeshPresets.register('rock', ({ color = 0x999999, scale = 1.0 } = {}) => {
@@ -348,13 +640,14 @@ MeshPresets.register('unlock-zone', ({ color = 0x00aaff, size = 4.0 } = {}) => {
 
     const baseGeo = new THREE.PlaneGeometry(size, size);
     const baseMat = new THREE.MeshBasicMaterial({
-        color: 0x224422,
+        color: 0x111111,
         transparent: true,
-        opacity: 0.25
+        opacity: 0.3
     });
     const base = new THREE.Mesh(baseGeo, baseMat);
-    base.rotation.x = -Math.PI / 2;
-    base.position.y = 0.01;
+    base.rotation.order = 'YXZ';
+    base.rotation.set(-Math.PI / 2, Math.PI / 4, 0);
+    base.position.y = 0.005;
     group.add(base);
 
     return group;
@@ -601,6 +894,91 @@ MeshPresets.register('essence-tube', () => {
     group.add(knob);
 
     // Scale so a single tube reads at roughly the same volume as a meat disk
+    group.scale.setScalar(0.45);
+
+    return group;
+});
+
+// --- Essence Candy resource preset (lollipop) ---
+const CANDY_GREEN      = 0x7aff3a;
+const CANDY_GREEN_DARK = 0x3abf10;
+const CANDY_EMISSIVE   = 0x50dd18;
+
+MeshPresets.register('essence-candy-lollipop', () => {
+    const group = new THREE.Group();
+    const candyR = 0.48;
+
+    // Candy ball — glossy sphere
+    const ballMat = new THREE.MeshPhysicalMaterial({
+        color: CANDY_GREEN,
+        emissive: CANDY_EMISSIVE,
+        emissiveIntensity: 0.4,
+        metalness: 0.0,
+        roughness: 0.12,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.03,
+        transmission: 0.1,
+        thickness: 0.6,
+        transparent: true,
+        opacity: 0.95
+    });
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(candyR, 32, 24), ballMat);
+    ball.position.y = 0.6;
+    group.add(ball);
+
+    // Spiral stripe wrapping the sphere
+    const swirlMat = new THREE.MeshStandardMaterial({
+        color: CANDY_GREEN_DARK,
+        emissive: 0x228800,
+        emissiveIntensity: 0.3,
+        metalness: 0.0,
+        roughness: 0.2
+    });
+    const swirlPts = [];
+    for (let i = 0; i < 160; i++) {
+        const t = i / 159;
+        const phi = t * Math.PI;
+        const theta = t * Math.PI * 10;
+        const r = candyR * 1.005;
+        swirlPts.push(new THREE.Vector3(
+            Math.sin(phi) * Math.cos(theta) * r,
+            0.6 + Math.cos(phi) * r,
+            Math.sin(phi) * Math.sin(theta) * r
+        ));
+    }
+    const swirlCurve = new THREE.CatmullRomCurve3(swirlPts);
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(swirlCurve, 100, 0.028, 6, false), swirlMat));
+
+    // Stick
+    const stickMat = new THREE.MeshStandardMaterial({
+        color: 0xf5f0e0,
+        roughness: 0.6,
+        metalness: 0.0
+    });
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 1.1, 12), stickMat);
+    stick.position.y = -0.05;
+    group.add(stick);
+
+    // Glossy highlights
+    const highlightMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xeeffee,
+        emissiveIntensity: 0.5,
+        metalness: 0.2,
+        roughness: 0.05,
+        transparent: true,
+        opacity: 0.7
+    });
+    const hl1 = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), highlightMat);
+    hl1.position.set(-0.14, 0.78, candyR * 0.38);
+    group.add(hl1);
+    const hl2 = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 6), highlightMat);
+    hl2.position.set(-0.06, 0.9, candyR * 0.3);
+    group.add(hl2);
+
+    // Lay horizontal and scale to match other resource sizes
+    group.rotation.z = Math.PI / 2;
+    group.rotation.y = 0.3;
     group.scale.setScalar(0.45);
 
     return group;

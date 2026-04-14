@@ -1,0 +1,7 @@
+{
+  "id": "wood",
+  "renderTier": "prop",
+  "extends": "prop_base",
+  "stats": { "value": 1 },
+  "shader": { "loop": "spin", "bob": true }
+}

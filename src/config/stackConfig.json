@@ -1,0 +1,24 @@
+{
+    "resources": {
+        "meat": {
+            "stackScale": 1.0,
+            "stackOffset": 0.22
+        },
+        "coin": {
+            "stackScale": 1.1,
+            "stackOffset": 0.5
+        },
+        "essence": {
+            "stackScale": 0.6,
+            "stackOffset": 0.6
+        },
+        "essenceCandy": {
+            "stackScale": 0.6,
+            "stackOffset": 0.9
+        },
+        "wood": {
+            "stackScale": 1.0,
+            "stackOffset": 0.6
+        }
+    }
+}

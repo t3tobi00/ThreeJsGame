@@ -2,25 +2,27 @@
     "meat": {
         "emoji": "🥩",
         "mesh": { "preset": "disk", "color": "0xff3333", "radius": 0.3, "height": 0.1 },
-        "stackOffset": 0.22,
         "value": 1
     },
     "coin": {
         "emoji": "💰",
         "mesh": { "preset": "coin", "color": "0xffdd00", "radius": 0.25, "height": 0.08 },
-        "stackOffset": 0.16,
         "value": 1
+    },
+    "essence": {
+        "emoji": "✨",
+        "meshGround":  { "preset": "essence-puddle" },
+        "meshStacked": { "preset": "essence-tube" },
+        "value": 1
+    },
+    "essenceCandy": {
+        "emoji": "🍬",
+        "mesh": { "preset": "essence-candy-lollipop" },
+        "value": 3
     },
     "wood": {
         "emoji": "🪵",
-        "mesh": { "preset": "disk", "color": "0x8b5e3c", "radius": 0.3, "height": 0.12 },
-        "stackOffset": 0.22,
-        "value": 1
-    },
-    "stone": {
-        "emoji": "🪨",
-        "mesh": { "preset": "disk", "color": "0x888888", "radius": 0.28, "height": 0.14 },
-        "stackOffset": 0.24,
+        "mesh": { "preset": "wood-log", "radius": 0.18, "length": 0.5 },
         "value": 1
     }
 }
