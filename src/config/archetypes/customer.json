@@ -1,0 +1,19 @@
+{
+    "type": "Customer",
+    "mesh": { "preset": "mkt-customer", "color": "0xFFD080" },
+    "behaviors": ["customer", "walker"],
+    "components": {
+        "Movement": { "speed": 2.4, "controller": "customer_ai", "faction": "neutral" },
+        "Customer": { "state": "walking", "pauseTimer": 0, "budget": 10 },
+        "RoadPath": { "pathId": "market-road-1", "t": 0, "direction": 1 },
+        "InventoryStack": {
+            "maxCapacity": 5,
+            "acceptsTypes": ["essenceCandy"],
+            "anchorOffset": { "x": 0, "y": 1.7, "z": 0 },
+            "slotSpacing": 0.16,
+            "style": "wobble"
+        },
+        "WalkAnim": { "bobHeight": 0.05, "bobFreq": 6, "tiltAngle": 0.04 },
+        "Tag": { "tags": ["customer"] }
+    }
+}

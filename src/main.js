@@ -9,6 +9,7 @@ import EventBus from './core/EventBus.js';
 import { loadArchetypes } from './core/ArchetypeLoader.js';
 import ResourceRegistry from './core/ResourceRegistry.js';
 import SkillRegistry from './core/SkillRegistry.js';
+import StackConfigRegistry from './core/StackConfigRegistry.js';
 import { SceneLoader } from './core/SceneLoader.js';
 import { SceneLoaderDiorama } from './core/SceneLoaderDiorama.js';
 import { isDioramaMode } from './core/SceneMode.js';
@@ -38,6 +39,9 @@ import { EnemySystem } from './systems/EnemySystem.js';
 import { CollectorSystem } from './systems/CollectorSystem.js';
 import { AgentAISystem } from './systems/AgentAISystem.js';
 import { TraderSystem } from './systems/TraderSystem.js';
+import { StallSystem } from './systems/StallSystem.js';
+import { CustomerAISystem } from './systems/CustomerAISystem.js';
+import { createMarket } from './zones/market/MarketZone.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
 import { HealthSystem } from './systems/HealthSystem.js';
 import { UnlockZoneSystem } from './systems/UnlockZoneSystem.js';
@@ -161,6 +165,18 @@ class Game {
 
         this.gateSystem = new GateSystem();
         this.ecs.registerSystem(this.gateSystem, ['Transform', 'Gate']);
+
+        // Market zone — selling stalls + walking customers. StallSystem
+        // listens for purchase requests; CustomerAISystem owns the road
+        // state machine and spawn cadence. Both are stateless w.r.t. the
+        // player, so they live in init() rather than loadLevel().
+        this.stallSystem = new StallSystem(this.scene.instance);
+        this.stallSystem.setECS(this.ecs);
+        this.ecs.registerSystem(this.stallSystem, ['Transform', 'Stall', 'InventoryStack']);
+
+        this.customerAISystem = new CustomerAISystem(this.factory, this.scene.instance);
+        this.customerAISystem.setECS(this.ecs);
+        this.ecs.registerSystem(this.customerAISystem, ['Transform', 'Customer', 'RoadPath', 'Movement']);
     }
 
     /**
@@ -454,6 +470,21 @@ class Game {
             }
         }
 
+        // --- Market zone (loaded only when level JSON declares a `market` block) ---
+        this._market = null;
+        if (levelData.market) {
+            this._market = createMarket(
+                {
+                    factory: this.factory,
+                    ecs: this.ecs,
+                    scene: this.scene.instance,
+                    camera: this.camera.instance,
+                    customerAISystem: this.customerAISystem
+                },
+                levelData.market
+            );
+        }
+
         // --- Resource Wells (diorama basecamp testing) ---
         this._resourceWells = [];
         if (isDioramaMode()) {
@@ -517,6 +548,7 @@ class Game {
         this.damagePopupUI.update(realDt);
         this.floatingUI.update();
         this.playerHealthBar.update();
+        if (this._market) this._market.update();
 
         // 3. Sync instanced character pools (proxy → GPU matrices)
         for (const pool of this._characterPools) pool.sync();
@@ -574,6 +606,7 @@ window.addEventListener('load', async () => {
     await loadArchetypes();
     await ResourceRegistry.load();
     await SkillRegistry.load();
+    await StackConfigRegistry.load();
     const game = new Game();
     const levelPath = isDioramaMode()
         ? './src/config/levels/level-1-diorama.json'

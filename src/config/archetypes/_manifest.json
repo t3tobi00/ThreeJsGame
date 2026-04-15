@@ -1,7 +1,10 @@
 [
   "coin-tray.json",
+  "customer.json",
   "enemy.json",
   "gate.json",
+  "market-coin-tray.json",
+  "market-stall.json",
   "meat-table.json",
   "player.json",
   "speeder.json",

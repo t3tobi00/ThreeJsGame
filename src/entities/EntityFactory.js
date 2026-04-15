@@ -29,6 +29,10 @@ import { Component_SkillState } from '../ecs/components/Component_SkillState.js'
 import { Component_Arms } from '../ecs/components/Component_Arms.js';
 import { Component_Animator } from '../ecs/components/Component_Animator.js';
 import { Component_Harvestable } from '../ecs/components/Component_Harvestable.js';
+import { Component_Machine } from '../ecs/components/Component_Machine.js';
+import { Component_Stall } from '../ecs/components/Component_Stall.js';
+import { Component_Customer } from '../ecs/components/Component_Customer.js';
+import { Component_RoadPath } from '../ecs/components/Component_RoadPath.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -61,6 +65,10 @@ const COMPONENT_MAP = {
     Arms:            ()  => new Component_Arms(),
     Animator:        ()  => new Component_Animator(),
     Harvestable:     (d) => new Component_Harvestable(d),
+    Machine:         (d) => new Component_Machine(d),
+    Stall:           (d) => new Component_Stall(d),
+    Customer:        (d) => new Component_Customer(d),
+    RoadPath:        (d) => new Component_RoadPath(d),
 };
 
 
@@ -90,6 +98,13 @@ export class EntityFactory {
         const archetype = getArchetype(archetypeName);
         const id = this.ecs.createEntity();
 
+        // Extract _meshOpts (extra options passed to MeshPresets.create, not a component)
+        const meshOpts = overrides._meshOpts || null;
+        if (overrides._meshOpts) {
+            overrides = { ...overrides };
+            delete overrides._meshOpts;
+        }
+
         // Try instanced pool for character-preset archetypes
         const poolKey = archetype.type?.toLowerCase();
         const pool = (archetype.mesh?.preset === 'character') ? this._instancePools[poolKey] : null;
@@ -103,7 +118,7 @@ export class EntityFactory {
             instanceRef = new Component_InstanceRef(pool, slot.index);
         } else {
             // Fallback to individual mesh (player, gates, or pool full)
-            mesh = this._createMesh(archetype, pos);
+            mesh = this._createMesh(archetype, pos, meshOpts);
         }
 
         // Always add Transform (works with both real mesh and proxy)
@@ -142,6 +157,35 @@ export class EntityFactory {
             armsComp.rightArm = mesh.getObjectByName('rightArm') || null;
         }
 
+        // Wire Component_Machine — populate from mesh.userData, create proxy
+        // at pad position for proximity detection.
+        const machineComp = this.ecs.getComponent(id, 'Machine');
+        if (machineComp && mesh.userData) {
+            const ud = mesh.userData;
+            machineComp.machineMesh = mesh;
+            machineComp.inputCounters = ud.inputCounters || [];
+            machineComp.outputLocalCenter = ud.outputLocalCenter || null;
+            machineComp.outputDisplayGroup = ud.outputDisplayGroup || null;
+
+            // Create proxy Object3D at standing pad's world position
+            // so UnlockZoneSystem proximity checks work at the pad, not mesh center.
+            if (ud.padLocalCenter) {
+                const padWorld = new THREE.Vector3(ud.padLocalCenter.x, 0, ud.padLocalCenter.z);
+                mesh.localToWorld(padWorld);
+
+                const proxy = new THREE.Object3D();
+                proxy.position.copy(padWorld);
+                this.scene.add(proxy);
+
+                // Swap Transform to use proxy for proximity detection
+                const transform = this.ecs.getComponent(id, 'Transform');
+                transform.mesh = proxy;
+                transform.position = proxy.position;
+                transform.rotation = proxy.rotation;
+                transform.scale = proxy.scale;
+            }
+        }
+
         // Emit spawn event
         EventBus.emit('entity:spawned', { entityId: id, type: archetype.type });
 
@@ -163,10 +207,10 @@ export class EntityFactory {
 
     // ─── Private ────────────────────────────────────────────────────────────────
 
-    _createMesh(archetype, pos) {
+    _createMesh(archetype, pos, meshOpts = null) {
         let mesh;
         if (archetype.mesh && archetype.mesh.preset) {
-            const opts = { ...archetype.mesh };
+            const opts = { ...archetype.mesh, ...(meshOpts || {}) };
             if (typeof opts.color === 'string') {
                 opts.color = parseInt(opts.color, 16);
             }
@@ -178,6 +222,9 @@ export class EntityFactory {
         }
 
         mesh.position.copy(pos);
+        if (meshOpts && meshOpts.rotY) {
+            mesh.rotation.y = meshOpts.rotY;
+        }
         this.scene.add(mesh);
         return mesh;
     }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ResourceTransfer } from '../utils/ResourceTransfer.js';
 import ResourceRegistry from '../core/ResourceRegistry.js';
+import StackConfigRegistry from '../core/StackConfigRegistry.js';
 import EventBus from '../core/EventBus.js';
 
 /**
@@ -17,20 +18,10 @@ export class BuildSystem {
         this.particleSystem = particleSystem;
         this._ecs = null;
         this._resourceTransfer = new ResourceTransfer();
-        this._stackConfig = {};
-
-        fetch('./src/config/stackConfig.json')
-            .then(r => r.json())
-            .then(json => { this._stackConfig = json.resources || {}; })
-            .catch(() => {});
 
         EventBus.on('zone:funded', (data) => {
             this._handleFunded(data);
         });
-    }
-
-    _getStackConfig(type) {
-        return this._stackConfig[type] || { stackScale: 1, stackOffset: 0.22 };
     }
 
     setECS(ecs) { this._ecs = ecs; }
@@ -89,22 +80,21 @@ export class BuildSystem {
             if (!zone) return;
 
             const resourceType = zone.output || 'coin';
-            const ud = transform.mesh.userData;
+            const machine = this._ecs.getComponent(zoneId, 'Machine');
 
             // Machine output: fly stacked resources to output section, then register as collectible
-            if (ud && ud.machineMesh && ud.outputLocalCenter) {
+            if (machine && machine.machineMesh && machine.outputLocalCenter) {
                 // Hide the decorative display mesh on first production
-                if (ud.outputDisplayGroup && ud.outputDisplayGroup.visible) {
-                    ud.outputDisplayGroup.visible = false;
+                if (machine.outputDisplayGroup && machine.outputDisplayGroup.visible) {
+                    machine.outputDisplayGroup.visible = false;
                 }
 
-                const outLocal = ud.outputLocalCenter;
+                const outLocal = machine.outputLocalCenter;
                 const outWorld = new THREE.Vector3(outLocal.x, outLocal.y, outLocal.z);
-                ud.machineMesh.localToWorld(outWorld);
+                machine.machineMesh.localToWorld(outWorld);
 
                 const count = zone.outputCount || 1;
-                const resConfig = this._getStackConfig(resourceType);
-                ud._outputStackCount = ud._outputStackCount || 0;
+                const resConfig = StackConfigRegistry.get(resourceType);
 
                 for (let i = 0; i < count; i++) {
                     const mesh = ResourceRegistry.createMesh(resourceType, 'stacked');
@@ -115,7 +105,7 @@ export class BuildSystem {
                     mesh.position.copy(startPos);
                     this.scene.add(mesh);
 
-                    const stackIndex = ud._outputStackCount + i;
+                    const stackIndex = machine.outputStackCount + i;
                     const toPos = outWorld.clone();
                     toPos.y += stackIndex * resConfig.stackOffset;
 
@@ -130,7 +120,7 @@ export class BuildSystem {
                         }
                     });
                 }
-                ud._outputStackCount += count;
+                machine.outputStackCount += count;
 
                 // Reset zone progress so it's reusable
                 for (const key of Object.keys(zone.progress)) {

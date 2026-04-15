@@ -165,10 +165,31 @@ export const PARTICLE_CONFIG = {
     size: 0.1
 };
 
+// Feature flag — when true, zombie meat drops are visually swapped for "essence"
+// (glowing green puddle on the ground, test-tube on the player's stack).
+// Set to false to revert to the original red meat disk behavior.
+export const FEATURE_FLAGS = {
+    USE_ESSENCE_DROPS: true
+};
+
 // Scene mode — toggles the parallel "Cardboard Diorama" world (4 distinct
 // corner biomes + landmarks + Hive). The legacy scene stays the default;
 // flip this OR pass `?diorama` in the URL to opt in. See
 // `src/core/SceneMode.js` for the resolution helper.
 export const SCENE_CONFIG = {
     mode: 'legacy' // 'legacy' | 'diorama'
+};
+
+// Market Zone — selling-stall + customer economy tunables.
+export const MARKET_CONFIG = {
+    stallApproachRange:        6.0,   // distance at which a customer detours toward a stall
+    customerPauseSec:          0.6,   // pause at the stall before paying
+    customerSpawnIntervalSec:  4.0,   // seconds between customer spawns
+    customerMaxLive:           3,     // upper bound on simultaneous customers per spawner
+    customerWalkSpeed:         2.4,   // overrides Movement.speed if non-null
+    customerBuyProbability:    0.85,  // chance a passerby actually detours when a stocked stall is in range
+    customerLeaveLerpSpeed:    3.0,   // m/s when steering off-spline / back to spline
+    stallCoinPayoutStaggerSec: 0.06,  // delay between successive coin arcs
+    counterBubbleThreshold:    10,    // hide the "×N" bubble at or below this count
+    customerSpawnEdgeMargin:   0.02   // start customers slightly inside the spline so getTangent is stable
 };

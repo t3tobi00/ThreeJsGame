@@ -1,0 +1,23 @@
+{
+    "type": "MarketStall",
+    "mesh": {
+        "preset": "mkt-stall",
+        "awningColor": "0xE05050"
+    },
+    "components": {
+        "InventoryStack": {
+            "maxCapacity": 4,
+            "anchorOffset": { "x": 0, "y": 1.07, "z": 0 },
+            "slotSpacing": 0.18,
+            "style": "rigid",
+            "acceptsTypes": ["essenceCandy"]
+        },
+        "Stall": {
+            "productType":  "essenceCandy",
+            "productLabel": "Zombie Candy",
+            "price": 3
+        },
+        "Tag": { "tags": ["stall", "table"] },
+        "Collider": { "shape": "box", "width": 3.5, "depth": 1.4, "isStatic": true }
+    }
+}

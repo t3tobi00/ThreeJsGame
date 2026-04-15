@@ -8,6 +8,11 @@ import EventBus from '../core/EventBus.js';
  * For each entity, updates every slot's spring physics.
  * Multi-slot entities get side-by-side stacks.
  *
+ * Stack visuals (scale, offset per resource) are applied by
+ * Component_InventoryStack.addToSlot via StackConfigRegistry — this system
+ * is now responsible only for per-frame positioning and the
+ * 'item:collected' → addToSlot bridge.
+ *
  * Listens:  'item:collected' → addToSlot(collectorId, resourceType, mesh)
  * Emits:    'stack:changed' → { entityId, type, count, totalCount }
  */
@@ -32,17 +37,23 @@ export class StackSystem {
             const anchor = inventory.anchorOffset;
             const entityPos = transform.mesh.position;
             const numSlots = inventory.slots.length;
+            const angle = transform.mesh.rotation.y;
+            const cosA = Math.cos(angle);
+            const sinA = Math.sin(angle);
 
             for (let i = 0; i < numSlots; i++) {
                 const slot = inventory.slots[i];
                 // Side-by-side offset: centered around the anchor
                 const xOffset = (i - (numSlots - 1) / 2) * inventory.slotSpacing;
+                // Rotate local offset by player facing so stack stays behind
+                const localX = anchor.x + xOffset;
+                const localZ = anchor.z;
                 const basePos = new THREE.Vector3(
-                    entityPos.x + anchor.x + xOffset,
+                    entityPos.x + localX * cosA + localZ * sinA,
                     entityPos.y + anchor.y,
-                    entityPos.z + anchor.z
+                    entityPos.z - localX * sinA + localZ * cosA
                 );
-                slot.stack.update(basePos);
+                slot.stack.update(basePos, angle);
             }
         }
     }
@@ -53,6 +64,7 @@ export class StackSystem {
         if (!inventory) return;
 
         this.scene.add(mesh);
+        // InventoryStack.addToSlot applies stack scale + per-resource offset.
         const added = inventory.addToSlot(resourceType, mesh, { animate: true });
         if (added) {
             EventBus.emit('stack:changed', {

@@ -1,4 +1,5 @@
 import { ResourceStack } from '../../utils/ResourceStack.js';
+import StackConfigRegistry from '../../core/StackConfigRegistry.js';
 
 /**
  * Component_InventoryStack — Multi-slot inventory with per-type stacking.
@@ -66,10 +67,29 @@ export class Component_InventoryStack {
         return this.slots.length < this.maxSlots;
     }
 
-    /** Add a mesh to the correct slot. Returns true if added. */
+    /**
+     * Add a mesh to the correct slot. Returns true if added.
+     *
+     * Applies the per-resource stack config from StackConfigRegistry so the
+     * mesh lands at the correct uniform scale and the slot's vertical
+     * offset matches the resource's tunable — regardless of which caller
+     * invoked this method (StackSystem on 'item:collected', DepositorSystem
+     * drain, TraderSystem/StallSystem payouts, BuildSystem resource
+     * transfer, etc.). One place to tune how any resource stacks.
+     */
     addToSlot(resourceType, mesh, options = {}) {
         const stack = this.getSlot(resourceType);
         if (!stack) return false;
+
+        const cfg = StackConfigRegistry.get(resourceType);
+        if (cfg.stackScale) {
+            mesh.userData.stackScale = cfg.stackScale;
+            mesh.scale.setScalar(cfg.stackScale);
+        }
+        if (cfg.stackOffset) {
+            stack.stackOffset = cfg.stackOffset;
+        }
+
         return stack.add(mesh, options);
     }
 

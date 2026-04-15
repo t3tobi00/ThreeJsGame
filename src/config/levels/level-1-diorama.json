@@ -213,6 +213,40 @@
                 "rotY": 1.5708
             },
             {
+                "preset": "gearworks-machine",
+                "cost": {
+                    "essence": 10,
+                    "wood": 10
+                },
+                "output": "essenceCandy",
+                "outputCount": 1,
+                "frameWidth": 14,
+                "frameDepth": 3.6,
+                "x": -18.2,
+                "y": 0.04,
+                "z": 17,
+                "rotY": 1.5708
+            },
+            {
+                "preset": "gearworks-machine-mini",
+                "cost": {
+                    "essence": 10
+                },
+                "output": "essenceCandy",
+                "outputCount": 1,
+                "x": -19,
+                "y": 0.04,
+                "z": 7,
+                "rotY": 1.5708
+            },
+            {
+                "preset": "gearworks-machine-sandbox",
+                "x": -5,
+                "y": 0.04,
+                "z": 5,
+                "rotY": 0.7854
+            },
+            {
                 "preset": "dio-market-entrance-gate",
                 "x": 0,
                 "z": -12
@@ -1308,5 +1342,40 @@
                 "rotY": 1.7
             }
         ]
+    },
+    "market": {
+        "_comment": "Phase-1 MVP selling loop. Single stall on the market pad (z=-22) sells Zombie Candy. Customers walk an east-west spline along the north edge of the pad, detour to the stall when stocked, drop coins on the attached tray.",
+        "road": {
+            "pathId": "market-road-1",
+            "waypoints": [
+                { "x": -18, "y": 0, "z": -20 },
+                { "x":  -8, "y": 0, "z": -19 },
+                { "x":   8, "y": 0, "z": -19 },
+                { "x":  18, "y": 0, "z": -20 }
+            ],
+            "debug": false
+        },
+        "stalls": [
+            {
+                "archetype": "market-stall",
+                "position": { "x": 0, "y": 0, "z": -23.5 },
+                "_rotationY_comment": "omit rotationY to auto-face the orthographic camera; set an explicit number to override",
+                "stall": {
+                    "productType":  "essenceCandy",
+                    "productLabel": "Zombie Candy",
+                    "price": 3
+                },
+                "tray": {
+                    "archetype": "market-coin-tray"
+                }
+            }
+        ],
+        "customerSpawn": {
+            "pathId": "market-road-1",
+            "intervalSec": 4.0,
+            "maxLive": 3,
+            "archetype": "customer",
+            "startEdge": "alternate"
+        }
     }
 }

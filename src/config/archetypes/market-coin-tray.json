@@ -1,0 +1,15 @@
+{
+    "type": "MarketCoinTray",
+    "mesh": { "preset": "mkt-coin-tray" },
+    "components": {
+        "InventoryStack": {
+            "maxCapacity": 60,
+            "anchorOffset": { "x": 0, "y": 0.22, "z": 0 },
+            "slotSpacing": 0.05,
+            "style": "rigid",
+            "acceptsTypes": ["coin"]
+        },
+        "Tag": { "tags": ["stall-tray"] },
+        "Collider": { "shape": "box", "width": 1.1, "depth": 1.1, "isStatic": true }
+    }
+}
