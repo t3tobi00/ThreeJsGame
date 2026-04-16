@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { SceneLoader } from './SceneLoader.js';
 import MeshPresets from './MeshPresets.js';
+import { yawTo } from '../utils/FaceCamera.js';
+import { CAMERA_CONFIG } from '../config/gameConfig.js';
 // Side-effect import: registers all `dio-*` presets into the shared registry.
 import './MeshPresetsDiorama.js';
 // Standalone machine presets (extracted from MeshPresetsDiorama for modularity).
@@ -312,7 +314,19 @@ export class SceneLoaderDiorama {
                 // After that X-flip, the plane's local Z axis points up in
                 // world space, so yawing it on the ground means setting Z.
                 if (p.rotY) mesh.rotation.z = p.rotY;
-                root.add(mesh);
+
+                // Camera-facing pads: wrap in a Group so yawTo rotates the
+                // parent while the child keeps its -PI/2 flat orientation.
+                if (p.preset === 'dio-market-ground') {
+                    const wrapper = new THREE.Group();
+                    wrapper.position.copy(mesh.position);
+                    mesh.position.set(0, 0, 0);
+                    yawTo(wrapper, CAMERA_CONFIG.offset);
+                    wrapper.add(mesh);
+                    root.add(wrapper);
+                } else {
+                    root.add(mesh);
+                }
             }
         }
 
@@ -327,18 +341,25 @@ export class SceneLoaderDiorama {
         }
 
         // Landmarks — the 4 hero props (one per corner)
+        // Gearworks machines are NOT created here — they're returned as config
+        // so main.js can create them through EntityFactory (proper ECS).
         if (Array.isArray(dw.landmarks)) {
             for (const l of dw.landmarks) {
+                if (l.preset === 'gearworks-machine') {
+                    machines.push({ config: l });
+                    continue;
+                }
                 const mesh = MeshPresets.create(l.preset, l);
                 mesh.position.set(l.x || 0, (l.y ?? 0), l.z || 0);
                 if (l.rotY) mesh.rotation.y = l.rotY;
+                // Camera-facing landmarks
+                if (l.preset === 'dio-market-entrance-gate') {
+                    yawTo(mesh, CAMERA_CONFIG.offset);
+                }
                 const baseScale = l.scale ?? 1;
                 const finalScale = inZombieArea(l.z) ? baseScale * zombieAreaScale : baseScale;
                 if (finalScale !== 1) mesh.scale.setScalar(finalScale);
                 root.add(mesh);
-                if (l.preset === 'gearworks-machine') {
-                    machines.push({ mesh, config: l });
-                }
             }
         }
 

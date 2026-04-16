@@ -12,7 +12,7 @@ import RoadPathRegistry, { RoadPath } from './RoadPath.js';
 import PriceSignUI from '../../ui/PriceSignUI.js';
 import { StallCounterUI } from '../../ui/StallCounterUI.js';
 import { MARKET_CONFIG } from '../../config/gameConfig.js';
-import { yawToCamera } from '../../utils/Billboard3D.js';
+import { yawToCamera } from '../../utils/FaceCamera.js';
 
 /**
  * Build the full market zone from a level JSON config block. Returns a

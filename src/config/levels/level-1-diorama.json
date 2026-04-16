@@ -205,12 +205,24 @@
                 },
                 "output": "essenceCandy",
                 "outputCount": 1,
-                "frameWidth": 14,
-                "frameDepth": 3.6,
+                "frameWidth": 5,
+                "frameDepth": 2,
+                "sectionRatio": [
+                    0.4,
+                    0.2,
+                    0.4
+                ],
+                "gearScale": 1.2,
+                "gearSpinSpeed": 1,
+                "inputScale": 1.5,
+                "outputScale": 1.5,
+                "counterScale": 1.5,
+                "postScale": 1.5,
+                "padScale": 1,
+                "resourceRotY": 1.5708,
                 "x": -24.2,
                 "y": 0.04,
-                "z": -1,
-                "rotY": 1.5708
+                "z": -1
             },
             {
                 "preset": "gearworks-machine",
@@ -240,11 +252,10 @@
                 "rotY": 1.5708
             },
             {
-                "preset": "gearworks-machine-sandbox",
+                "preset": "gearworks-machine-sandbox2",
                 "x": -5,
                 "y": 0.04,
-                "z": 5,
-                "rotY": 0.7854
+                "z": 5
             },
             {
                 "preset": "dio-market-entrance-gate",
@@ -1348,20 +1359,40 @@
         "road": {
             "pathId": "market-road-1",
             "waypoints": [
-                { "x": -18, "y": 0, "z": -20 },
-                { "x":  -8, "y": 0, "z": -19 },
-                { "x":   8, "y": 0, "z": -19 },
-                { "x":  18, "y": 0, "z": -20 }
+                {
+                    "x": -18,
+                    "y": 0,
+                    "z": -20
+                },
+                {
+                    "x": -8,
+                    "y": 0,
+                    "z": -19
+                },
+                {
+                    "x": 8,
+                    "y": 0,
+                    "z": -19
+                },
+                {
+                    "x": 18,
+                    "y": 0,
+                    "z": -20
+                }
             ],
             "debug": false
         },
         "stalls": [
             {
                 "archetype": "market-stall",
-                "position": { "x": 0, "y": 0, "z": -23.5 },
+                "position": {
+                    "x": 0,
+                    "y": 0,
+                    "z": -23.5
+                },
                 "_rotationY_comment": "omit rotationY to auto-face the orthographic camera; set an explicit number to override",
                 "stall": {
-                    "productType":  "essenceCandy",
+                    "productType": "essenceCandy",
                     "productLabel": "Zombie Candy",
                     "price": 3
                 },
