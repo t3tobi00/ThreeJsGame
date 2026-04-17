@@ -17,12 +17,17 @@ const ResourceRegistry = {
         return def;
     },
 
-    createMesh(type) {
+    createMesh(type, state = 'ground') {
         const def = this.get(type);
         if (!def) {
             return MeshPresets.create('disk', { color: 0x999999 });
         }
-        const opts = { ...def.mesh };
+        const spec = (state === 'stacked' ? def.meshStacked : def.meshGround) || def.mesh;
+        if (!spec) {
+            console.warn(`ResourceRegistry: no mesh spec for '${type}' (state='${state}')`);
+            return MeshPresets.create('disk', { color: 0x999999 });
+        }
+        const opts = { ...spec };
         if (typeof opts.color === 'string') {
             opts.color = parseInt(opts.color, 16);
         }
