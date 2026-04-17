@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Resource Preview — Stone</title>
+<style>
+  :root { --bg-0:#0b0f1a;--bg-1:#131a2b;--line:rgba(255,255,255,0.08);--txt:#e9eef7;--txt-dim:#8a94a8;--accent:#ffd24a;--accent-2:#4ad2ff; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg-0);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;height:100vh;overflow:hidden}
+  .app{display:grid;grid-template-columns:240px 1fr;height:100vh}
+  aside{background:var(--bg-1);border-right:1px solid var(--line);padding:20px 0;overflow-y:auto}
+  aside h2{margin:0 0 4px 20px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--txt-dim)}
+  aside p.hint{margin:0 20px 16px;font-size:11px;color:var(--txt-dim);line-height:1.4}
+  .nav{list-style:none;padding:0;margin:0}
+  .nav li{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;border-left:3px solid transparent;transition:background .15s;font-size:14px;font-weight:500}
+  .nav li:hover{background:rgba(255,255,255,0.04)}
+  .nav li.active{background:rgba(255,210,74,0.08);border-left-color:var(--accent);color:var(--accent)}
+  .nav li .emoji{font-size:22px;line-height:1;width:28px;text-align:center}
+  main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg-0)}
+  .topbar{padding:18px 28px 12px;border-bottom:1px solid var(--line)}
+  .topbar h1{margin:0 0 4px;font-size:18px}
+  .topbar p{margin:0;font-size:12px;color:var(--txt-dim)}
+  .panels{display:grid;gap:16px;padding:20px 28px 28px;flex:1;min-height:0}
+  .panel{background:var(--bg-1);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+  .panel header{padding:14px 18px 8px;border-bottom:1px solid var(--line)}
+  .panel header .ttl{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .panel header .sub{font-size:11px;color:var(--txt-dim);margin-top:2px}
+  .panel.new header .ttl{color:var(--accent)}
+  .panel.alt header .ttl{color:var(--accent-2)}
+  .stage{flex:1;position:relative;background:radial-gradient(ellipse at center top,#243152 0%,#0e1424 70%);cursor:grab}
+  .stage:active{cursor:grabbing}
+  .stage canvas{display:block;width:100%;height:100%}
+  .stage .tip{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:10px;color:var(--txt-dim);pointer-events:none;text-transform:uppercase;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h2>Resources</h2>
+    <p class="hint">Click to inspect. Drag to orbit, scroll to zoom.</p>
+    <ul class="nav" id="nav">
+      <li data-key="meat"><span class="emoji">🥩</span><span>Meat</span></li>
+      <li data-key="coin"><span class="emoji">🪙</span><span>Coin</span></li>
+      <li data-key="wood"><span class="emoji">🪵</span><span>Wood</span></li>
+      <li data-key="stone" class="active"><span class="emoji">🪨</span><span>Stone</span></li>
+      <li data-key="essence"><span class="emoji">🧪</span><span>Essence</span></li>
+      <li data-key="essenceCandy"><span class="emoji">🍬</span><span>Essence Candy</span></li>
+    </ul>
+  </aside>
+  <main>
+    <div class="topbar">
+      <h1 id="title"></h1>
+      <p id="subtitle"></p>
+    </div>
+    <div class="panels" id="panels"></div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="_base.js"></script>
+<script>
+function buildStone() {
+  var group = new THREE.Group();
+
+  var stoneTex = (function() {
+    var { c, ctx } = makeCanvas(512);
+    ctx.fillStyle = '#888a8e'; ctx.fillRect(0, 0, 512, 512);
+    for (var i = 0; i < 800; i++) {
+      var x = Math.random() * 512, y = Math.random() * 512, r = 4 + Math.random() * 18, g = 80 + Math.random() * 70;
+      ctx.fillStyle = 'rgba(' + g + ', ' + g + ', ' + (g + 5) + ', ' + (0.06 + Math.random() * 0.12) + ')';
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+    for (var i = 0; i < 200; i++) {
+      ctx.fillStyle = 'rgba(40, 40, 45, ' + (0.4 + Math.random() * 0.4) + ')';
+      ctx.beginPath(); ctx.arc(Math.random() * 512, Math.random() * 512, 0.7 + Math.random() * 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+    for (var i = 0; i < 120; i++) {
+      ctx.fillStyle = 'rgba(220, 220, 225, ' + (0.25 + Math.random() * 0.3) + ')';
+      ctx.beginPath(); ctx.arc(Math.random() * 512, Math.random() * 512, 0.6 + Math.random() * 1.4, 0, Math.PI * 2); ctx.fill();
+    }
+    for (var i = 0; i < 5; i++) {
+      ctx.strokeStyle = 'rgba(40, 40, 45, 0.5)'; ctx.lineWidth = 1.2; ctx.beginPath();
+      var x = Math.random() * 512, y = Math.random() * 512;
+      ctx.moveTo(x, y); ctx.bezierCurveTo(x + 20, y + 5, x + 40, y - 10, x + 60, y + 8); ctx.stroke();
+    }
+    return texFromCanvas(c);
+  })();
+
+  var geo = new THREE.IcosahedronGeometry(0.78, 4);
+  var pos = geo.attributes.position;
+  var v = new THREE.Vector3();
+  var HALF_HEIGHT = 0.32;
+  for (var i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    v.y *= 0.45;
+    if (v.y > HALF_HEIGHT * 0.92) v.y = HALF_HEIGHT;
+    if (v.y < -HALF_HEIGHT * 0.92) v.y = -HALF_HEIGHT;
+    var capDist = Math.max(0, 1 - Math.abs(v.y) / HALF_HEIGHT);
+    var noise = Math.sin(v.x * 4.1 + v.z * 2.3) * 0.06 + Math.sin(v.z * 3.5 + v.x * 4.7) * 0.04 + Math.sin(v.x * 5.2 + v.z * 1.9) * 0.03;
+    var lateral = 1 + noise * capDist;
+    v.x *= lateral; v.z *= lateral;
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  group.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.92, metalness: 0.0, color: 0xffffff })));
+  return group;
+}
+
+initPreview({
+  title: 'Stone',
+  sub: 'Sculpted 3D rock \u2014 irregular pebble with mottled surface.',
+  panels: [{ mod: 'new', ttl: 'Sculpted 3D', sub: 'Irregular rounded rock with speckled stone texture', build: buildStone }]
+});
+</script>
+</body>
+</html>

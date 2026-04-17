@@ -1,0 +1,5 @@
+# Claude Code scratch worktrees (each is an embedded git repo; not meant to commit)
+.claude/worktrees/
+
+# OS noise
+.DS_Store

@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Zombie Preview — full animation states</title>
+    <style>
+        html, body {
+            margin: 0; padding: 0; height: 100%;
+            background: #87ceeb; overflow: hidden;
+            font-family: -apple-system, system-ui, sans-serif;
+            color: #eee;
+        }
+
+        /* ---------- Left sidebar ---------- */
+        #sidebar {
+            position: fixed; top: 0; left: 0; bottom: 0;
+            width: 270px;
+            background: rgba(18, 22, 18, 0.94);
+            box-shadow: 2px 0 12px rgba(0,0,0,0.4);
+            overflow-y: auto;
+            padding: 14px 0 20px 0;
+            z-index: 10;
+        }
+        #sidebar h1 {
+            margin: 0 16px 4px 16px;
+            font-size: 15px; letter-spacing: 0.5px;
+            color: #b8ffb8;
+        }
+        #sidebar .sub {
+            margin: 0 16px 10px 16px;
+            font-size: 10px; color: #888; line-height: 1.4;
+        }
+
+        /* Variant entries */
+        .z-entry {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: background 0.12s, border-color 0.12s;
+        }
+        .z-entry:hover { background: rgba(255,255,255,0.05); }
+        .z-entry.active {
+            background: rgba(127, 255, 127, 0.08);
+            border-left-color: #7fff7f;
+        }
+        .z-swatch {
+            width: 14px; height: 14px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.15);
+            flex-shrink: 0;
+        }
+        .z-text { flex: 1; min-width: 0; }
+        .z-name {
+            font-size: 12px; font-weight: 600; color: #fff;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .z-tier {
+            font-size: 9px; padding: 1px 5px; border-radius: 3px;
+            background: #333; color: #aaa; font-weight: 700;
+        }
+        .z-tier.t1 { background: #2d5a2d; color: #a8ffa8; }
+        .z-tier.t2 { background: #6b5a1a; color: #ffe88a; }
+        .z-tier.t3 { background: #7a2d2d; color: #ffa8a8; }
+        .z-tag {
+            font-size: 10px; color: #888;
+            margin-top: 1px; line-height: 1.3;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* Section divider */
+        .section-label {
+            margin: 14px 16px 6px 16px;
+            font-size: 10px; color: #7fff7f;
+            letter-spacing: 1.2px; font-weight: 700;
+        }
+
+        /* Animation buttons */
+        .btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            margin: 0 16px;
+        }
+        .anim-btn {
+            background: #2a2f2a;
+            color: #ddd;
+            border: 1px solid #3a403a;
+            padding: 8px 4px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: background 0.12s, border-color 0.12s, transform 0.05s;
+        }
+        .anim-btn:hover { background: #3a423a; }
+        .anim-btn:active { transform: translateY(1px); }
+        .anim-btn.active {
+            background: linear-gradient(180deg, #2d5a2d, #1f3f1f);
+            border-color: #7fff7f;
+            color: #b8ffb8;
+        }
+        .anim-btn.action-attack { background: linear-gradient(180deg, #c13838, #8a1e1e); color: #fff; border-color: #6a1414; }
+        .anim-btn.action-hit { background: linear-gradient(180deg, #d4a53c, #8a6a1e); color: #fff; border-color: #6a4a14; }
+        .anim-btn.action-die { background: linear-gradient(180deg, #5a5a5a, #2a2a2a); color: #fff; border-color: #1a1a1a; }
+        .anim-btn.action-attack:hover,
+        .anim-btn.action-hit:hover,
+        .anim-btn.action-die:hover { filter: brightness(1.2); }
+
+        .full-btn {
+            margin: 8px 16px 0 16px;
+            background: #1e3a1e;
+            color: #b8ffb8;
+            border: 1px solid #2d5a2d;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            width: calc(100% - 32px);
+        }
+        .full-btn:hover { background: #2d5a2d; }
+
+        .ctrl-toggle {
+            display: flex; align-items: center; gap: 6px;
+            margin: 8px 16px 0 16px;
+            font-size: 10px; color: #aaa;
+            cursor: pointer; user-select: none;
+        }
+        .ctrl-toggle input { margin: 0; }
+
+        #info {
+            margin: 14px 16px 4px 16px;
+            padding: 10px;
+            background: rgba(0,0,0,0.35);
+            border-radius: 6px;
+            font-size: 10px; line-height: 1.5;
+        }
+        #info .i-name { font-size: 12px; font-weight: 700; color: #b8ffb8; margin-bottom: 3px; }
+        #info .i-desc { color: #bbb; margin-bottom: 6px; }
+        #info .i-stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; color: #aaa; }
+        #info .i-stats b { color: #eee; font-weight: 600; }
+
+        /* Floating state badge */
+        #state-badge {
+            position: fixed; top: 14px; right: 14px;
+            background: rgba(0,0,0,0.7);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #7fff7f;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar">
+        <h1>ZOMBIE VARIANTS</h1>
+        <div class="sub">Click variant · then test animations below</div>
+        <div id="entries"></div>
+
+        <div class="section-label">LOCOMOTION</div>
+        <div class="btn-row">
+            <button class="anim-btn loop-btn" data-mode="idle">IDLE</button>
+            <button class="anim-btn loop-btn active" data-mode="walk">WALK</button>
+            <button class="anim-btn loop-btn" data-mode="run">RUN</button>
+        </div>
+
+        <div class="section-label">ACTIONS</div>
+        <div class="btn-row">
+            <button class="anim-btn action-attack" id="btn-attack">⚔ ATTACK</button>
+            <button class="anim-btn action-hit" id="btn-hit">💥 HIT</button>
+            <button class="anim-btn action-die" id="btn-die">💀 DIE</button>
+        </div>
+        <button class="full-btn" id="btn-revive">↻ REVIVE</button>
+
+        <label class="ctrl-toggle"><input type="checkbox" id="auto-attack"> Auto-attack every 1.5s</label>
+        <label class="ctrl-toggle"><input type="checkbox" id="show-villager" checked> Show villager (scale ref)</label>
+
+        <div id="info"></div>
+    </div>
+    <div id="state-badge">WALK</div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // =============================================================
+        // Scene / renderer / camera — matches game environment
+        // =============================================================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.FogExp2(0x87ceeb, 0.022);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        const camera = new THREE.PerspectiveCamera(32, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(4.5, 5.5, 7.5);
+        camera.lookAt(0, 1, 0);
+
+        scene.add(new THREE.HemisphereLight(0xffffff, 0xe6c280, 0.7));
+        const sun = new THREE.DirectionalLight(0xffeedd, 1.4);
+        sun.position.set(10, 20, -5);
+        sun.castShadow = true;
+        sun.shadow.mapSize.set(2048, 2048);
+        const sd = 15;
+        sun.shadow.camera.left = -sd; sun.shadow.camera.right = sd;
+        sun.shadow.camera.top = sd;   sun.shadow.camera.bottom = -sd;
+        sun.shadow.bias = -0.001;
+        scene.add(sun);
+
+        function mat(color, rough = 0.8) {
+            return new THREE.MeshStandardMaterial({ color, roughness: rough });
+        }
+
+        // Environment: dual-zone ground + props
+        const danger = new THREE.Mesh(
+            new THREE.PlaneGeometry(80, 80),
+            new THREE.MeshStandardMaterial({ color: 0xe6c280, roughness: 1.0 })
+        );
+        danger.rotation.x = -Math.PI / 2;
+        danger.receiveShadow = true;
+        scene.add(danger);
+
+        const safe = new THREE.Mesh(
+            new THREE.CircleGeometry(9, 48),
+            new THREE.MeshStandardMaterial({ color: 0x66cc66, roughness: 1.0 })
+        );
+        safe.rotation.x = -Math.PI / 2;
+        safe.position.y = 0.01;
+        safe.receiveShadow = true;
+        scene.add(safe);
+
+        for (let i = 0; i < 22; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const r = 11 + Math.random() * 18;
+            const trunk = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.1, 0.2, 2.5 + Math.random() * 1.6, 6),
+                mat(0x5d4037, 1.0)
+            );
+            trunk.position.set(Math.cos(a) * r, 1.3, Math.sin(a) * r);
+            trunk.rotation.z = (Math.random() - 0.5) * 0.3;
+            trunk.castShadow = true;
+            scene.add(trunk);
+            for (let b = 0; b < 2; b++) {
+                const branch = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.05, 0.08, 1.2, 4),
+                    mat(0x5d4037, 1.0)
+                );
+                branch.position.copy(trunk.position);
+                branch.position.y += 0.5 + b * 0.7;
+                branch.rotation.z = (Math.random() > 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.5);
+                branch.rotation.y = Math.random() * Math.PI * 2;
+                scene.add(branch);
+            }
+        }
+        for (let i = 0; i < 18; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const r = 10 + Math.random() * 18;
+            const rock = new THREE.Mesh(
+                new THREE.IcosahedronGeometry(0.4 + Math.random() * 0.7, 0),
+                mat(0x999999, 0.8)
+            );
+            rock.position.set(Math.cos(a) * r, 0.15, Math.sin(a) * r);
+            rock.rotation.set(Math.random(), Math.random(), Math.random());
+            rock.scale.y = 0.5 + Math.random() * 0.5;
+            rock.castShadow = true; rock.receiveShadow = true;
+            scene.add(rock);
+        }
+
+        // =============================================================
+        // Shared helpers
+        // =============================================================
+        const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+        const easeIn = (t) => t * t;
+
+        function addSunkenEye(parent, x, y, z, socketR, pupilR, pupilColor = 0xfff2a8) {
+            const socket = new THREE.Mesh(
+                new THREE.SphereGeometry(socketR, 8, 6),
+                new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 1.0 })
+            );
+            socket.position.set(x, y, z);
+            parent.add(socket);
+            const pupil = new THREE.Mesh(
+                new THREE.SphereGeometry(pupilR, 6, 6),
+                new THREE.MeshBasicMaterial({ color: pupilColor })
+            );
+            pupil.position.set(x * 1.05, y, z + 0.015);
+            parent.add(pupil);
+            return { socket, pupil };
+        }
+
+        function addTatteredHem(parent, radius, yCenter, color = 0x3d5526, count = 9) {
+            const tMat = new THREE.MeshStandardMaterial({ color, roughness: 1.0, side: THREE.DoubleSide });
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const w = 0.08 + Math.random() * 0.06;
+                const h = 0.12 + Math.random() * 0.16;
+                const strip = new THREE.Mesh(new THREE.PlaneGeometry(w, h), tMat);
+                strip.position.set(Math.cos(angle) * radius, yCenter - h / 2, Math.sin(angle) * radius);
+                strip.lookAt(strip.position.x * 2, strip.position.y, strip.position.z * 2);
+                strip.rotation.z += (Math.random() - 0.5) * 0.4;
+                parent.add(strip);
+            }
+        }
+
+        // Simple particle pool
+        const particles = [];
+        function emitParticle(pos, color, opts = {}) {
+            const p = new THREE.Mesh(
+                new THREE.SphereGeometry(opts.size || 0.08, 6, 5),
+                new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 })
+            );
+            p.position.copy(pos);
+            p.userData = {
+                life: 0,
+                maxLife: opts.maxLife || 0.8,
+                vel: opts.vel || new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.4,
+                    0.8 + Math.random() * 0.6,
+                    (Math.random() - 0.5) * 0.4
+                ),
+                scaleGrow: opts.scaleGrow ?? 1.0,
+                gravity: opts.gravity ?? 0.5
+            };
+            scene.add(p);
+            particles.push(p);
+        }
+        function updateParticles(dt) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.userData.life += dt;
+                const k = p.userData.life / p.userData.maxLife;
+                if (k >= 1) {
+                    scene.remove(p);
+                    p.geometry.dispose();
+                    p.material.dispose();
+                    particles.splice(i, 1);
+                    continue;
+                }
+                p.position.addScaledVector(p.userData.vel, dt);
+                p.userData.vel.y -= p.userData.gravity * dt;
+                p.material.opacity = 1 - k;
+                const s = 1 + k * p.userData.scaleGrow;
+                p.scale.set(s, s, s);
+            }
+        }
+
+        // Generic flinch: torso jerks back, arms splay up
+        function applyFlinch(torso, lArm, rArm, progress, baseRotX = 0, baseZ = 0) {
+            const k = Math.sin(progress * Math.PI);
+            torso.position.set(0, k * 0.08, baseZ - k * 0.28);
+            torso.rotation.set(baseRotX - k * 0.45, 0, 0);
+            if (lArm) { lArm.rotation.x = -k * 1.3; lArm.rotation.z = -k * 0.45; }
+            if (rArm) { rArm.rotation.x = -k * 1.3; rArm.rotation.z =  k * 0.45; }
+        }
+
+        // Generic fall-forward die pose
+        function applyFall(torso, lArm, rArm, progress, baseRotX = 0) {
+            const k = easeOut(Math.min(progress, 1));
+            torso.position.set(0, -k * 0.35, k * 0.15);
+            torso.rotation.set(baseRotX + k * (Math.PI / 2 - 0.15), 0, 0);
+            if (lArm) { lArm.rotation.x = k * 0.4; lArm.rotation.z = -k * 0.7; }
+            if (rArm) { rArm.rotation.x = k * 0.4; rArm.rotation.z =  k * 0.7; }
+        }
+
+        // Shambler-style arm builder
+        function buildShamblerArm(side, skinColor, handColor, scale = 1.0) {
+            const arm = new THREE.Group();
+            arm.position.set(side * 0.22 * scale, 0.85 * scale, 0.05);
+            const armMat = mat(skinColor, 0.85);
+            const handMat = mat(handColor, 0.7);
+
+            const upper = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.055 * scale, 0.05 * scale, 0.35 * scale, 6), armMat
+            );
+            upper.position.y = -0.175 * scale;
+            upper.castShadow = true;
+            arm.add(upper);
+
+            const fore = new THREE.Group();
+            fore.position.y = -0.35 * scale;
+            fore.rotation.x = -Math.PI / 2 + 0.15;
+            arm.add(fore);
+
+            const foreMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.05 * scale, 0.045 * scale, 0.38 * scale, 6), armMat
+            );
+            foreMesh.position.y = -0.19 * scale;
+            foreMesh.castShadow = true;
+            fore.add(foreMesh);
+
+            const hand = new THREE.Mesh(
+                new THREE.SphereGeometry(0.065 * scale, 8, 6), handMat
+            );
+            hand.position.y = -0.41 * scale;
+            hand.castShadow = true;
+            fore.add(hand);
+
+            if (side < 0) arm.position.y -= 0.05 * scale;
+            arm.rotation.z = side * 0.15;
+            return arm;
+        }
+
+        // =============================================================
+        // Villager (baseline)
+        // =============================================================
+        function buildVillager() {
+            const group = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 0.5, 4, 8), mat(0x3b82f6, 0.7));
+            body.position.y = 0.5;
+            body.castShadow = true;
+            group.add(body);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), mat(0xffcc99, 0.6));
+            head.position.y = 1.1;
+            head.castShadow = true;
+            group.add(head);
+
+            const eyeGeo = new THREE.SphereGeometry(0.05, 6, 6);
+            const eyeMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+            const le = new THREE.Mesh(eyeGeo, eyeMat); le.position.set(-0.08, 1.12, 0.18); group.add(le);
+            const re = new THREE.Mesh(eyeGeo, eyeMat); re.position.set( 0.08, 1.12, 0.18); group.add(re);
+
+            group.userData.animate = (t, dt, state) => {
+                const f = 5.0, s = Math.sin(t * f);
+                body.position.y = 0.5 + Math.abs(s) * 0.028;
+                head.position.y = 1.1 + Math.abs(s) * 0.028;
+                body.rotation.z = s * 0.035;
+            };
+            return group;
+        }
+
+        // =============================================================
+        // Helper: locomotion parameters by mode
+        // =============================================================
+        function locoParams(mode, profile) {
+            const p = profile[mode] || profile.walk;
+            return p;
+        }
+
+        // =============================================================
+        // 1. SHAMBLER
+        // =============================================================
+        function buildShambler() {
+            const group = new THREE.Group();
+            const torso = new THREE.Group();
+            group.add(torso);
+
+            // ---------- Color palette ----------
+            const fleshMain = 0x6e7d54;
+            const fleshPatch = 0x4a5238;
+            const fleshHead = 0x7a8a5e;
+            const stitchColor = 0x000000;
+            const boneColor = 0xe8dcc0;
+            const skullColor = 0xddc8a0;        // skull bone slightly warmer
+            const dripColor = 0x2a0a05;
+            const cavityColor = 0x180806;       // dark inside-of-body color
+
+            // Materials — body half-cylinder uses DoubleSide so the inside renders too
+            const fleshMat = new THREE.MeshStandardMaterial({ color: fleshMain, roughness: 0.9, side: THREE.DoubleSide });
+            const fleshHeadMat = new THREE.MeshStandardMaterial({ color: fleshHead, roughness: 0.75, side: THREE.DoubleSide });
+            const skullMat = new THREE.MeshStandardMaterial({ color: skullColor, roughness: 0.55, side: THREE.DoubleSide });
+            const boneMat = new THREE.MeshStandardMaterial({ color: boneColor, roughness: 0.5 });
+
+            // ---------- HALF BODY: left side intact flesh, right side hollowed out ----------
+            // Half-cylinder middle
+            const halfCyl = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.27, 0.27, 0.55, 18, 1, false, Math.PI / 2, Math.PI),
+                fleshMat
+            );
+            halfCyl.position.y = 0.5;
+            halfCyl.castShadow = true;
+            torso.add(halfCyl);
+            // Half hemisphere — top cap
+            const topCap = new THREE.Mesh(
+                new THREE.SphereGeometry(0.27, 18, 12, Math.PI / 2, Math.PI, 0, Math.PI / 2),
+                fleshMat
+            );
+            topCap.position.y = 0.775;
+            topCap.castShadow = true;
+            torso.add(topCap);
+            // Half hemisphere — bottom cap
+            const botCap = new THREE.Mesh(
+                new THREE.SphereGeometry(0.27, 18, 12, Math.PI / 2, Math.PI, Math.PI / 2, Math.PI / 2),
+                fleshMat
+            );
+            botCap.position.y = 0.225;
+            botCap.castShadow = true;
+            torso.add(botCap);
+
+            // Dark backdrop inside the cavity (so you don't see straight through to the environment)
+            const cavityBack = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.6, 0.8),
+                new THREE.MeshStandardMaterial({ color: cavityColor, roughness: 1.0, side: THREE.DoubleSide })
+            );
+            cavityBack.position.set(0.0, 0.5, -0.05);
+            cavityBack.rotation.y = Math.PI / 2;
+            torso.add(cavityBack);
+
+            // ---------- Spine — runs vertically through the body, visible in the hollow side ----------
+            const spineCol = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.022, 0.022, 0.7, 8),
+                skullMat
+            );
+            spineCol.position.set(0, 0.5, 0);
+            spineCol.castShadow = true;
+            torso.add(spineCol);
+
+            // Vertebrae bumps along the spine
+            for (let i = 0; i < 7; i++) {
+                const vert = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.038, 8, 6),
+                    skullMat
+                );
+                vert.position.set(0, 0.2 + i * 0.105, 0);
+                vert.castShadow = true;
+                torso.add(vert);
+            }
+
+            // ---------- Half rib cage on the +X (hollow) side ----------
+            // Each rib is a half-circle TubeGeometry curve from spine going around to the front and back
+            function addHalfRib(yPos, radius) {
+                const points = [];
+                const segs = 14;
+                for (let i = 0; i <= segs; i++) {
+                    const t = i / segs;
+                    // -PI/2 = behind spine, 0 = +X (right), +PI/2 = in front of spine
+                    const angle = -Math.PI / 2 + t * Math.PI;
+                    points.push(new THREE.Vector3(
+                        Math.cos(angle) * radius,
+                        yPos,
+                        Math.sin(angle) * radius
+                    ));
+                }
+                const curve = new THREE.CatmullRomCurve3(points);
+                const tube = new THREE.TubeGeometry(curve, 14, 0.014, 5, false);
+                const rib = new THREE.Mesh(tube, skullMat);
+                rib.castShadow = true;
+                torso.add(rib);
+            }
+            addHalfRib(0.40, 0.24);
+            addHalfRib(0.50, 0.265);
+            addHalfRib(0.60, 0.27);
+            addHalfRib(0.70, 0.255);
+            addHalfRib(0.78, 0.22);
+
+            // ---------- Mismatched stitched-on chest patch (LEFT side only) ----------
+            const patch = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.22, 0.32),
+                new THREE.MeshStandardMaterial({ color: fleshPatch, roughness: 1.0, side: THREE.DoubleSide })
+            );
+            patch.position.set(-0.13, 0.6, 0.276);
+            patch.rotation.y = 0.18;
+            torso.add(patch);
+
+            // ---------- Stitch helpers — crossed-X pattern, high-contrast ----------
+            const stitchMat = mat(stitchColor, 0.5);
+            const stitchT = 0.018;
+
+            function addXStitch(parent, x, y, z, size = 0.055) {
+                const a = new THREE.Mesh(new THREE.BoxGeometry(size, stitchT, stitchT), stitchMat);
+                const b = new THREE.Mesh(new THREE.BoxGeometry(size, stitchT, stitchT), stitchMat);
+                a.rotation.z = Math.PI / 4;
+                b.rotation.z = -Math.PI / 4;
+                a.position.set(x, y, z);
+                b.position.set(x, y, z);
+                parent.add(a); parent.add(b);
+            }
+
+            function addStitchLine(parent, x1, y1, x2, y2, z, count, size = 0.05) {
+                for (let i = 0; i < count; i++) {
+                    const t = i / (count - 1);
+                    addXStitch(parent, x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, z, size);
+                }
+            }
+
+            // Patch border (LEFT side only — patch is at x ∈ [-0.24, -0.02])
+            addStitchLine(torso, -0.24, 0.74, -0.02, 0.74, 0.278, 3);
+            addStitchLine(torso, -0.24, 0.46, -0.02, 0.46, 0.278, 3);
+            addStitchLine(torso, -0.24, 0.74, -0.24, 0.46, 0.278, 3);
+            addStitchLine(torso, -0.02, 0.74, -0.02, 0.46, 0.278, 3);
+
+            // Vertical Frankenstein seam down the LEFT side
+            addStitchLine(torso, -0.04, 0.92, -0.06, 0.32, 0.27, 7, 0.06);
+
+            // ---------- Tattered hem on the LEFT side only ----------
+            {
+                const tMat = new THREE.MeshStandardMaterial({ color: 0x2a3318, roughness: 1.0, side: THREE.DoubleSide });
+                const count = 7;
+                for (let i = 0; i <= count; i++) {
+                    const t = i / count;
+                    const angle = Math.PI / 2 + t * Math.PI;   // -X side
+                    const r = 0.27;
+                    const w = 0.08 + Math.random() * 0.06;
+                    const h = 0.12 + Math.random() * 0.16;
+                    const strip = new THREE.Mesh(new THREE.PlaneGeometry(w, h), tMat);
+                    strip.position.set(Math.cos(angle) * r, 0.22 - h / 2, Math.sin(angle) * r);
+                    strip.lookAt(strip.position.x * 2, strip.position.y, strip.position.z * 2);
+                    strip.rotation.z += (Math.random() - 0.5) * 0.4;
+                    torso.add(strip);
+                }
+            }
+
+            // ---------- HEAD: half flesh + half skull ----------
+            // headGroup wraps both halves so the animate function can rotate them as one unit
+            const headGroup = new THREE.Group();
+            headGroup.position.set(0.03, 1.12, 0.06);
+            headGroup.rotation.z = 0.22;       // permanent lopsided tilt
+            headGroup.scale.set(1.0, 1.05, 0.95);
+            torso.add(headGroup);
+
+            // LEFT half-sphere — flesh
+            const headFlesh = new THREE.Mesh(
+                new THREE.SphereGeometry(0.21, 18, 14, Math.PI / 2, Math.PI, 0, Math.PI),
+                fleshHeadMat
+            );
+            headFlesh.castShadow = true;
+            headGroup.add(headFlesh);
+
+            // RIGHT half-sphere — exposed SKULL bone (slightly smaller so it nests cleanly)
+            const headSkull = new THREE.Mesh(
+                new THREE.SphereGeometry(0.205, 18, 14, -Math.PI / 2, Math.PI, 0, Math.PI),
+                skullMat
+            );
+            headSkull.castShadow = true;
+            headGroup.add(headSkull);
+
+            // ---------- LEFT face features (intact flesh side) ----------
+            // Brow ridge bump above the eye
+            const brow = new THREE.Mesh(
+                new THREE.BoxGeometry(0.1, 0.025, 0.05),
+                new THREE.MeshStandardMaterial({ color: fleshHead, roughness: 0.75 })
+            );
+            brow.position.set(-0.10, 1.21, 0.18);
+            brow.rotation.z = 0.18;
+            torso.add(brow);
+
+            // Deep sunken eye socket — recessed dark sphere
+            const leftEyeSocket = new THREE.Mesh(
+                new THREE.SphereGeometry(0.06, 10, 8),
+                new THREE.MeshStandardMaterial({ color: 0x080604, roughness: 1.0 })
+            );
+            leftEyeSocket.position.set(-0.10, 1.13, 0.18);
+            leftEyeSocket.scale.set(1.1, 0.9, 0.9);
+            torso.add(leftEyeSocket);
+
+            // Sickly glowing pupil deep inside the socket
+            const leftPupil = new THREE.Mesh(
+                new THREE.SphereGeometry(0.022, 8, 6),
+                new THREE.MeshBasicMaterial({ color: 0xc4a050 })
+            );
+            leftPupil.position.set(-0.10, 1.13, 0.21);
+            torso.add(leftPupil);
+
+            // Cheekbone bump
+            const cheek = new THREE.Mesh(
+                new THREE.SphereGeometry(0.05, 10, 8),
+                new THREE.MeshStandardMaterial({ color: fleshHead, roughness: 0.75 })
+            );
+            cheek.position.set(-0.13, 1.04, 0.18);
+            cheek.scale.set(0.9, 0.6, 0.6);
+            torso.add(cheek);
+
+            // Cheek stitches
+            addXStitch(torso, -0.14, 1.07, 0.20, 0.05);
+            addXStitch(torso, -0.14, 1.02, 0.21, 0.05);
+
+            // Forehead stitches (left intact side only)
+            addXStitch(torso, -0.15, 1.24, 0.15, 0.06);
+            addXStitch(torso, -0.07, 1.27, 0.19, 0.06);
+
+            // Nose — wedge centered on the face midline
+            const nose = new THREE.Mesh(
+                new THREE.BoxGeometry(0.04, 0.06, 0.06),
+                new THREE.MeshStandardMaterial({ color: fleshHead, roughness: 0.8 })
+            );
+            nose.position.set(-0.02, 1.08, 0.245);
+            torso.add(nose);
+
+            // ---------- RIGHT face features (skull side) ----------
+            // Empty eye socket — deep dark hole
+            const skullEyeSocket = new THREE.Mesh(
+                new THREE.SphereGeometry(0.065, 10, 8),
+                new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1.0 })
+            );
+            skullEyeSocket.position.set(0.13, 1.13, 0.17);
+            skullEyeSocket.scale.set(1.0, 1.2, 0.7);
+            torso.add(skullEyeSocket);
+
+            // Skull temple/cheek bump (slightly more angular than the flesh side)
+            const skullCheek = new THREE.Mesh(
+                new THREE.SphereGeometry(0.045, 10, 8),
+                new THREE.MeshStandardMaterial({ color: skullColor, roughness: 0.55 })
+            );
+            skullCheek.position.set(0.16, 1.04, 0.16);
+            skullCheek.scale.set(0.9, 0.6, 0.6);
+            torso.add(skullCheek);
+
+            // Tiny crack lines on the skull (small dark dashes)
+            for (let i = 0; i < 3; i++) {
+                const crack = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.04, 0.008, 0.008),
+                    mat(0x0a0a05, 1.0)
+                );
+                crack.position.set(0.13 + i * 0.02, 1.22 - i * 0.03, 0.16);
+                crack.rotation.z = -0.6 + i * 0.3;
+                torso.add(crack);
+            }
+
+            // ---------- Muzzle (mouth area) — half flesh, half bone ----------
+            const muzzleFlesh = new THREE.Mesh(
+                new THREE.BoxGeometry(0.09, 0.08, 0.09),
+                new THREE.MeshStandardMaterial({ color: fleshHead, roughness: 0.75 })
+            );
+            muzzleFlesh.position.set(-0.03, 1.005, 0.22);
+            muzzleFlesh.castShadow = true;
+            torso.add(muzzleFlesh);
+
+            const muzzleBone = new THREE.Mesh(
+                new THREE.BoxGeometry(0.09, 0.08, 0.09),
+                new THREE.MeshStandardMaterial({ color: skullColor, roughness: 0.55 })
+            );
+            muzzleBone.position.set(0.06, 1.005, 0.22);
+            muzzleBone.castShadow = true;
+            torso.add(muzzleBone);
+
+            // Upper gum line (full width)
+            const upperGum = new THREE.Mesh(
+                new THREE.BoxGeometry(0.18, 0.014, 0.08),
+                new THREE.MeshStandardMaterial({ color: 0x0a0303, roughness: 1.0 })
+            );
+            upperGum.position.set(0.015, 0.965, 0.22);
+            torso.add(upperGum);
+
+            // Upper teeth (full width)
+            for (let i = -2; i <= 2; i++) {
+                const tooth = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.022, 0.028, 0.022),
+                    mat(boneColor, 0.5)
+                );
+                tooth.position.set(0.015 + i * 0.027, 0.948, 0.235);
+                torso.add(tooth);
+            }
+
+            // ---------- Lower jaw on a hinge — half flesh, half bone ----------
+            const jawHinge = new THREE.Group();
+            jawHinge.position.set(0.015, 0.96, 0.18);
+            torso.add(jawHinge);
+
+            const lowerJawFlesh = new THREE.Mesh(
+                new THREE.BoxGeometry(0.09, 0.05, 0.10),
+                new THREE.MeshStandardMaterial({ color: fleshHead, roughness: 0.8 })
+            );
+            lowerJawFlesh.position.set(-0.045, -0.025, 0.06);
+            lowerJawFlesh.castShadow = true;
+            jawHinge.add(lowerJawFlesh);
+
+            const lowerJawBone = new THREE.Mesh(
+                new THREE.BoxGeometry(0.09, 0.05, 0.10),
+                new THREE.MeshStandardMaterial({ color: skullColor, roughness: 0.55 })
+            );
+            lowerJawBone.position.set(0.045, -0.025, 0.06);
+            lowerJawBone.castShadow = true;
+            jawHinge.add(lowerJawBone);
+
+            // Lower teeth (full width)
+            for (let i = -2; i <= 2; i++) {
+                const tooth = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.022, 0.028, 0.022),
+                    mat(boneColor, 0.5)
+                );
+                tooth.position.set(i * 0.027, 0.01, 0.09);
+                jawHinge.add(tooth);
+            }
+
+            // Dark mouth interior (visible whenever the jaw opens)
+            const mouthInterior = new THREE.Mesh(
+                new THREE.BoxGeometry(0.18, 0.06, 0.08),
+                new THREE.MeshBasicMaterial({ color: 0x05020a })
+            );
+            mouthInterior.position.set(0, 0.0, 0.05);
+            jawHinge.add(mouthInterior);
+
+            // ---------- Asymmetric arms ----------
+            // LEFT arm: patchwork flesh (sewn-on, bigger, darker)
+            function buildPatchworkArm(side, scaleMul, skinColor) {
+                const arm = new THREE.Group();
+                arm.position.set(side * (0.24 * scaleMul), 0.88, 0.05);
+                const armMat = mat(skinColor, 0.9);
+                const handMat = mat(skinColor, 0.7);
+
+                const upper = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.06 * scaleMul, 0.05 * scaleMul, 0.38 * scaleMul, 7),
+                    armMat
+                );
+                upper.position.y = -0.19 * scaleMul;
+                upper.castShadow = true;
+                arm.add(upper);
+
+                // Stitch ring at the shoulder
+                for (let i = 0; i < 8; i++) {
+                    const a = (i / 8) * Math.PI * 2;
+                    addXStitch(
+                        arm,
+                        Math.cos(a) * 0.07 * scaleMul,
+                        0,
+                        Math.sin(a) * 0.07 * scaleMul,
+                        0.04
+                    );
+                }
+
+                const fore = new THREE.Group();
+                fore.position.y = -0.38 * scaleMul;
+                fore.rotation.x = -Math.PI / 2 + 0.1;
+                arm.add(fore);
+
+                const foreMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.054 * scaleMul, 0.045 * scaleMul, 0.4 * scaleMul, 7),
+                    armMat
+                );
+                foreMesh.position.y = -0.2 * scaleMul;
+                foreMesh.castShadow = true;
+                fore.add(foreMesh);
+
+                const hand = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.07 * scaleMul, 9, 7),
+                    handMat
+                );
+                hand.position.y = -0.43 * scaleMul;
+                hand.castShadow = true;
+                fore.add(hand);
+
+                for (let i = -1; i <= 1; i++) {
+                    const finger = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.012 * scaleMul, 0.008 * scaleMul, 0.07 * scaleMul, 4),
+                        handMat
+                    );
+                    finger.position.set(i * 0.025 * scaleMul, -0.5 * scaleMul, 0.04 * scaleMul);
+                    finger.rotation.x = 0.4;
+                    fore.add(finger);
+                }
+
+                arm.userData.fore = fore;
+                arm.userData.hand = hand;
+                return arm;
+            }
+
+            // RIGHT arm: SKELETON arm — bare bones, no flesh
+            function buildSkeletonArm() {
+                const arm = new THREE.Group();
+                arm.position.set(0.22, 0.88, 0.05);
+
+                const upper = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.025, 0.022, 0.36, 6),
+                    boneMat
+                );
+                upper.position.y = -0.18;
+                upper.castShadow = true;
+                arm.add(upper);
+
+                // Shoulder ball-joint
+                const shoulder = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.04, 10, 8),
+                    boneMat
+                );
+                shoulder.position.y = 0;
+                shoulder.castShadow = true;
+                arm.add(shoulder);
+
+                // Elbow joint
+                const elbow = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.035, 10, 8),
+                    boneMat
+                );
+                elbow.position.y = -0.36;
+                elbow.castShadow = true;
+                arm.add(elbow);
+
+                const fore = new THREE.Group();
+                fore.position.y = -0.36;
+                fore.rotation.x = -Math.PI / 2 + 0.1;
+                arm.add(fore);
+
+                const foreMesh = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.022, 0.018, 0.38, 6),
+                    boneMat
+                );
+                foreMesh.position.y = -0.19;
+                foreMesh.castShadow = true;
+                fore.add(foreMesh);
+
+                // Wrist
+                const wrist = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.028, 10, 8),
+                    boneMat
+                );
+                wrist.position.y = -0.38;
+                fore.add(wrist);
+
+                // Skeletal claw fingers (4 long thin bones)
+                for (let i = -1.5; i <= 1.5; i++) {
+                    const finger = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.011, 0.006, 0.11, 4),
+                        boneMat
+                    );
+                    finger.position.set(i * 0.022, -0.45, 0.045);
+                    finger.rotation.x = 0.45;
+                    finger.castShadow = true;
+                    fore.add(finger);
+                }
+
+                arm.userData.fore = fore;
+                return arm;
+            }
+
+            const lArm = buildPatchworkArm(-1, 1.15, fleshPatch);
+            const rArm = buildSkeletonArm();
+            torso.add(lArm); torso.add(rArm);
+
+            // ---------- Posture ----------
+            const baseTorsoRotX = 0.38;
+            const baseTorsoRotZ = -0.06;
+            const baseTorsoZ = 0.05;
+            torso.rotation.x = baseTorsoRotX;
+            torso.rotation.z = baseTorsoRotZ;
+            torso.position.z = baseTorsoZ;
+            lArm.position.y -= 0.04;
+
+            const baseLArmZ = lArm.rotation.z;
+            const baseRArmZ = rArm.rotation.z;
+
+            const profile = {
+                idle: { f: 1.2, bob: 0.012, swing: 0.07 },
+                walk: { f: 2.6, bob: 0.04,  swing: 0.20 },
+                run:  { f: 4.4, bob: 0.07,  swing: 0.45 }
+            };
+
+            let dripTimer = 0;
+            let bitTriggered = false;
+
+            function spawnDrip(worldPos, sizeJitter = 0) {
+                emitParticle(
+                    worldPos,
+                    dripColor,
+                    {
+                        size: 0.04 + Math.random() * 0.02 + sizeJitter,
+                        maxLife: 1.0,
+                        vel: new THREE.Vector3(
+                            (Math.random() - 0.5) * 0.05,
+                            -0.15 - Math.random() * 0.1,
+                            (Math.random() - 0.5) * 0.05
+                        ),
+                        scaleGrow: 0,
+                        gravity: 1.2
+                    }
+                );
+            }
+
+            group.userData.animate = (t, dt, state) => {
+                const mode = state.mode;
+
+                // Ambient drips — slower, much less spammy
+                if (mode !== 'die' || state.dieT < 0.4) {
+                    dripTimer += dt;
+                    if (dripTimer > 0.55) {
+                        dripTimer = 0;
+                        const jawWorld = new THREE.Vector3();
+                        jawHinge.getWorldPosition(jawWorld);
+                        jawWorld.y -= 0.04;
+                        jawWorld.z += 0.06;
+                        spawnDrip(jawWorld);
+                        // Wrist drip — much rarer (1 in 4)
+                        if (Math.random() < 0.25) {
+                            const handWorld = new THREE.Vector3();
+                            lArm.userData.hand.getWorldPosition(handWorld);
+                            handWorld.y -= 0.03;
+                            spawnDrip(handWorld, -0.005);
+                        }
+                    }
+                }
+
+                // ---------- Die ----------
+                if (mode === 'die') {
+                    // Custom fall — collapses forward but the head tips sideways
+                    const k = easeOut(Math.min(state.dieT, 1));
+                    torso.position.set(0, -k * 0.32, k * 0.18);
+                    torso.rotation.set(baseTorsoRotX + k * (Math.PI / 2 - 0.15), 0, baseTorsoRotZ);
+                    lArm.rotation.x = k * 0.5;
+                    lArm.rotation.z = baseLArmZ - k * 0.5;
+                    rArm.rotation.x = k * 0.4;
+                    rArm.rotation.z = baseRArmZ + k * 0.5;
+                    headGroup.rotation.z = 0.22 + k * 0.6;        // head flops
+                    jawHinge.rotation.x = -k * 0.5;          // jaw drops open as it dies
+                    return;
+                }
+
+                // ---------- Hit ----------
+                if (mode === 'hit') {
+                    const k = Math.sin(state.hitT * Math.PI);
+                    torso.position.set(0, k * 0.06, baseTorsoZ - k * 0.3);
+                    torso.rotation.set(baseTorsoRotX - k * 0.5, 0, baseTorsoRotZ);
+                    lArm.rotation.x = -k * 1.3;
+                    lArm.rotation.z = baseLArmZ - k * 0.4;
+                    rArm.rotation.x = -k * 1.3;
+                    rArm.rotation.z = baseRArmZ + k * 0.4;
+                    headGroup.rotation.x = -k * 0.4;
+                    jawHinge.rotation.x = -k * 0.6;          // jaw flies open from impact
+                    // Burst of fluid on impact frame
+                    if (state.hitT < 0.08) {
+                        const wp = new THREE.Vector3();
+                        torso.getWorldPosition(wp);
+                        for (let i = 0; i < 8; i++) {
+                            const ang = Math.random() * Math.PI * 2;
+                            emitParticle(
+                                new THREE.Vector3(wp.x, wp.y + 0.6, wp.z),
+                                dripColor,
+                                {
+                                    size: 0.05 + Math.random() * 0.03,
+                                    maxLife: 0.6,
+                                    vel: new THREE.Vector3(
+                                        Math.cos(ang) * 1.2,
+                                        0.4 + Math.random() * 0.4,
+                                        Math.sin(ang) * 1.2
+                                    ),
+                                    scaleGrow: 0.5,
+                                    gravity: 2.5
+                                }
+                            );
+                        }
+                    }
+                    return;
+                }
+
+                // ---------- Reset pose for non-hit/die states ----------
+                torso.position.set(0, 0, baseTorsoZ);
+                torso.rotation.set(baseTorsoRotX, 0, baseTorsoRotZ);
+                lArm.rotation.set(0, 0, baseLArmZ);
+                rArm.rotation.set(0, 0, baseRArmZ);
+                headGroup.rotation.x = 0;
+                headGroup.rotation.y = 0;
+                headGroup.rotation.z = 0.22;
+                jawHinge.rotation.x = -0.12;             // idle: slightly slack jaw
+
+                // ---------- Attack: bite ----------
+                if (mode === 'attack') {
+                    const a = state.attackT;
+                    // 0.0–0.35 wind up: head rears back, jaw opens wide
+                    // 0.35–0.55 lunge: head + body snap forward
+                    // 0.55–0.65 chomp: jaw snaps shut
+                    // 0.65–1.0 recover
+                    let wind = 0, lunge = 0, chomp = 0;
+                    if (a < 0.35) {
+                        wind = easeOut(a / 0.35);
+                    } else if (a < 0.55) {
+                        wind = 1 - (a - 0.35) / 0.2;
+                        lunge = easeOut((a - 0.35) / 0.2);
+                    } else if (a < 0.65) {
+                        lunge = 1 - (a - 0.55) / 0.1;
+                        chomp = (a - 0.55) / 0.1;
+                    } else {
+                        const r = (a - 0.65) / 0.35;
+                        chomp = 1 - r;
+                    }
+                    // Head rears back during wind, snaps forward during lunge
+                    headGroup.rotation.x = -wind * 0.7 + lunge * 0.4;
+                    // Jaw: opens wide on wind, snaps shut on chomp
+                    const jawOpen = wind * 1.3;       // wide open
+                    const jawSnap = chomp;            // 0 = snapped shut
+                    jawHinge.rotation.x = -jawOpen * (1 - jawSnap) - 0.05;
+                    // Body lunges forward
+                    torso.position.z = baseTorsoZ + lunge * 0.35;
+                    torso.rotation.x = baseTorsoRotX + lunge * 0.35;
+                    // Arms reach forward to grab
+                    lArm.rotation.x = -wind * 0.5 - lunge * 1.4;
+                    rArm.rotation.x = -wind * 0.5 - lunge * 1.4;
+                    lArm.rotation.z = baseLArmZ - lunge * 0.3;
+                    rArm.rotation.z = baseRArmZ + lunge * 0.3;
+                    // Spit a couple of dark drops on the chomp frame
+                    if (a >= 0.58 && a < 0.62 && !bitTriggered) {
+                        bitTriggered = true;
+                        const jw = new THREE.Vector3();
+                        jawHinge.getWorldPosition(jw);
+                        for (let i = 0; i < 6; i++) {
+                            emitParticle(
+                                new THREE.Vector3(jw.x, jw.y, jw.z + 0.1),
+                                dripColor,
+                                {
+                                    size: 0.05,
+                                    maxLife: 0.5,
+                                    vel: new THREE.Vector3(
+                                        (Math.random() - 0.5) * 0.8,
+                                        0.6 + Math.random() * 0.4,
+                                        0.5 + Math.random() * 0.6
+                                    ),
+                                    scaleGrow: 0.5,
+                                    gravity: 3.0
+                                }
+                            );
+                        }
+                    }
+                    if (a < 0.55) bitTriggered = false;
+                    return;
+                }
+
+                // ---------- Locomotion: idle / walk / run ----------
+                const p = locoParams(mode, profile);
+                const s = Math.sin(t * p.f), c = Math.cos(t * p.f);
+
+                // Lopsided bob: weighted heavier on one side (limp)
+                const limp = s > 0 ? s * 1.4 : s * 0.7;
+                torso.position.y = Math.abs(limp) * p.bob;
+                torso.rotation.z = baseTorsoRotZ + s * p.bob * 1.4;
+
+                if (mode === 'run') torso.rotation.x = baseTorsoRotX + 0.18;
+
+                // Asymmetric arm swing — left arm (bigger) drags more, right arm swings more
+                lArm.rotation.z = baseLArmZ + c * p.swing * 0.7;
+                rArm.rotation.z = baseRArmZ - c * p.swing * 1.1;
+                if (mode === 'run') {
+                    lArm.rotation.x = c * 0.4;
+                    rArm.rotation.x = -c * 0.55;
+                }
+
+                // Head sway + occasional weak nod
+                headGroup.rotation.y = s * (mode === 'idle' ? 0.18 : 0.13);
+                headGroup.rotation.x = Math.max(0, Math.sin(t * 0.7)) * 0.15;
+
+                // Idle: slack jaw drifts open and shut slowly
+                if (mode === 'idle') {
+                    jawHinge.rotation.x = -0.12 - Math.abs(Math.sin(t * 0.9)) * 0.15;
+                } else {
+                    // Walk/run: jaw slightly bobs with gait
+                    jawHinge.rotation.x = -0.15 - Math.abs(s) * 0.1;
+                }
+            };
+            return group;
+        }
+
+        // =============================================================
+        // 2. RUNNER
+        // =============================================================
+        function buildRunner() {
+            const group = new THREE.Group();
+            const torso = new THREE.Group();
+            group.add(torso);
+
+            const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.55, 4, 8), mat(0x6b8f3a, 0.85));
+            body.position.y = 0.48;
+            body.castShadow = true;
+            torso.add(body);
+
+            addTatteredHem(torso, 0.19, 0.18, 0x3d5526, 6);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), mat(0x8aa84a, 0.7));
+            head.position.set(0, 1.05, 0.12);
+            head.castShadow = true;
+            torso.add(head);
+
+            addSunkenEye(torso, -0.07, 1.06, 0.22, 0.05, 0.02, 0xff3030);
+            addSunkenEye(torso,  0.07, 1.06, 0.22, 0.05, 0.02, 0xff3030);
+
+            function runnerArm(side) {
+                const a = new THREE.Group();
+                a.position.set(side * 0.18, 0.85, 0);
+                const m = mat(0x6b8f3a, 0.85);
+                const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.35, 6), m);
+                upper.position.y = -0.17;
+                upper.castShadow = true;
+                a.add(upper);
+                const fore = new THREE.Group();
+                fore.position.y = -0.33;
+                fore.rotation.x = 0.9;
+                a.add(fore);
+                const foreMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.32, 6), m);
+                foreMesh.position.y = -0.16;
+                foreMesh.castShadow = true;
+                fore.add(foreMesh);
+                const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), mat(0x8aa84a));
+                hand.position.y = -0.33;
+                fore.add(hand);
+                return a;
+            }
+            const lArm = runnerArm(-1);
+            const rArm = runnerArm(+1);
+            torso.add(lArm); torso.add(rArm);
+
+            const baseTorsoRotX = 0.25;
+            torso.rotation.x = baseTorsoRotX;
+            torso.position.z = 0.06;
+
+            const profile = {
+                idle: { f: 6.0, bob: 0.008, swing: 0.05 },
+                walk: { f: 4.0, bob: 0.03,  swing: 0.35 },
+                run:  { f: 10.0, bob: 0.06, swing: 1.2 }
+            };
+
+            let twitchT = 0;
+            group.userData.animate = (t, dt, state) => {
+                const mode = state.mode;
+
+                if (mode === 'die') {
+                    // fast forward faceplant
+                    const k = easeOut(Math.min(state.dieT * 1.3, 1));
+                    torso.position.set(0, -k * 0.4, k * 0.3);
+                    torso.rotation.set(baseTorsoRotX + k * (Math.PI / 2), 0, 0);
+                    lArm.rotation.x = k * 0.3;
+                    rArm.rotation.x = k * 0.3;
+                    return;
+                }
+                if (mode === 'hit') {
+                    applyFlinch(torso, lArm, rArm, state.hitT, baseTorsoRotX, 0.06);
+                    return;
+                }
+
+                // Reset
+                torso.position.set(0, 0, 0.06);
+                torso.rotation.set(baseTorsoRotX, 0, 0);
+                lArm.rotation.set(0, 0, 0);
+                rArm.rotation.set(0, 0, 0);
+
+                if (mode === 'attack') {
+                    const a = state.attackT;
+                    const lunge = Math.sin(a * Math.PI);
+                    torso.position.z = 0.06 + lunge * 0.4;
+                    torso.rotation.x = baseTorsoRotX + lunge * 0.35;
+                    const slash = Math.sin(a * Math.PI);
+                    lArm.rotation.x = -1.5 + slash * 2.4;
+                    rArm.rotation.x = -1.5 + slash * 2.4;
+                    lArm.rotation.z = -slash * 0.7;
+                    rArm.rotation.z =  slash * 0.7;
+                    return;
+                }
+
+                const p = locoParams(mode, profile);
+                const s = Math.sin(t * p.f), c = Math.cos(t * p.f);
+                torso.position.y = Math.abs(s) * p.bob;
+                torso.rotation.z = s * p.bob * 1.2;
+
+                if (mode === 'idle') {
+                    // twitchy — random head snaps
+                    twitchT += dt;
+                    const twitch = Math.sin(twitchT * 18) * Math.exp(-((twitchT * 2) % 3));
+                    head.rotation.y = twitch * 0.4;
+                    lArm.rotation.x = 0.1 + s * 0.05;
+                    rArm.rotation.x = 0.1 - s * 0.05;
+                } else {
+                    head.rotation.y = s * 0.1;
+                    lArm.rotation.x =  c * p.swing;
+                    rArm.rotation.x = -c * p.swing;
+                }
+            };
+            return group;
+        }
+
+        // =============================================================
+        // 3. BRUTE
+        // =============================================================
+        function buildBrute() {
+            const group = new THREE.Group();
+            const torso = new THREE.Group();
+            group.add(torso);
+
+            const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.45, 0.7, 4, 10), mat(0x3d4f20, 0.9));
+            body.position.y = 0.75;
+            body.castShadow = true;
+            torso.add(body);
+
+            const plateMat = mat(0xdcd0b4, 0.7);
+            const plateL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.12, 0.35), plateMat);
+            plateL.position.set(-0.35, 1.15, 0);
+            plateL.rotation.z = 0.3;
+            plateL.castShadow = true;
+            torso.add(plateL);
+            const plateR = plateL.clone();
+            plateR.position.x = 0.35;
+            plateR.rotation.z = -0.3;
+            torso.add(plateR);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), mat(0x556b28, 0.7));
+            head.position.set(0, 1.2, 0.1);
+            head.castShadow = true;
+            torso.add(head);
+
+            addSunkenEye(torso, -0.09, 1.21, 0.28, 0.05, 0.018, 0xff2020);
+            addSunkenEye(torso,  0.09, 1.21, 0.28, 0.05, 0.018, 0xff2020);
+
+            function bruteArm(side) {
+                const a = new THREE.Group();
+                a.position.set(side * 0.45, 1.1, 0.05);
+                const m = mat(0x3d4f20, 0.9);
+                const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.11, 0.55, 8), m);
+                upper.position.y = -0.27;
+                upper.castShadow = true;
+                a.add(upper);
+                const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 0.6, 8), m);
+                fore.position.y = -0.82;
+                fore.castShadow = true;
+                a.add(fore);
+                const fist = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), mat(0x556b28));
+                fist.position.y = -1.15;
+                fist.castShadow = true;
+                a.add(fist);
+                a.rotation.z = side * 0.1;
+                return a;
+            }
+            const lArm = bruteArm(-1);
+            const rArm = bruteArm(+1);
+            torso.add(lArm); torso.add(rArm);
+
+            const baseTorsoRotX = 0.2;
+            group.scale.set(1.5, 1.5, 1.5);
+
+            const baseLArmZ = lArm.rotation.z;
+            const baseRArmZ = rArm.rotation.z;
+
+            const profile = {
+                idle: { f: 0.9, bob: 0.03, swing: 0.04 },
+                walk: { f: 1.6, bob: 0.08, swing: 0.25 },
+                run:  { f: 2.6, bob: 0.14, swing: 0.45 }
+            };
+
+            let slammed = false;
+            group.userData.animate = (t, dt, state) => {
+                const mode = state.mode;
+
+                if (mode === 'die') {
+                    // slow tree-fall topple — takes longer due to weight
+                    const k = easeIn(Math.min(state.dieT * 0.7, 1));
+                    torso.position.set(0, -k * 0.5, k * 0.3);
+                    torso.rotation.set(baseTorsoRotX + k * (Math.PI / 2 - 0.1), 0, 0);
+                    lArm.rotation.x = k * 0.5;
+                    rArm.rotation.x = k * 0.5;
+                    return;
+                }
+                if (mode === 'hit') {
+                    // tank — smaller flinch (barely reacts)
+                    const k = Math.sin(state.hitT * Math.PI) * 0.4;
+                    torso.position.set(0, 0, -k * 0.1);
+                    torso.rotation.set(baseTorsoRotX - k * 0.15, 0, 0);
+                    lArm.rotation.x = -k * 0.5;
+                    rArm.rotation.x = -k * 0.5;
+                    return;
+                }
+
+                torso.position.set(0, 0, 0);
+                torso.rotation.set(baseTorsoRotX, 0, 0);
+                lArm.rotation.set(0, 0, baseLArmZ);
+                rArm.rotation.set(0, 0, baseRArmZ);
+
+                if (mode === 'attack') {
+                    const a = state.attackT;
+                    let wind = 0, slam = 0;
+                    if (a < 0.5) wind = easeOut(a / 0.5);
+                    else if (a < 0.7) { wind = 1 - (a - 0.5) / 0.2; slam = (a - 0.5) / 0.2; }
+                    rArm.rotation.x = -wind * 2.6 + slam * 1.4;
+                    rArm.rotation.z = baseRArmZ - wind * 0.4;
+                    torso.rotation.x = baseTorsoRotX + slam * 0.3;
+                    if (a >= 0.68 && a < 0.72 && !slammed) {
+                        slammed = true;
+                        const wp = new THREE.Vector3();
+                        group.getWorldPosition(wp);
+                        for (let i = 0; i < 18; i++) {
+                            const ang = Math.random() * Math.PI * 2;
+                            emitParticle(
+                                new THREE.Vector3(wp.x + Math.cos(ang) * 0.8, 0.1, wp.z + Math.sin(ang) * 0.8),
+                                0xccb88a,
+                                { size: 0.12, maxLife: 0.7,
+                                  vel: new THREE.Vector3(Math.cos(ang) * 1.5, 0.5 + Math.random() * 0.5, Math.sin(ang) * 1.5),
+                                  scaleGrow: 1.5 }
+                            );
+                        }
+                    }
+                    if (a < 0.65) slammed = false;
+                    return;
+                }
+
+                slammed = false;
+                const p = locoParams(mode, profile);
+                const s = Math.sin(t * p.f), c = Math.cos(t * p.f);
+                torso.position.y = Math.abs(s) * p.bob;
+                torso.rotation.z = s * p.bob * 0.8;
+                lArm.rotation.x = c * p.swing;
+                rArm.rotation.x = -c * p.swing;
+
+                if (mode === 'idle') {
+                    // chest-rise breathing
+                    body.scale.y = 1 + Math.sin(t * 0.9) * 0.04;
+                } else {
+                    body.scale.y = 1;
+                }
+            };
+            return group;
+        }
+
+        // =============================================================
+        // 4. BLOATED
+        // =============================================================
+        function buildBloated() {
+            const group = new THREE.Group();
+            const torso = new THREE.Group();
+            group.add(torso);
+
+            const body = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), mat(0xb8c44a, 0.75));
+            body.position.y = 0.75;
+            body.scale.set(1.1, 0.95, 1.1);
+            body.castShadow = true;
+            torso.add(body);
+
+            const blisters = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2 + 0.3;
+                const y = 0.7 + Math.sin(i) * 0.25;
+                const r = 0.58;
+                const blister = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.06 + Math.random() * 0.04, 8, 6),
+                    new THREE.MeshBasicMaterial({ color: 0xffff6a })
+                );
+                blister.position.set(Math.cos(angle) * r, y, Math.sin(angle) * r);
+                torso.add(blister);
+                blisters.push(blister);
+            }
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), mat(0x7a9a4a, 0.7));
+            head.position.set(0, 1.35, 0.15);
+            head.castShadow = true;
+            torso.add(head);
+
+            addSunkenEye(torso, -0.05, 1.36, 0.3, 0.08, 0.03, 0xffff6a);
+            addSunkenEye(torso,  0.09, 1.35, 0.28, 0.04, 0.014, 0xffff6a);
+
+            function stubArm(side) {
+                const a = new THREE.Group();
+                a.position.set(side * 0.55, 0.9, 0);
+                const m = mat(0xb8c44a, 0.75);
+                const stub = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.28, 6), m);
+                stub.position.y = -0.14;
+                stub.rotation.z = side * 0.8;
+                stub.castShadow = true;
+                a.add(stub);
+                return a;
+            }
+            const lArm = stubArm(-1);
+            const rArm = stubArm(+1);
+            torso.add(lArm); torso.add(rArm);
+
+            const profile = {
+                idle: { f: 1.0, sway: 0.05 },
+                walk: { f: 2.5, sway: 0.15 },
+                run:  { f: 5.0, sway: 0.22 }
+            };
+
+            let steamTimer = 0;
+            group.userData.animate = (t, dt, state) => {
+                const mode = state.mode;
+
+                // ambient steam (except dying)
+                if (mode !== 'die') {
+                    steamTimer += dt;
+                    if (steamTimer > 0.25) {
+                        steamTimer = 0;
+                        const wp = new THREE.Vector3();
+                        group.getWorldPosition(wp);
+                        emitParticle(
+                            new THREE.Vector3(
+                                wp.x + (Math.random() - 0.5) * 0.6,
+                                wp.y + 1.3,
+                                wp.z + (Math.random() - 0.5) * 0.6
+                            ),
+                            0xffff6a,
+                            { size: 0.08, maxLife: 1.2,
+                              vel: new THREE.Vector3((Math.random() - 0.5) * 0.2, 0.8, (Math.random() - 0.5) * 0.2),
+                              scaleGrow: 2.0 }
+                        );
+                    }
+                }
+
+                if (mode === 'die') {
+                    // deflate + sink
+                    const k = easeOut(Math.min(state.dieT * 1.2, 1));
+                    body.scale.set(1.1 - k * 0.5, 0.95 - k * 0.7, 1.1 - k * 0.5);
+                    torso.position.y = -k * 0.25;
+                    torso.rotation.z = k * 0.3;
+                    blisters.forEach(b => b.scale.setScalar(Math.max(0.1, 1 - k)));
+                    return;
+                }
+
+                if (mode === 'hit') {
+                    // jelly jiggle
+                    const k = Math.sin(state.hitT * Math.PI);
+                    const j = Math.sin(state.hitT * 30) * 0.1 * k;
+                    body.scale.set(1.1 + j, 0.95 - j * 0.5, 1.1 + j);
+                    torso.position.set(0, 0, -k * 0.15);
+                    // puff of yellow gas
+                    if (state.hitT < 0.1) {
+                        const wp = new THREE.Vector3();
+                        group.getWorldPosition(wp);
+                        for (let i = 0; i < 5; i++) {
+                            emitParticle(
+                                new THREE.Vector3(wp.x, wp.y + 0.8, wp.z),
+                                0xffff6a,
+                                { size: 0.1, maxLife: 0.6,
+                                  vel: new THREE.Vector3((Math.random() - 0.5) * 1.5, 0.8, (Math.random() - 0.5) * 1.5),
+                                  scaleGrow: 1.5 }
+                            );
+                        }
+                    }
+                    return;
+                }
+
+                torso.position.set(0, 0, 0);
+                torso.rotation.set(0, 0, 0);
+
+                if (mode === 'attack') {
+                    const a = state.attackT;
+                    const inflate = Math.min(a / 0.7, 1);
+                    const k = 1 + inflate * 0.5;
+                    body.scale.set(1.1 * k, 0.95 * k, 1.1 * k);
+                    torso.position.x = (Math.random() - 0.5) * 0.08 * inflate;
+                    torso.position.z = (Math.random() - 0.5) * 0.08 * inflate;
+                    if (a >= 0.7 && a < 0.74) {
+                        const wp = new THREE.Vector3();
+                        group.getWorldPosition(wp);
+                        for (let i = 0; i < 25; i++) {
+                            const ang = Math.random() * Math.PI * 2;
+                            emitParticle(
+                                new THREE.Vector3(wp.x, wp.y + 0.8, wp.z),
+                                i % 2 ? 0xffff6a : 0xaaff4a,
+                                { size: 0.14, maxLife: 0.9,
+                                  vel: new THREE.Vector3(Math.cos(ang) * 2.5, 0.8 + Math.random() * 1.5, Math.sin(ang) * 2.5),
+                                  scaleGrow: 1.8 }
+                            );
+                        }
+                    }
+                    return;
+                }
+
+                // idle / walk / run waddle
+                const p = locoParams(mode, profile);
+                const s = Math.sin(t * p.f);
+                torso.rotation.z = s * p.sway;
+                const pulse = 1 + Math.sin(t * 4) * 0.04;
+                body.scale.set(1.1 * pulse, 0.95 * pulse, 1.1 * pulse);
+                const bp = 0.6 + Math.abs(Math.sin(t * 3)) * 0.5;
+                blisters.forEach(b => b.scale.setScalar(bp));
+            };
+            return group;
+        }
+
+        // =============================================================
+        // 5. CRAWLER
+        // =============================================================
+        function buildCrawler() {
+            const group = new THREE.Group();
+
+            const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.5, 4, 8), mat(0x6b8a3a, 0.85));
+            body.rotation.z = Math.PI / 2;
+            body.position.y = 0.35;
+            body.castShadow = true;
+            group.add(body);
+
+            const headGroup = new THREE.Group();
+            headGroup.position.set(0, 0.35, 0.5);
+            group.add(headGroup);
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), mat(0x8aa84a, 0.7));
+            head.castShadow = true;
+            headGroup.add(head);
+
+            addSunkenEye(headGroup, -0.07, 0.05, 0.14, 0.05, 0.02, 0xff3030);
+            addSunkenEye(headGroup,  0.07, 0.05, 0.14, 0.05, 0.02, 0xff3030);
+
+            function leg(x, z, fwd) {
+                const l = new THREE.Group();
+                l.position.set(x, 0.3, z);
+                const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.28, 6), mat(0x6b8a3a));
+                upper.rotation.x = fwd ? 0.6 : -0.6;
+                upper.position.y = -0.1;
+                upper.castShadow = true;
+                l.add(upper);
+                const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.28, 6), mat(0x6b8a3a));
+                lower.position.set(0, -0.28, fwd ? 0.12 : -0.12);
+                lower.castShadow = true;
+                l.add(lower);
+                return l;
+            }
+            const fl = leg(-0.18, 0.3, true);
+            const fr = leg( 0.18, 0.3, true);
+            const bl = leg(-0.18, -0.15, false);
+            const br = leg( 0.18, -0.15, false);
+            group.add(fl); group.add(fr); group.add(bl); group.add(br);
+
+            const profile = {
+                idle: { f: 2.0, bob: 0.02, leg: 0.02 },
+                walk: { f: 8.0, bob: 0.025, leg: 0.08 },
+                run:  { f: 14.0, bob: 0.05, leg: 0.12 }
+            };
+
+            group.userData.animate = (t, dt, state) => {
+                const mode = state.mode;
+
+                if (mode === 'die') {
+                    // flatten, legs splay outward
+                    const k = easeOut(Math.min(state.dieT, 1));
+                    body.position.y = 0.35 - k * 0.2;
+                    headGroup.position.y = 0.35 - k * 0.25;
+                    headGroup.rotation.x = -k * 0.3;
+                    [fl, fr, bl, br].forEach((l, i) => {
+                        l.position.y = 0.3 - k * 0.2;
+                        l.rotation.z = (i % 2 === 0 ? -1 : 1) * k * 0.6;
+                    });
+                    return;
+                }
+
+                if (mode === 'hit') {
+                    const k = Math.sin(state.hitT * Math.PI);
+                    body.position.y = 0.35 - k * 0.1;
+                    headGroup.position.z = 0.5 - k * 0.2;
+                    headGroup.rotation.x = k * 0.3;
+                    return;
+                }
+
+                // reset legs
+                [fl, fr, bl, br].forEach(l => l.rotation.z = 0);
+                body.position.y = 0.35;
+
+                if (mode === 'attack') {
+                    const a = state.attackT;
+                    const lunge = Math.sin(a * Math.PI);
+                    headGroup.position.z = 0.5 + lunge * 0.45;
+                    headGroup.rotation.x = -lunge * 0.6;
+                    return;
+                }
+
+                const p = locoParams(mode, profile);
+                const s = Math.sin(t * p.f);
+                fl.position.y = 0.3 + Math.max(0,  s) * p.leg;
+                br.position.y = 0.3 + Math.max(0,  s) * p.leg;
+                fr.position.y = 0.3 + Math.max(0, -s) * p.leg;
+                bl.position.y = 0.3 + Math.max(0, -s) * p.leg;
+                body.position.y = 0.35 + Math.abs(s) * p.bob;
+                headGroup.position.y = 0.35 + Math.abs(s) * p.bob;
+
+                if (mode === 'idle') {
+                    // head scan
+                    headGroup.position.z = 0.5;
+                    headGroup.rotation.x = 0;
+                    headGroup.rotation.y = Math.sin(t * 0.8) * 0.4;
+                } else {
+                    headGroup.position.z = 0.5;
+                    headGroup.rotation.x = 0;
+                    headGroup.rotation.y = s * 0.15;
+                }
+            };
+            return group;
+        }
+
+        // =============================================================
+        // 6. SPITTER
+        // =============================================================
+        function buildSpitter() {
+            const group = new THREE.Group();
+            const torso = new THREE.Group();
+            group.add(torso);
+
+            const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.85, 4, 8), mat(0x557a26, 0.85));
+            body.position.y = 0.65;
+            body.castShadow = true;
+            torso.add(body);
+
+            addTatteredHem(torso, 0.16, 0.25, 0x2f4418, 7);
+
+            const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.2, 6), mat(0x6b8f3a));
+            neck.position.y = 1.22;
+            torso.add(neck);
+
+            const headGroup = new THREE.Group();
+            headGroup.position.set(0, 1.4, 0.05);
+            torso.add(headGroup);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 10), mat(0x88ff44, 0.6));
+            head.scale.set(1.0, 1.2, 1.15);
+            head.castShadow = true;
+            headGroup.add(head);
+
+            const mouth = new THREE.Mesh(
+                new THREE.ConeGeometry(0.1, 0.16, 8, 1, true),
+                new THREE.MeshBasicMaterial({ color: 0xaaff00, side: THREE.DoubleSide })
+            );
+            mouth.position.set(0, -0.05, 0.18);
+            mouth.rotation.x = Math.PI / 2;
+            headGroup.add(mouth);
+
+            addSunkenEye(headGroup, -0.08, 0.08, 0.13, 0.05, 0.02, 0xaaff00);
+            addSunkenEye(headGroup,  0.08, 0.08, 0.13, 0.05, 0.02, 0xaaff00);
+
+            function spitterArm(side) {
+                const a = new THREE.Group();
+                a.position.set(side * 0.16, 1.05, 0);
+                const m = mat(0x557a26, 0.85);
+                const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.5, 6), m);
+                upper.position.y = -0.25;
+                upper.rotation.z = side * 0.2;
+                upper.castShadow = true;
+                a.add(upper);
+                const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.025, 0.5, 6), m);
+                fore.position.set(side * 0.1, -0.75, 0);
+                fore.castShadow = true;
+                a.add(fore);
+                return a;
+            }
+            const lArm = spitterArm(-1);
+            const rArm = spitterArm(+1);
+            torso.add(lArm); torso.add(rArm);
+
+            group.scale.set(1.05, 1.05, 1.05);
+
+            const profile = {
+                idle: { f: 1.2, sway: 0.04 },
+                walk: { f: 1.8, sway: 0.06 },
+                run:  { f: 3.8, sway: 0.14 }
+            };
+
+            let dripTimer = 0;
+            let spat = false;
+            group.userData.animate = (t, dt, state) => {
+                const mode = state.mode;
+
+                // ambient drip (except dying)
+                if (mode !== 'die') {
+                    dripTimer += dt;
+                    if (dripTimer > 0.5) {
+                        dripTimer = 0;
+                        const wp = new THREE.Vector3();
+                        headGroup.getWorldPosition(wp);
+                        emitParticle(
+                            new THREE.Vector3(wp.x, wp.y - 0.05, wp.z + 0.25),
+                            0xaaff00,
+                            { size: 0.05, maxLife: 0.8, vel: new THREE.Vector3(0, -0.3, 0.1), scaleGrow: 0 }
+                        );
+                    }
+                }
+
+                // mouth glow pulse
+                const glow = 0.6 + Math.abs(Math.sin(t * 3)) * 0.4;
+                mouth.material.color.setRGB(0.67 * glow, 1 * glow, 0);
+
+                if (mode === 'die') {
+                    // crumple sideways
+                    const k = easeOut(Math.min(state.dieT, 1));
+                    torso.rotation.z = k * (Math.PI / 2 - 0.2);
+                    torso.position.set(-k * 0.3, -k * 0.3, 0);
+                    headGroup.rotation.z = -k * 0.4;
+                    return;
+                }
+
+                if (mode === 'hit') {
+                    const k = Math.sin(state.hitT * Math.PI);
+                    headGroup.rotation.x = -k * 0.8;
+                    torso.position.set(0, 0, -k * 0.2);
+                    torso.rotation.x = -k * 0.3;
+                    lArm.rotation.x = -k * 1.2;
+                    rArm.rotation.x = -k * 1.2;
+                    return;
+                }
+
+                torso.position.set(0, 0, 0);
+                torso.rotation.set(0, 0, 0);
+                lArm.rotation.set(0, 0, 0);
+                rArm.rotation.set(0, 0, 0);
+                headGroup.rotation.set(0, 0, 0);
+                mouth.scale.setScalar(1);
+
+                if (mode === 'attack') {
+                    const a = state.attackT;
+                    let rear = 0, snap = 0;
+                    if (a < 0.5) rear = easeOut(a / 0.5);
+                    else if (a < 0.7) { rear = 1 - (a - 0.5) / 0.2; snap = (a - 0.5) / 0.2; }
+                    headGroup.rotation.x = -rear * 0.7 + snap * 0.5;
+                    torso.rotation.x = -rear * 0.2 + snap * 0.3;
+                    mouth.scale.setScalar(1 + rear * 1.5);
+
+                    if (a >= 0.68 && a < 0.72 && !spat) {
+                        spat = true;
+                        const wp = new THREE.Vector3();
+                        headGroup.getWorldPosition(wp);
+                        for (let i = 0; i < 12; i++) {
+                            emitParticle(
+                                new THREE.Vector3(wp.x, wp.y, wp.z + 0.25),
+                                0xaaff00,
+                                { size: 0.11, maxLife: 1.0,
+                                  vel: new THREE.Vector3(
+                                      (Math.random() - 0.5) * 0.3,
+                                      0.3 + Math.random() * 0.4,
+                                      2.5 + Math.random() * 0.8),
+                                  scaleGrow: 1.2 }
+                            );
+                        }
+                    }
+                    if (a < 0.65) spat = false;
+                    return;
+                }
+
+                const p = locoParams(mode, profile);
+                const s = Math.sin(t * p.f);
+                torso.rotation.z = s * p.sway;
+                body.position.y = 0.65 + Math.abs(s) * 0.02;
+                lArm.rotation.x = s * 0.15;
+                rArm.rotation.x = -s * 0.15;
+                if (mode === 'idle') {
+                    headGroup.rotation.y = Math.sin(t * 0.7) * 0.5;
+                } else {
+                    headGroup.rotation.y = s * 0.25;
+                }
+            };
+            return group;
+        }
+
+        // =============================================================
+        // Variant registry
+        // =============================================================
+        const VARIANTS = [
+            { id: 'shambler', name: 'Shambler', tier: 1, swatch: '#6e7d54',
+              tag: 'Stitched, rotted, dripping', build: buildShambler,
+              desc: 'The iconic baseline zombie. Patchwork stitched body with mismatched arms, exposed ribs, stitched-shut eye, hinged jaw with teeth. Drips dark fluid from the jaw + wrists constantly. Bites instead of swiping.',
+              stats: { HP: 'Low', Speed: 'Slow (limps)', Damage: 'Low', Role: 'Melee bite' } },
+            { id: 'runner', name: 'Runner', tier: 1, swatch: '#6b8f3a',
+              tag: 'Fast, lean, aggressive', build: buildRunner,
+              desc: 'Sprints at the player, glowing red eyes. Hard to kite. Twitchy when idle.',
+              stats: { HP: 'Low', Speed: 'Very fast', Damage: 'Low', Role: 'Rusher' } },
+            { id: 'brute', name: 'Brute', tier: 2, swatch: '#3d4f20',
+              tag: 'Huge tank with bone plates', build: buildBrute,
+              desc: 'Bulky tank, slams ground on attack. Barely flinches when hit. Slow topple on death.',
+              stats: { HP: 'Very high', Speed: 'Slow', Damage: 'High', Role: 'Tank' } },
+            { id: 'bloated', name: 'Bloated', tier: 2, swatch: '#b8c44a',
+              tag: 'Gas-filled exploder', build: buildBloated,
+              desc: 'Jiggles when hit (jelly wobble + gas puff). Deflates on death. Explodes on attack.',
+              stats: { HP: 'Medium', Speed: 'Slow', Damage: 'AOE burst', Role: 'Exploder' } },
+            { id: 'crawler', name: 'Crawler', tier: 2, swatch: '#6b8a3a',
+              tag: 'Low-profile four-limb', build: buildCrawler,
+              desc: 'Scuttles on all fours. Head lunges to bite on attack. Flattens with legs splayed on death.',
+              stats: { HP: 'Low', Speed: 'Medium', Damage: 'Low', Role: 'Ambusher' } },
+            { id: 'spitter', name: 'Spitter', tier: 3, swatch: '#88ff44',
+              tag: 'Ranged acid caster', build: buildSpitter,
+              desc: 'Tall, spindly. Rears back and spits acid. Crumples sideways on death.',
+              stats: { HP: 'Medium', Speed: 'Slow', Damage: 'Ranged DoT', Role: 'Artillery' } }
+        ];
+
+        // =============================================================
+        // State management
+        // =============================================================
+        const animState = {
+            mode: 'walk',
+            loopMode: 'walk',  // returns here after attack/hit
+            attackT: 0,
+            hitT: 0,
+            dieT: 0,
+            attackDur: 1.0,
+            hitDur: 0.4,
+            dieDur: 0.8
+        };
+
+        let currentZombie = null;
+        let currentVariant = null;
+        const villager = buildVillager();
+        villager.position.set(1.3, 0, 0);
+        scene.add(villager);
+
+        function setLoopMode(mode) {
+            animState.mode = mode;
+            animState.loopMode = mode;
+            animState.attackT = 0;
+            animState.hitT = 0;
+            animState.dieT = 0;
+            updateButtons();
+        }
+
+        function triggerAttack() {
+            if (animState.mode === 'die') return;
+            animState.mode = 'attack';
+            animState.attackT = 0;
+            updateButtons();
+        }
+
+        function triggerHit() {
+            if (animState.mode === 'die') return;
+            animState.mode = 'hit';
+            animState.hitT = 0;
+            updateButtons();
+        }
+
+        function triggerDie() {
+            animState.mode = 'die';
+            animState.dieT = 0;
+            updateButtons();
+        }
+
+        function revive() {
+            animState.mode = animState.loopMode;
+            animState.dieT = 0;
+            updateButtons();
+        }
+
+        function updateButtons() {
+            document.querySelectorAll('.loop-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.mode === animState.mode);
+            });
+            document.getElementById('state-badge').textContent = animState.mode.toUpperCase();
+        }
+
+        function showVariant(variant) {
+            if (currentZombie) scene.remove(currentZombie);
+            currentZombie = variant.build();
+            currentZombie.position.set(-1.3, 0, 0);
+            scene.add(currentZombie);
+            currentVariant = variant;
+            animState.mode = animState.loopMode;
+            animState.attackT = 0;
+            animState.hitT = 0;
+            animState.dieT = 0;
+
+            const statsHtml = Object.entries(variant.stats)
+                .map(([k, v]) => `<div><b>${k}</b></div><div>${v}</div>`).join('');
+            document.getElementById('info').innerHTML = `
+                <div class="i-name">${variant.name}</div>
+                <div class="i-desc">${variant.desc}</div>
+                <div class="i-stats">${statsHtml}</div>
+            `;
+
+            document.querySelectorAll('.z-entry').forEach(el => {
+                el.classList.toggle('active', el.dataset.id === variant.id);
+            });
+            updateButtons();
+        }
+
+        // =============================================================
+        // Sidebar UI
+        // =============================================================
+        const entriesEl = document.getElementById('entries');
+        VARIANTS.forEach(v => {
+            const el = document.createElement('div');
+            el.className = 'z-entry';
+            el.dataset.id = v.id;
+            el.innerHTML = `
+                <div class="z-swatch" style="background:${v.swatch}"></div>
+                <div class="z-text">
+                    <div class="z-name">${v.name} <span class="z-tier t${v.tier}">T${v.tier}</span></div>
+                    <div class="z-tag">${v.tag}</div>
+                </div>
+            `;
+            el.addEventListener('click', () => showVariant(v));
+            entriesEl.appendChild(el);
+        });
+
+        document.querySelectorAll('.loop-btn').forEach(btn => {
+            btn.addEventListener('click', () => setLoopMode(btn.dataset.mode));
+        });
+        document.getElementById('btn-attack').addEventListener('click', triggerAttack);
+        document.getElementById('btn-hit').addEventListener('click', triggerHit);
+        document.getElementById('btn-die').addEventListener('click', triggerDie);
+        document.getElementById('btn-revive').addEventListener('click', revive);
+        document.getElementById('show-villager').addEventListener('change', (e) => {
+            villager.visible = e.target.checked;
+        });
+
+        showVariant(VARIANTS[0]);
+
+        // =============================================================
+        // Animation loop
+        // =============================================================
+        const clock = new THREE.Clock();
+        let autoCooldown = 0;
+        function animate() {
+            const dt = Math.min(clock.getDelta(), 0.05);
+            const t = clock.elapsedTime;
+
+            // Progress one-shot states
+            if (animState.mode === 'attack') {
+                animState.attackT += dt / animState.attackDur;
+                if (animState.attackT >= 1) {
+                    animState.attackT = 0;
+                    animState.mode = animState.loopMode;
+                    updateButtons();
+                }
+            } else if (animState.mode === 'hit') {
+                animState.hitT += dt / animState.hitDur;
+                if (animState.hitT >= 1) {
+                    animState.hitT = 0;
+                    animState.mode = animState.loopMode;
+                    updateButtons();
+                }
+            } else if (animState.mode === 'die') {
+                animState.dieT = Math.min(animState.dieT + dt / animState.dieDur, 1);
+            }
+
+            // Auto-attack loop
+            if (document.getElementById('auto-attack').checked) {
+                const loopNow = ['idle', 'walk', 'run'].includes(animState.mode);
+                if (loopNow) {
+                    autoCooldown -= dt;
+                    if (autoCooldown <= 0) {
+                        triggerAttack();
+                        autoCooldown = 1.5;
+                    }
+                }
+            }
+
+            if (currentZombie) {
+                // Don't spin dead zombies — let user look at the corpse
+                if (animState.mode !== 'die') currentZombie.rotation.y = t * 0.45;
+                currentZombie.userData.animate?.(t, dt, animState);
+            }
+            villager.rotation.y = t * 0.45;
+            villager.userData.animate?.(t, dt, animState);
+
+            updateParticles(dt);
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Danger Zone Ground — Desert Variants</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0c0d0f; color: #e8e6e1;
+    font-family: 'Chakra Petch', sans-serif;
+    padding: 48px 24px 80px;
+  }
+  body::before {
+    content: ''; position: fixed; top: 0; left: 0; right: 0; height: 3px;
+    background: repeating-linear-gradient(-45deg, #e8a030 0px, #e8a030 8px, #1a1a1a 8px, #1a1a1a 16px);
+    z-index: 100;
+  }
+  .header { max-width: 900px; margin: 0 auto 40px; }
+  .tag {
+    display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 500; letter-spacing: 2px; text-transform: uppercase; color: #e8a030;
+    background: rgba(232,160,48,0.08); border: 1px solid rgba(232,160,48,0.2);
+    padding: 6px 14px; margin-bottom: 16px;
+  }
+  h1 { font-size: 36px; font-weight: 700; margin-bottom: 8px; }
+  h1 span { color: #e8a030; }
+  .sub { font-size: 14px; color: #7a7d85; line-height: 1.6; max-width: 600px; }
+
+  .grid {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
+  }
+  .card {
+    background: #16181c; border: 1px solid #2a2d34; border-radius: 6px;
+    overflow: hidden; transition: border-color 0.25s, transform 0.25s;
+  }
+  .card:hover { border-color: #e8a030; transform: translateY(-3px); }
+  .card canvas { display: block; width: 100%; aspect-ratio: 2/1; }
+  .card-info { padding: 14px 16px 16px; }
+  .card-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .card-info p {
+    font-size: 11px; color: #7a7d85; line-height: 1.5;
+    font-family: 'JetBrains Mono', monospace; margin-bottom: 12px;
+  }
+  .card-info code {
+    font-size: 11px; color: #e8a030; background: rgba(232,160,48,0.1);
+    padding: 2px 6px; border-radius: 3px;
+  }
+  .note {
+    max-width: 900px; margin: 40px auto 0;
+    font-size: 13px; color: #555; line-height: 1.6;
+    font-family: 'JetBrains Mono', monospace;
+    border-top: 1px solid #222; padding-top: 20px;
+  }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="tag">Diorama Ground Lab</div>
+  <h1>Desert <span>Danger Zone</span></h1>
+  <p class="sub">The vast ground plane beneath everything. Currently a flat brown — here are desert/arid variants. Each canvas shows a 600x300 slice of the ground as seen from the isometric camera. Tell me which letter you like.</p>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="note">
+  <strong>Note:</strong> The current ground is a single flat color (<code>0x5c4a3a</code>). Options A-C are simple color swaps (just change the hex). Options D-F upgrade to a canvas texture with procedural effects — requires a small code change to SceneLoader. Pick an approach, then tell me.
+</div>
+
+<script>
+const W = 600, H = 300;
+let _s = 42;
+function srand(v) { _s = v; }
+function rng() { _s = (_s * 16807) % 2147483647; return (_s - 1) / 2147483646; }
+
+const variants = [
+  {
+    id: 'A', name: 'Golden Sand',
+    desc: 'Warm golden desert. Bright, hot, Sahara-like.',
+    color: '#c4a46a',
+    paint(ctx) {
+      srand(10);
+      ctx.fillStyle = '#c4a46a';
+      ctx.fillRect(0, 0, W, H);
+      // Sand grain
+      for (let i = 0; i < 3000; i++) {
+        const x = rng() * W, y = rng() * H;
+        const v = 160 + Math.floor(rng() * 50);
+        ctx.fillStyle = `rgba(${v+20},${v+5},${v-30},0.12)`;
+        ctx.fillRect(x, y, 1 + rng() * 2, 1 + rng());
+      }
+    }
+  },
+  {
+    id: 'B', name: 'Bleached Bone',
+    desc: 'Pale sun-bleached desert. Harsh UV, dried-out wasteland.',
+    color: '#d4c8aa',
+    paint(ctx) {
+      srand(20);
+      ctx.fillStyle = '#d4c8aa';
+      ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 2000; i++) {
+        const x = rng() * W, y = rng() * H;
+        const v = 180 + Math.floor(rng() * 40);
+        ctx.fillStyle = `rgba(${v+5},${v},${v-15},0.1)`;
+        ctx.fillRect(x, y, 1 + rng() * 2, 1);
+      }
+    }
+  },
+  {
+    id: 'C', name: 'Rust Earth',
+    desc: 'Red-tinted arid soil. Mars-like, hostile, iron-rich earth.',
+    color: '#a07050',
+    paint(ctx) {
+      srand(30);
+      ctx.fillStyle = '#a07050';
+      ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 3000; i++) {
+        const x = rng() * W, y = rng() * H;
+        const v = 120 + Math.floor(rng() * 50);
+        ctx.fillStyle = `rgba(${v+30},${v-10},${v-30},0.1)`;
+        ctx.fillRect(x, y, 1 + rng() * 2, 1);
+      }
+    }
+  },
+  {
+    id: 'D', name: 'Dune Drift',
+    desc: 'Canvas textured. Multi-tone sand with wind ripple lines, scattered pebbles, and dried cracks. Feels alive.',
+    color: null,
+    paint(ctx) {
+      srand(40);
+      // Base: warm sand gradient (cooler at edges, hotter in center)
+      const bg = ctx.createRadialGradient(W*0.5, H*0.5, 0, W*0.5, H*0.5, W*0.6);
+      bg.addColorStop(0, '#c8a868');
+      bg.addColorStop(0.5, '#b89858');
+      bg.addColorStop(1, '#a08548');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Sand grain noise
+      for (let i = 0; i < 5000; i++) {
+        const x = rng() * W, y = rng() * H;
+        const v = 150 + Math.floor(rng() * 60);
+        ctx.fillStyle = `rgba(${v+25},${v+10},${v-20},0.08)`;
+        ctx.fillRect(x, y, 1 + rng() * 2, 1 + rng());
+      }
+
+      // Wind ripple lines — gentle parallel curves
+      ctx.strokeStyle = 'rgba(90,75,50,0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 30; i++) {
+        const y0 = rng() * H;
+        ctx.beginPath();
+        ctx.moveTo(0, y0);
+        for (let x = 0; x < W; x += 20) {
+          ctx.lineTo(x, y0 + Math.sin(x * 0.02 + i) * 3 + (rng() - 0.5) * 2);
+        }
+        ctx.stroke();
+      }
+
+      // Dried mud cracks
+      ctx.strokeStyle = 'rgba(80,65,40,0.12)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 12; i++) {
+        let cx = rng() * W, cy = rng() * H;
+        let a = rng() * Math.PI * 2;
+        ctx.beginPath(); ctx.moveTo(cx, cy);
+        const len = 20 + rng() * 50;
+        for (let s = 0; s < len; s += 3) {
+          a += (rng() - 0.5) * 0.8;
+          cx += Math.cos(a) * 3; cy += Math.sin(a) * 3;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+      }
+
+      // Scattered pebbles
+      for (let i = 0; i < 40; i++) {
+        const px = rng() * W, py = rng() * H;
+        const pr = 1 + rng() * 3;
+        ctx.beginPath();
+        ctx.ellipse(px, py, pr, pr * 0.7, rng() * Math.PI, 0, Math.PI * 2);
+        const v = 100 + Math.floor(rng() * 40);
+        ctx.fillStyle = `rgba(${v+10},${v},${v-15},0.3)`;
+        ctx.fill();
+      }
+
+      // Heat shimmer — horizontal warm bands
+      for (let i = 0; i < 4; i++) {
+        const y = rng() * H;
+        const g = ctx.createLinearGradient(0, y - 15, 0, y + 15);
+        g.addColorStop(0, 'rgba(220,180,100,0)');
+        g.addColorStop(0.5, 'rgba(220,180,100,0.06)');
+        g.addColorStop(1, 'rgba(220,180,100,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, y - 15, W, 30);
+      }
+    }
+  },
+  {
+    id: 'E', name: 'Scorched Badlands',
+    desc: 'Canvas textured. Cracked dried lake bed with salt patches, dark scorch marks, and orange-brown tonal shifts. Post-apocalyptic desert.',
+    color: null,
+    paint(ctx) {
+      srand(50);
+      // Base: warm brown with cooler shadows
+      ctx.fillStyle = '#9a8060';
+      ctx.fillRect(0, 0, W, H);
+
+      // Tonal zones — large soft patches of different earth tones
+      const zones = [
+        { x: W*0.2, y: H*0.3, r: 120, c: 'rgba(180,140,80,0.2)' },
+        { x: W*0.7, y: H*0.6, r: 100, c: 'rgba(140,100,60,0.18)' },
+        { x: W*0.4, y: H*0.8, r: 90, c: 'rgba(160,120,70,0.15)' },
+        { x: W*0.8, y: H*0.2, r: 110, c: 'rgba(120,90,55,0.2)' },
+      ];
+      for (const z of zones) {
+        const g = ctx.createRadialGradient(z.x, z.y, 0, z.x, z.y, z.r);
+        g.addColorStop(0, z.c); g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Grain
+      for (let i = 0; i < 4000; i++) {
+        const x = rng() * W, y = rng() * H;
+        const v = 110 + Math.floor(rng() * 60);
+        ctx.fillStyle = `rgba(${v+15},${v},${v-20},0.08)`;
+        ctx.fillRect(x, y, 1 + rng() * 2, 1);
+      }
+
+      // Cracked earth — web of cracks
+      ctx.strokeStyle = 'rgba(55,42,28,0.18)';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 20; i++) {
+        let cx = rng() * W, cy = rng() * H;
+        let a = rng() * Math.PI * 2;
+        ctx.beginPath(); ctx.moveTo(cx, cy);
+        for (let s = 0; s < 30 + rng() * 60; s += 3) {
+          a += (rng() - 0.5) * 0.7;
+          cx += Math.cos(a) * 3; cy += Math.sin(a) * 3;
+          ctx.lineTo(cx, cy);
+          if (rng() < 0.08) {
+            const ba = a + (rng() - 0.5) * 2;
+            let bx = cx, by = cy;
+            ctx.moveTo(cx, cy);
+            for (let bs = 0; bs < 10 + rng() * 20; bs += 3) {
+              bx += Math.cos(ba) * 3; by += Math.sin(ba) * 3; ctx.lineTo(bx, by);
+            }
+            ctx.moveTo(cx, cy);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // Salt/mineral patches — pale white spots
+      for (let i = 0; i < 8; i++) {
+        const sx = rng() * W, sy = rng() * H, sr = 10 + rng() * 25;
+        const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
+        g.addColorStop(0, 'rgba(220,210,190,0.15)');
+        g.addColorStop(0.6, 'rgba(220,210,190,0.05)');
+        g.addColorStop(1, 'rgba(220,210,190,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+      }
+
+      // Scorch marks — dark burnt patches
+      for (let i = 0; i < 5; i++) {
+        const sx = rng() * W, sy = rng() * H, sr = 15 + rng() * 30;
+        ctx.save();
+        ctx.translate(sx, sy); ctx.rotate(rng() * Math.PI); ctx.scale(1, 0.5 + rng() * 0.5);
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, sr);
+        g.addColorStop(0, 'rgba(40,30,20,0.15)');
+        g.addColorStop(1, 'rgba(40,30,20,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.ellipse(0, 0, sr * 1.2, sr, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    }
+  },
+  {
+    id: 'F', name: 'Living Desert',
+    desc: 'Canvas textured + animated. Sand base with animated dust particles drifting across the surface. Wind direction visible.',
+    color: null,
+    paint(ctx) {
+      srand(60);
+      // Base golden sand
+      ctx.fillStyle = '#bfa060';
+      ctx.fillRect(0, 0, W, H);
+
+      // Grain
+      for (let i = 0; i < 4000; i++) {
+        const x = rng() * W, y = rng() * H;
+        const v = 150 + Math.floor(rng() * 50);
+        ctx.fillStyle = `rgba(${v+20},${v+5},${v-25},0.09)`;
+        ctx.fillRect(x, y, 1 + rng() * 2, 1);
+      }
+
+      // Wind lines
+      ctx.strokeStyle = 'rgba(100,80,50,0.06)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 25; i++) {
+        const y0 = rng() * H;
+        ctx.beginPath(); ctx.moveTo(0, y0);
+        for (let x = 0; x < W; x += 15) {
+          ctx.lineTo(x, y0 + Math.sin(x * 0.015 + i * 0.7) * 2);
+        }
+        ctx.stroke();
+      }
+
+      // Small dunes — subtle elevation shadows
+      for (let i = 0; i < 6; i++) {
+        const dx = rng() * W, dy = rng() * H;
+        const dw = 40 + rng() * 80, dh = 10 + rng() * 20;
+        const g = ctx.createLinearGradient(dx, dy - dh/2, dx, dy + dh/2);
+        g.addColorStop(0, 'rgba(180,150,90,0.12)');
+        g.addColorStop(0.4, 'rgba(180,150,90,0)');
+        g.addColorStop(0.6, 'rgba(60,50,30,0.08)');
+        g.addColorStop(1, 'rgba(60,50,30,0)');
+        ctx.fillStyle = g;
+        ctx.save();
+        ctx.translate(dx, dy); ctx.rotate((rng() - 0.5) * 0.3);
+        ctx.fillRect(-dw/2, -dh/2, dw, dh);
+        ctx.restore();
+      }
+    }
+  }
+];
+
+// ── Animated dust particles for variant F ──
+let dustParticles = [];
+for (let i = 0; i < 40; i++) {
+  dustParticles.push({
+    x: Math.random() * W, y: Math.random() * H,
+    vx: 0.3 + Math.random() * 0.6,
+    vy: (Math.random() - 0.5) * 0.2,
+    size: 1 + Math.random() * 2,
+    alpha: 0.1 + Math.random() * 0.15,
+  });
+}
+
+const grid = document.getElementById('grid');
+const canvases = [];
+
+variants.forEach((v, idx) => {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const cctx = canvas.getContext('2d');
+  v.paint(cctx);
+  canvases.push({ canvas, ctx: cctx, variant: v, baseImage: null });
+
+  // Save base image for animated variant
+  if (v.id === 'F') {
+    canvases[canvases.length - 1].baseImage = cctx.getImageData(0, 0, W, H);
+  }
+
+  const info = document.createElement('div');
+  info.className = 'card-info';
+  info.innerHTML = `
+    <h3>${v.id}. ${v.name}</h3>
+    <p>${v.desc}</p>
+    ${v.color ? `<code>${v.color}</code>` : '<code>canvas texture</code>'}
+  `;
+
+  card.appendChild(canvas);
+  card.appendChild(info);
+  grid.appendChild(card);
+});
+
+// Animate variant F — dust particles
+function animateDust() {
+  const entry = canvases.find(c => c.variant.id === 'F');
+  if (!entry || !entry.baseImage) { requestAnimationFrame(animateDust); return; }
+
+  entry.ctx.putImageData(entry.baseImage, 0, 0);
+
+  for (const p of dustParticles) {
+    p.x += p.vx;
+    p.y += p.vy + Math.sin(performance.now() * 0.001 + p.x * 0.01) * 0.15;
+    if (p.x > W) { p.x = -2; p.y = Math.random() * H; }
+    if (p.y < 0) p.y = H;
+    if (p.y > H) p.y = 0;
+
+    entry.ctx.fillStyle = `rgba(210,190,140,${p.alpha})`;
+    entry.ctx.beginPath();
+    entry.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    entry.ctx.fill();
+  }
+
+  requestAnimationFrame(animateDust);
+}
+animateDust();
+</script>
+</body>
+</html>

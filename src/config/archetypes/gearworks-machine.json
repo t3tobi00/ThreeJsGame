@@ -1,0 +1,15 @@
+{
+    "type": "Machine",
+    "mesh": { "preset": "gearworks-machine" },
+    "components": {
+        "UnlockZone": {
+            "type": "convert",
+            "cost": { "essence": 10 },
+            "drainRate": 0.15,
+            "range": 3.5,
+            "output": "essenceCandy",
+            "outputCount": 1
+        },
+        "Machine": {}
+    }
+}

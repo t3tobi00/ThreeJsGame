@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Resource Preview — Essence Candy</title>
+<style>
+  :root { --bg-0:#0b0f1a;--bg-1:#131a2b;--line:rgba(255,255,255,0.08);--txt:#e9eef7;--txt-dim:#8a94a8;--accent:#ffd24a;--accent-2:#4ad2ff; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg-0);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;height:100vh;overflow:hidden}
+  .app{display:grid;grid-template-columns:240px 1fr;height:100vh}
+  aside{background:var(--bg-1);border-right:1px solid var(--line);padding:20px 0;overflow-y:auto}
+  aside h2{margin:0 0 4px 20px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--txt-dim)}
+  aside p.hint{margin:0 20px 16px;font-size:11px;color:var(--txt-dim);line-height:1.4}
+  .nav{list-style:none;padding:0;margin:0}
+  .nav li{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;border-left:3px solid transparent;transition:background .15s;font-size:14px;font-weight:500}
+  .nav li:hover{background:rgba(255,255,255,0.04)}
+  .nav li.active{background:rgba(255,210,74,0.08);border-left-color:var(--accent);color:var(--accent)}
+  .nav li .emoji{font-size:22px;line-height:1;width:28px;text-align:center}
+  main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg-0)}
+  .topbar{padding:18px 28px 12px;border-bottom:1px solid var(--line)}
+  .topbar h1{margin:0 0 4px;font-size:18px}
+  .topbar p{margin:0;font-size:12px;color:var(--txt-dim)}
+  .panels{display:grid;gap:16px;padding:20px 28px 28px;flex:1;min-height:0}
+  .panel{background:var(--bg-1);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+  .panel header{padding:14px 18px 8px;border-bottom:1px solid var(--line)}
+  .panel header .ttl{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .panel header .sub{font-size:11px;color:var(--txt-dim);margin-top:2px}
+  .panel.new header .ttl{color:var(--accent)}
+  .panel.alt header .ttl{color:var(--accent-2)}
+  .stage{flex:1;position:relative;background:radial-gradient(ellipse at center top,#243152 0%,#0e1424 70%);cursor:grab}
+  .stage:active{cursor:grabbing}
+  .stage canvas{display:block;width:100%;height:100%}
+  .stage .tip{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:10px;color:var(--txt-dim);pointer-events:none;text-transform:uppercase;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h2>Resources</h2>
+    <p class="hint">Click to inspect. Drag to orbit, scroll to zoom.</p>
+    <ul class="nav" id="nav">
+      <li data-key="meat"><span class="emoji">🥩</span><span>Meat</span></li>
+      <li data-key="coin"><span class="emoji">🪙</span><span>Coin</span></li>
+      <li data-key="wood"><span class="emoji">🪵</span><span>Wood</span></li>
+      <li data-key="stone"><span class="emoji">🪨</span><span>Stone</span></li>
+      <li data-key="essence"><span class="emoji">🧪</span><span>Essence</span></li>
+      <li data-key="essenceCandy" class="active"><span class="emoji">🍬</span><span>Essence Candy</span></li>
+    </ul>
+  </aside>
+  <main>
+    <div class="topbar">
+      <h1 id="title"></h1>
+      <p id="subtitle"></p>
+    </div>
+    <div class="panels" id="panels"></div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="_base.js"></script>
+<script>
+var CANDY_GREEN = 0x7aff3a, CANDY_GREEN_DARK = 0x3abf10, CANDY_EMISSIVE = 0x50dd18;
+
+function essenceCandyLollipop() {
+  var group = new THREE.Group();
+  var candyR = 0.48;
+
+  var ballMat = new THREE.MeshPhysicalMaterial({
+    color: CANDY_GREEN, emissive: CANDY_EMISSIVE, emissiveIntensity: 0.4,
+    metalness: 0.0, roughness: 0.12, clearcoat: 1.0, clearcoatRoughness: 0.03,
+    transmission: 0.1, thickness: 0.6, transparent: true, opacity: 0.95
+  });
+  var ball = new THREE.Mesh(new THREE.SphereGeometry(candyR, 32, 24), ballMat);
+  ball.position.y = 0.6;
+  group.add(ball);
+
+  var swirlMat = new THREE.MeshStandardMaterial({ color: CANDY_GREEN_DARK, emissive: 0x228800, emissiveIntensity: 0.3, metalness: 0.0, roughness: 0.2 });
+  var swirlPts = [];
+  for (var i = 0; i < 160; i++) {
+    var t = i / 159, phi = t * Math.PI, theta = t * Math.PI * 10, r = candyR * 1.005;
+    swirlPts.push(new THREE.Vector3(Math.sin(phi) * Math.cos(theta) * r, 0.6 + Math.cos(phi) * r, Math.sin(phi) * Math.sin(theta) * r));
+  }
+  var swirlCurve = new THREE.CatmullRomCurve3(swirlPts);
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(swirlCurve, 100, 0.028, 6, false), swirlMat));
+
+  var stickMat = new THREE.MeshStandardMaterial({ color: 0xf5f0e0, roughness: 0.6, metalness: 0.0 });
+  var stick = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 1.1, 12), stickMat);
+  stick.position.y = -0.05;
+  group.add(stick);
+
+  var highlightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xeeffee, emissiveIntensity: 0.5, metalness: 0.2, roughness: 0.05, transparent: true, opacity: 0.7 });
+  var hl1 = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 8), highlightMat);
+  hl1.position.set(-0.14, 0.78, candyR * 0.38); group.add(hl1);
+  var hl2 = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 6), highlightMat);
+  hl2.position.set(-0.06, 0.9, candyR * 0.3); group.add(hl2);
+
+  group.rotation.z = Math.PI / 2;
+  group.rotation.y = 0.3;
+  return group;
+}
+
+initPreview({
+  title: 'Essence Candy',
+  sub: 'Lollipop manufactured from processed essence. Round ball candy on a stick \u2014 bright green, glossy, with that signature essence glow.',
+  panels: [{ mod: 'new', ttl: 'Lollipop', sub: 'Round ball candy on a stick with essence-green spiral stripe wrapping the sphere', build: essenceCandyLollipop }]
+});
+</script>
+</body>
+</html>

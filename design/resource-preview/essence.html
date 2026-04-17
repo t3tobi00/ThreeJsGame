@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Resource Preview — Essence</title>
+<style>
+  :root { --bg-0:#0b0f1a;--bg-1:#131a2b;--line:rgba(255,255,255,0.08);--txt:#e9eef7;--txt-dim:#8a94a8;--accent:#ffd24a;--accent-2:#4ad2ff; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg-0);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;height:100vh;overflow:hidden}
+  .app{display:grid;grid-template-columns:240px 1fr;height:100vh}
+  aside{background:var(--bg-1);border-right:1px solid var(--line);padding:20px 0;overflow-y:auto}
+  aside h2{margin:0 0 4px 20px;font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--txt-dim)}
+  aside p.hint{margin:0 20px 16px;font-size:11px;color:var(--txt-dim);line-height:1.4}
+  .nav{list-style:none;padding:0;margin:0}
+  .nav li{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;border-left:3px solid transparent;transition:background .15s;font-size:14px;font-weight:500}
+  .nav li:hover{background:rgba(255,255,255,0.04)}
+  .nav li.active{background:rgba(255,210,74,0.08);border-left-color:var(--accent);color:var(--accent)}
+  .nav li .emoji{font-size:22px;line-height:1;width:28px;text-align:center}
+  main{display:flex;flex-direction:column;overflow:hidden;background:var(--bg-0)}
+  .topbar{padding:18px 28px 12px;border-bottom:1px solid var(--line)}
+  .topbar h1{margin:0 0 4px;font-size:18px}
+  .topbar p{margin:0;font-size:12px;color:var(--txt-dim)}
+  .panels{display:grid;gap:16px;padding:20px 28px 28px;flex:1;min-height:0}
+  .panel{background:var(--bg-1);border:1px solid var(--line);border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+  .panel header{padding:14px 18px 8px;border-bottom:1px solid var(--line)}
+  .panel header .ttl{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .panel header .sub{font-size:11px;color:var(--txt-dim);margin-top:2px}
+  .panel.new header .ttl{color:var(--accent)}
+  .panel.alt header .ttl{color:var(--accent-2)}
+  .stage{flex:1;position:relative;background:radial-gradient(ellipse at center top,#243152 0%,#0e1424 70%);cursor:grab}
+  .stage:active{cursor:grabbing}
+  .stage canvas{display:block;width:100%;height:100%}
+  .stage .tip{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:10px;color:var(--txt-dim);pointer-events:none;text-transform:uppercase;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <h2>Resources</h2>
+    <p class="hint">Click to inspect. Drag to orbit, scroll to zoom.</p>
+    <ul class="nav" id="nav">
+      <li data-key="meat"><span class="emoji">🥩</span><span>Meat</span></li>
+      <li data-key="coin"><span class="emoji">🪙</span><span>Coin</span></li>
+      <li data-key="wood"><span class="emoji">🪵</span><span>Wood</span></li>
+      <li data-key="stone"><span class="emoji">🪨</span><span>Stone</span></li>
+      <li data-key="essence" class="active"><span class="emoji">🧪</span><span>Essence</span></li>
+      <li data-key="essenceCandy"><span class="emoji">🍬</span><span>Essence Candy</span></li>
+    </ul>
+  </aside>
+  <main>
+    <div class="topbar">
+      <h1 id="title"></h1>
+      <p id="subtitle"></p>
+    </div>
+    <div class="panels" id="panels"></div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="_base.js"></script>
+<script>
+var ESSENCE_GREEN = 0x6dff28, ESSENCE_EMISSIVE = 0x44cc15, ESSENCE_BUBBLE = 0xddffdd;
+
+function essencePuddle() {
+  var group = new THREE.Group();
+  var shape = new THREE.Shape();
+  var N = 64, baseR = 0.95, pts = [];
+  for (var i = 0; i < N; i++) {
+    var a = (i / N) * Math.PI * 2;
+    var wobble = Math.sin(a * 3 + 1.2) * 0.18 + Math.sin(a * 5 + 0.4) * 0.10 + Math.sin(a * 7 + 2.1) * 0.06 + Math.sin(a * 11 + 3.3) * 0.03;
+    var r = baseR + wobble;
+    pts.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r));
+  }
+  shape.setFromPoints(pts);
+  var geo = new THREE.ExtrudeGeometry(shape, { depth: 0.06, bevelEnabled: true, bevelSegments: 5, bevelSize: 0.05, bevelThickness: 0.05, curveSegments: 32, steps: 1 });
+  geo.center(); geo.rotateX(-Math.PI / 2);
+  var puddleMat = new THREE.MeshPhysicalMaterial({ color: ESSENCE_GREEN, emissive: ESSENCE_EMISSIVE, emissiveIntensity: 0.55, metalness: 0.0, roughness: 0.18, clearcoat: 1.0, clearcoatRoughness: 0.05, transmission: 0.35, thickness: 0.25, transparent: true, opacity: 0.92 });
+  var puddle = new THREE.Mesh(geo, puddleMat);
+  puddle.position.y = -0.32;
+  group.add(puddle);
+  var bubbleMat = new THREE.MeshPhysicalMaterial({ color: 0x9dff60, emissive: ESSENCE_EMISSIVE, emissiveIntensity: 0.5, metalness: 0.0, roughness: 0.1, clearcoat: 1.0, clearcoatRoughness: 0.05, transmission: 0.4, transparent: true, opacity: 0.9 });
+  var bumps = [{ x: 0.22, z: -0.12, r: 0.10 },{ x: -0.32, z: 0.18, r: 0.07 },{ x: 0.05, z: 0.28, r: 0.06 },{ x: -0.18, z: -0.22, r: 0.08 },{ x: 0.40, z: 0.05, r: 0.05 }];
+  for (var j = 0; j < bumps.length; j++) {
+    var b = bumps[j];
+    var bubble = new THREE.Mesh(new THREE.SphereGeometry(b.r, 16, 12), bubbleMat);
+    bubble.position.set(b.x, -0.28 + b.r * 0.4, b.z);
+    bubble.scale.y = 0.55;
+    group.add(bubble);
+  }
+  var drip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), puddleMat);
+  drip.position.set(-1.05, -0.31, 0.12); drip.scale.set(1.1, 0.35, 0.7);
+  group.add(drip);
+  return group;
+}
+
+function essenceTube(opts) {
+  var lite = opts && opts.lite;
+  var group = new THREE.Group();
+  var tubeLen = 1.6, tubeR = 0.24;
+  var glassMat = lite
+    ? new THREE.MeshStandardMaterial({ color: 0xddffe5, roughness: 0.08, metalness: 0.0, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide })
+    : new THREE.MeshPhysicalMaterial({ color: 0xf0fff5, metalness: 0.0, roughness: 0.05, transmission: 0.95, thickness: 0.4, ior: 1.5, clearcoat: 1.0, clearcoatRoughness: 0.05, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide });
+  var bodyGeo = new THREE.CylinderGeometry(tubeR, tubeR, tubeLen, 32, 1, true);
+  var body = new THREE.Mesh(bodyGeo, glassMat); body.rotation.z = Math.PI / 2; group.add(body);
+  var bottomGeo = new THREE.SphereGeometry(tubeR, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+  var bottom = new THREE.Mesh(bottomGeo, glassMat); bottom.rotation.z = Math.PI / 2; bottom.position.x = -tubeLen / 2; group.add(bottom);
+  var lipGeo = new THREE.TorusGeometry(tubeR + 0.012, 0.018, 12, 32);
+  var lip = new THREE.Mesh(lipGeo, glassMat); lip.rotation.y = Math.PI / 2; lip.position.x = tubeLen / 2; group.add(lip);
+
+  var liquidR = tubeR - 0.025, liquidLen = tubeLen * 0.9, cylPortion = Math.max(0.01, liquidLen - 2 * liquidR);
+  var liquidMat = new THREE.MeshStandardMaterial({ color: ESSENCE_GREEN, emissive: ESSENCE_EMISSIVE, emissiveIntensity: 0.8, metalness: 0.0, roughness: 0.22 });
+  var liquidGeo = new THREE.CapsuleGeometry(liquidR, cylPortion, 8, 16);
+  var liquid = new THREE.Mesh(liquidGeo, liquidMat); liquid.rotation.z = Math.PI / 2; liquid.position.x = -tubeLen / 2 + liquidLen / 2; group.add(liquid);
+
+  var bubbleMat = new THREE.MeshStandardMaterial({ color: ESSENCE_BUBBLE, emissive: 0xaaffaa, emissiveIntensity: 0.5, metalness: 0.0, roughness: 0.15 });
+  var bubbles = [{ x: -0.55, y: 0.06, z: 0.04, r: 0.05 },{ x: -0.20, y: -0.08, z: -0.04, r: 0.065 },{ x: 0.15, y: 0.05, z: 0.06, r: 0.045 },{ x: 0.45, y: -0.04, z: 0.03, r: 0.04 }];
+  for (var j = 0; j < bubbles.length; j++) {
+    var b = bubbles[j];
+    var bub = new THREE.Mesh(new THREE.SphereGeometry(b.r, 16, 12), bubbleMat);
+    bub.position.set(b.x, b.y, b.z); group.add(bub);
+  }
+
+  var stopperMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.85, metalness: 0.0 });
+  var plug = new THREE.Mesh(new THREE.CylinderGeometry(tubeR - 0.008, tubeR - 0.022, 0.11, 24), stopperMat);
+  plug.rotation.z = -Math.PI / 2; plug.position.x = tubeLen / 2 - 0.04; group.add(plug);
+  var flange = new THREE.Mesh(new THREE.CylinderGeometry(tubeR + 0.03, tubeR + 0.03, 0.05, 24), stopperMat);
+  flange.rotation.z = Math.PI / 2; flange.position.x = tubeLen / 2 + 0.045; group.add(flange);
+  var knob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 12), stopperMat);
+  knob.position.x = tubeLen / 2 + 0.095; knob.scale.y = 0.85; group.add(knob);
+  return group;
+}
+
+function essenceStack(count) {
+  var group = new THREE.Group(), spacing = 0.55;
+  for (var i = 0; i < count; i++) {
+    var tube = essenceTube({ lite: true });
+    tube.position.y = i * spacing - (count - 1) * spacing / 2;
+    tube.rotation.y = (Math.random() - 0.5) * 0.18;
+    group.add(tube);
+  }
+  group.scale.setScalar(0.62);
+  return group;
+}
+
+initPreview({
+  title: 'Essence',
+  sub: 'NEW zombie drop (planned to replace meat). Three visual states: raw puddle, harvested tube, stacked tubes.',
+  panels: [
+    { mod: 'new', ttl: 'Puddle \u00b7 ground state', sub: 'How essence appears when a zombie dies \u2014 a glowing splat on the floor', build: essencePuddle },
+    { mod: 'alt', ttl: 'Tube \u00b7 stackable form',  sub: 'After the player harvests it \u2014 horizontal test tube with essence inside', build: function() { return essenceTube({}); } },
+    { mod: 'new', ttl: 'Stack of tubes',               sub: 'How 6 collected tubes look stacked together (lite materials)',               build: function() { return essenceStack(6); } }
+  ]
+});
+</script>
+</body>
+</html>

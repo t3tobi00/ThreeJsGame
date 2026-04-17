@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Editor — ThesisGame2</title>
+    <style>
+        :root {
+            --bg: #1a1a1f;
+            --panel: #24242c;
+            --panel-light: #2f2f38;
+            --border: #3a3a45;
+            --text: #e8e8ec;
+            --text-dim: #8a8a94;
+            --accent: #4fc3f7;
+            --accent-hover: #29b6f6;
+            --success: #66bb6a;
+            --danger: #ef5350;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .topbar {
+            max-width: 1280px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 22px;
+            color: var(--accent);
+        }
+
+        .topbar a {
+            color: var(--text-dim);
+            font-size: 13px;
+            text-decoration: none;
+        }
+        .topbar a:hover { color: var(--accent); }
+
+        .subtitle {
+            color: var(--text-dim);
+            max-width: 1280px;
+            margin: 0 auto 24px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+            gap: 24px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .right-panel {
+            position: sticky;
+            top: 24px;
+            align-self: start;
+            max-height: calc(100vh - 48px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        section.group {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 14px;
+            background: var(--panel-light);
+            overflow: hidden;
+        }
+
+        section.group > header {
+            padding: 10px 14px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text);
+            background: rgba(255,255,255,0.03);
+        }
+        section.group > header:hover { background: rgba(79,195,247,0.06); }
+        section.group > header .chev { color: var(--text-dim); transition: transform 0.15s; }
+        section.group.collapsed > header .chev { transform: rotate(-90deg); }
+        section.group > .body { padding: 14px 16px 4px; }
+        section.group.collapsed > .body { display: none; }
+
+        .field { margin-bottom: 14px; }
+
+        .field-label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .row { display: flex; gap: 8px; align-items: center; }
+        .row > * { flex: 1; }
+
+        .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+        input[type="number"],
+        input[type="text"],
+        select {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            padding: 8px 10px;
+            font-size: 14px;
+            font-family: inherit;
+            width: 100%;
+        }
+
+        input[type="number"]:focus,
+        input[type="text"]:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .checks {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .checks label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+        .checks label:has(input:checked) {
+            background: rgba(79, 195, 247, 0.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .checks input[type="checkbox"] { display: none; }
+
+        .hint {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        .btn {
+            background: var(--panel-light);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            padding: 8px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.15s;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+            font-weight: 600;
+        }
+        .btn.primary:hover {
+            background: var(--accent-hover);
+            color: #000;
+        }
+
+        .json-output {
+            background: #0d0d12;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 14px;
+            font-family: "SF Mono", Monaco, Consolas, monospace;
+            font-size: 12px;
+            color: #a0e8ff;
+            white-space: pre;
+            overflow: auto;
+            flex: 1;
+            min-height: 320px;
+            margin-bottom: 12px;
+        }
+
+        .copy-feedback {
+            color: var(--success);
+            font-size: 13px;
+            margin-left: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .copy-feedback.show { opacity: 1; }
+
+        .loading {
+            color: var(--text-dim);
+            font-style: italic;
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        .error {
+            color: var(--danger);
+            background: rgba(239, 83, 80, 0.1);
+            border: 1px solid var(--danger);
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 16px;
+            max-width: 1280px;
+            margin: 0 auto 16px;
+        }
+
+        .hidden { display: none !important; }
+
+        .target-path {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        .target-path code {
+            background: var(--panel-light);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <h1>Player Editor</h1>
+        <a href="../index.html">← all tools</a>
+    </div>
+    <p class="subtitle">Edit the player archetype — stack spacing, accepted resources, health, animations, and more. Output is the full <code>player.json</code>.</p>
+
+    <div id="loading" class="loading">Loading player.json and resources…</div>
+    <div id="error" class="error hidden"></div>
+
+    <div id="main" class="layout hidden">
+        <!-- LEFT: Form -->
+        <div class="panel">
+            <!-- ─── Identity ─── -->
+            <section class="group">
+                <header>Identity & Skill <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="field">
+                        <label class="field-label">Mesh color (hex)</label>
+                        <input type="text" id="meshColor" placeholder="0x3366ff">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Active skill</label>
+                        <select id="activeSkill"></select>
+                        <div class="hint">Pick the starting weapon. Manifest at <code>src/config/skills/_manifest.json</code>.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Movement ─── -->
+            <section class="group">
+                <header>Movement <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="field">
+                        <label class="field-label">Speed</label>
+                        <input type="number" id="movSpeed" step="0.1">
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Health ─── -->
+            <section class="group">
+                <header>Health <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="row-3">
+                        <div class="field">
+                            <label class="field-label">HP</label>
+                            <input type="number" id="hp" step="1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Max HP</label>
+                            <input type="number" id="maxHp" step="1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Armor</label>
+                            <input type="number" id="armor" step="0.1">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Stack ─── -->
+            <section class="group">
+                <header>Inventory Stack (back) <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Max slots</label>
+                            <input type="number" id="stackMaxSlots" step="1" min="1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Slot capacity</label>
+                            <input type="number" id="stackSlotCapacity" step="1" min="1">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Slot spacing (vertical gap between items)</label>
+                        <input type="number" id="stackSlotSpacing" step="0.05">
+                        <div class="hint">Distance between stacked items on the player's back. Increase for more vertical space.</div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Anchor offset (x / y / z)</label>
+                        <div class="row-3">
+                            <input type="number" id="anchorX" step="0.05">
+                            <input type="number" id="anchorY" step="0.05">
+                            <input type="number" id="anchorZ" step="0.05">
+                        </div>
+                        <div class="hint">Where the stack base attaches relative to the player.</div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Style</label>
+                        <select id="stackStyle">
+                            <option value="wobble">wobble</option>
+                            <option value="rigid">rigid</option>
+                            <option value="spring">spring</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Collector ─── -->
+            <section class="group">
+                <header>Collector (pickup) <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Pickup radius</label>
+                            <input type="number" id="collectorRadius" step="0.1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Pull force</label>
+                            <input type="number" id="collectorPullForce" step="0.1">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Pickup rate (s)</label>
+                        <input type="number" id="collectorPickupRate" step="0.05">
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Accepted resources</label>
+                        <div id="resourceChecks" class="checks"></div>
+                        <div class="hint">Uncheck a resource to block the player from picking it up.</div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Collect from tags (comma-separated)</label>
+                        <input type="text" id="collectFromTags" placeholder="tray, table">
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Depositor ─── -->
+            <section class="group collapsed">
+                <header>Depositor <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="row-3">
+                        <div class="field">
+                            <label class="field-label">Range</label>
+                            <input type="number" id="depRange" step="0.1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Target tag</label>
+                            <input type="text" id="depTargetTag">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Transfer rate</label>
+                            <input type="number" id="depTransferRate" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Animation ─── -->
+            <section class="group collapsed">
+                <header>Animation curves <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="field">
+                        <label class="field-label">Fly-to (arcHeight / speed / easing)</label>
+                        <div class="row-3">
+                            <input type="number" id="flyArcHeight" step="0.1">
+                            <input type="number" id="flySpeed" step="0.1">
+                            <input type="text"   id="flyEasing">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Spring stack (wobble / squash / lag)</label>
+                        <div class="row-3">
+                            <input type="number" id="springWobble" step="0.05">
+                            <input type="number" id="springSquash" step="0.05">
+                            <input type="number" id="springLag" step="0.05">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Squash & stretch (intensity / freq / trigger)</label>
+                        <div class="row-3">
+                            <input type="number" id="ssIntensity" step="0.05">
+                            <input type="number" id="ssFrequency" step="0.5">
+                            <input type="text"   id="ssTrigger">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Walk anim (bobHeight / bobFreq / tiltAngle)</label>
+                        <div class="row-3">
+                            <input type="number" id="walkBobHeight" step="0.01">
+                            <input type="number" id="walkBobFreq" step="0.5">
+                            <input type="number" id="walkTiltAngle" step="0.01">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Flash (color / duration)</label>
+                        <div class="row">
+                            <input type="text" id="flashColor">
+                            <input type="number" id="flashDuration" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Collider ─── -->
+            <section class="group collapsed">
+                <header>Collider <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="row-3">
+                        <div class="field">
+                            <label class="field-label">Shape</label>
+                            <select id="colliderShape">
+                                <option value="circle">circle</option>
+                                <option value="box">box</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Radius</label>
+                            <input type="number" id="colliderRadius" step="0.05">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Static</label>
+                            <select id="colliderStatic">
+                                <option value="false">false</option>
+                                <option value="true">true</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="row" style="margin-top:8px;">
+                <button type="button" class="btn" id="resetBtn" style="flex:0 0 auto;">↺ Reset to file</button>
+            </div>
+        </div>
+
+        <!-- RIGHT: JSON Output -->
+        <div class="panel right-panel">
+            <h2 style="margin:0 0 12px 0;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);">player.json output</h2>
+            <div id="jsonOutput" class="json-output">{}</div>
+            <div class="row" style="align-items:center;flex-wrap:wrap;flex:0 0 auto;">
+                <button type="button" class="btn primary" id="copyBtn" style="flex:0 0 auto;">📋 Copy to clipboard</button>
+                <span id="copyFeedback" class="copy-feedback">Copied!</span>
+            </div>
+            <div class="target-path">
+                Paste over the contents of <code>src/config/archetypes/player.json</code>.
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./editor.js"></script>
+</body>
+</html>
