@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enemy Editor — ThesisGame2</title>
+    <style>
+        :root {
+            --bg: #1a1a1f;
+            --panel: #24242c;
+            --panel-light: #2f2f38;
+            --border: #3a3a45;
+            --text: #e8e8ec;
+            --text-dim: #8a8a94;
+            --accent: #ff6b6b;
+            --accent-hover: #ff5252;
+            --success: #66bb6a;
+            --danger: #ef5350;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .topbar {
+            max-width: 1280px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+        }
+
+        h1 { margin: 0; font-size: 22px; color: var(--accent); }
+
+        .topbar a { color: var(--text-dim); font-size: 13px; text-decoration: none; }
+        .topbar a:hover { color: var(--accent); }
+
+        .subtitle {
+            color: var(--text-dim);
+            max-width: 1280px;
+            margin: 0 auto 24px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+            gap: 24px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .right-panel {
+            position: sticky;
+            top: 24px;
+            align-self: start;
+            max-height: calc(100vh - 48px);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        section.group {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 14px;
+            background: var(--panel-light);
+            overflow: hidden;
+        }
+
+        section.group > header {
+            padding: 10px 14px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        section.group > header:hover { background: rgba(255,107,107,0.08); }
+
+        .chev { transition: transform 0.15s; color: var(--text-dim); }
+        section.group.collapsed .chev { transform: rotate(-90deg); }
+        section.group.collapsed > .body { display: none; }
+
+        .body { padding: 14px; border-top: 1px solid var(--border); }
+
+        .field { margin-bottom: 12px; }
+        .field:last-child { margin-bottom: 0; }
+
+        .field-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+        }
+
+        .hint {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 6px 8px;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 14px;
+            background: var(--panel-light);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            background: rgba(255,107,107,0.08);
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #1a0808;
+            font-weight: 600;
+        }
+
+        .btn.primary:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .json-output {
+            font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            white-space: pre;
+            overflow: auto;
+            flex: 1 1 0;
+            min-height: 200px;
+            max-height: 60vh;
+            color: #d4d4d4;
+            margin-bottom: 12px;
+        }
+
+        .copy-feedback {
+            display: inline-block;
+            color: var(--success);
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            margin-left: 12px;
+        }
+
+        .copy-feedback.show { opacity: 1; }
+
+        .loading, .error {
+            max-width: 1280px;
+            margin: 40px auto;
+            text-align: center;
+            color: var(--text-dim);
+        }
+
+        .error {
+            color: var(--danger);
+            padding: 20px;
+            background: var(--panel);
+            border: 1px solid var(--danger);
+            border-radius: 8px;
+        }
+
+        .hidden { display: none !important; }
+
+        .target-path {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        .target-path code {
+            background: var(--panel-light);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <h1>Enemy Editor</h1>
+        <a href="../index.html">← all tools</a>
+    </div>
+    <p class="subtitle">Edit the enemy archetype — stats, AI, spawn rate, spawn point, counts, cap. One output, one copy button — paste back into <code>enemy.json</code>.</p>
+
+    <div id="loading" class="loading">Loading enemy.json…</div>
+    <div id="error" class="error hidden"></div>
+
+    <div id="main" class="layout hidden">
+        <!-- LEFT: Form -->
+        <div class="panel">
+            <!-- ─── Spawn ─── -->
+            <section class="group">
+                <header>Spawn behavior <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="field">
+                        <label class="field-label">Mode</label>
+                        <select id="spawnMode">
+                            <option value="batch">batch — burst-refill up to cap each tick (countMin..countMax)</option>
+                            <option value="trickle">trickle — one enemy per interval</option>
+                        </select>
+                        <div class="hint">batch: kill 5 → 5 spawn at once on next tick. trickle: kill 5 → one per tick over 5 ticks.</div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Interval (s)</label>
+                            <input type="number" id="spawnInterval" step="0.1">
+                            <div class="hint">Seconds between spawn ticks.</div>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Max alive cap</label>
+                            <input type="number" id="spawnMaxAlive" step="1">
+                            <div class="hint">Hard cap on live enemies.</div>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Spawn point (x / z)</label>
+                        <div class="row">
+                            <input type="number" id="spawnX" step="0.5">
+                            <input type="number" id="spawnZ" step="0.5">
+                        </div>
+                        <div class="hint">Single fixed location enemies pour out from. Factory west edge is at x=-32.</div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Jitter (±units)</label>
+                            <input type="number" id="spawnJitter" step="0.1" min="0">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Despawn distance</label>
+                            <input type="number" id="spawnDespawn" step="1">
+                            <div class="hint">Wanderers past this distance from player are removed.</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Count min / tick</label>
+                            <input type="number" id="spawnCountMin" step="1" min="0">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Count max / tick</label>
+                            <input type="number" id="spawnCountMax" step="1" min="0">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Identity ─── -->
+            <section class="group">
+                <header>Identity <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="field">
+                        <label class="field-label">Mesh color (hex)</label>
+                        <input type="text" id="meshColor" placeholder="0xff3333">
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Movement / Health ─── -->
+            <section class="group">
+                <header>Movement & Health <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="field">
+                        <label class="field-label">Speed</label>
+                        <input type="number" id="movSpeed" step="0.1">
+                    </div>
+                    <div class="row-3">
+                        <div class="field">
+                            <label class="field-label">HP</label>
+                            <input type="number" id="hp" step="1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Max HP</label>
+                            <input type="number" id="maxHp" step="1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Armor</label>
+                            <input type="number" id="armor" step="0.1">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Contact Damage ─── -->
+            <section class="group">
+                <header>Contact Damage <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="row-3">
+                        <div class="field">
+                            <label class="field-label">Damage</label>
+                            <input type="number" id="cdDamage" step="0.5">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Cooldown (s)</label>
+                            <input type="number" id="cdCooldown" step="0.1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Range</label>
+                            <input type="number" id="cdRange" step="0.1">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── AI ─── -->
+            <section class="group">
+                <header>Enemy AI <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Aggro radius</label>
+                            <input type="number" id="aiAggro" step="0.5">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Herd radius</label>
+                            <input type="number" id="aiHerd" step="0.5">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Wander speed</label>
+                            <input type="number" id="aiWanderSpeed" step="0.1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Wander radius</label>
+                            <input type="number" id="aiWanderRadius" step="0.5">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Wander pause min (s)</label>
+                            <input type="number" id="aiWanderPauseMin" step="0.1">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Wander pause max (s)</label>
+                            <input type="number" id="aiWanderPauseMax" step="0.1">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Animation ─── -->
+            <section class="group collapsed">
+                <header>Animation <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="field">
+                        <label class="field-label">Walk (bobHeight / bobFreq / tiltAngle)</label>
+                        <div class="row-3">
+                            <input type="number" id="walkBobHeight" step="0.01">
+                            <input type="number" id="walkBobFreq" step="0.5">
+                            <input type="number" id="walkTiltAngle" step="0.01">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Flash (color / duration)</label>
+                        <div class="row">
+                            <input type="text" id="flashColor" placeholder="#ffffff">
+                            <input type="number" id="flashDuration" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Collider ─── -->
+            <section class="group collapsed">
+                <header>Collider <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="row-3">
+                        <div class="field">
+                            <label class="field-label">Shape</label>
+                            <select id="colliderShape">
+                                <option value="circle">circle</option>
+                                <option value="box">box</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Radius</label>
+                            <input type="number" id="colliderRadius" step="0.05">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Static</label>
+                            <select id="colliderStatic">
+                                <option value="false">false</option>
+                                <option value="true">true</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ─── Drops ─── -->
+            <section class="group collapsed">
+                <header>Drop Table (on death) <span class="chev">▾</span></header>
+                <div class="body">
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Type</label>
+                            <input type="text" id="dropType" placeholder="meat">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Chance (0–1)</label>
+                            <input type="number" id="dropChance" step="0.05" min="0" max="1">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label class="field-label">Min count</label>
+                            <input type="number" id="dropMin" step="1" min="0">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Max count</label>
+                            <input type="number" id="dropMax" step="1" min="0">
+                        </div>
+                    </div>
+                    <div class="hint">Single-row drop table. For multi-row drops, edit the JSON manually.</div>
+                </div>
+            </section>
+
+            <div class="row" style="margin-top:8px;">
+                <button type="button" class="btn" id="resetBtn" style="flex:0 0 auto;">↺ Reset to file</button>
+            </div>
+        </div>
+
+        <!-- RIGHT: JSON Output -->
+        <div class="panel right-panel">
+            <h2 style="margin:0 0 12px 0;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-dim);">enemy.json output</h2>
+            <div id="jsonOutput" class="json-output">{}</div>
+            <div class="row" style="align-items:center;flex-wrap:wrap;flex:0 0 auto;">
+                <button type="button" class="btn primary" id="copyBtn" style="flex:0 0 auto;">📋 Copy to clipboard</button>
+                <span id="copyFeedback" class="copy-feedback">Copied!</span>
+            </div>
+            <div class="target-path">
+                Paste over the contents of <code>src/config/archetypes/enemy.json</code>.
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./editor.js"></script>
+</body>
+</html>

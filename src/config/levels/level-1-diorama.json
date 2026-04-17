@@ -37,20 +37,9 @@
                 "y": 0,
                 "z": 0
             }
-        },
-        "enemies": {
-            "disabled": true,
-            "_note": "Spawning temporarily disabled — set 'disabled' to false (or remove the key) to re-enable.",
-            "spawnInterval": 2,
-            "countMin": 8,
-            "countMax": 10,
-            "spawnFromPoint": {
-                "x": -24,
-                "z": 55
-            },
-            "spawnRadius": 3
         }
     },
+    "_spawnNote": "Enemy spawn config moved to src/config/archetypes/enemy.json ('spawn' block). Edit there (or via tools/enemy/editor.html) to tune interval, point, counts, cap.",
     "unlockZones": [],
     "debug": {
         "showGrid": false

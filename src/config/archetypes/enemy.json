@@ -8,9 +8,22 @@
     "mover",
     "damageable"
   ],
+  "spawn": {
+    "mode": "trickle",
+    "interval": 2,
+    "point": {
+      "x": -45,
+      "z": 0
+    },
+    "jitter": 2,
+    "maxAlive": 10,
+    "despawnDistance": 50,
+    "countMin": 8,
+    "countMax": 10
+  },
   "components": {
     "Movement": {
-      "speed": 3.0,
+      "speed": 3,
       "controller": "simple_steering",
       "faction": "enemy"
     },
@@ -48,20 +61,24 @@
       "herdRadius": 5,
       "wanderSpeed": 0.6,
       "wanderRadius": 12,
-      "wanderPauseMin": 1.0,
-      "wanderPauseMax": 3.0
+      "wanderPauseMin": 1,
+      "wanderPauseMax": 3
     },
     "Drops": {
       "table": [
         {
           "type": "meat",
-          "chance": 1.0,
+          "chance": 1,
           "min": 1,
           "max": 1
         }
       ]
     },
-    "Collider":   { "shape": "circle", "radius": 0.4, "isStatic": false },
+    "Collider": {
+      "shape": "circle",
+      "radius": 0.4,
+      "isStatic": false
+    },
     "ZoneStatus": {}
   }
 }

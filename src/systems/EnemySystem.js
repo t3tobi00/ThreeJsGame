@@ -1,6 +1,18 @@
 import * as THREE from 'three';
-import { ENEMY_CONFIG } from '../config/gameConfig.js';
 import EventBus from '../core/EventBus.js';
+
+// Fallback spawn config if setConfig() is never called. Normally populated
+// from the 'spawn' block of src/config/archetypes/enemy.json.
+const DEFAULT_SPAWN = {
+    mode: 'batch',        // 'batch' = burst-refill up to cap | 'trickle' = 1 per interval
+    interval: 1.5,
+    point: { x: -45, z: 0 },
+    jitter: 2,
+    maxAlive: 10,
+    despawnDistance: 50,
+    countMin: 4,
+    countMax: 5,
+};
 
 // Fallback defaults if EnemyAI component is missing
 const DEFAULT_AI = {
@@ -16,11 +28,11 @@ const DEFAULT_AI = {
  * EnemySystem — ECS-driven enemy spawning and steering.
  *
  * AI parameters are read from each entity's EnemyAI component (JSON archetype).
- * Spawn counts come from level JSON via setSpawnConfig().
+ * Spawn config comes from enemy.json → "spawn" block via setConfig().
  *
  * Performance guards:
- *   - Hard cap on alive enemies (ENEMY_CONFIG.maxAlive)
- *   - Far wanderers despawned (ENEMY_CONFIG.despawnDistance)
+ *   - Hard cap on alive enemies (spawn.maxAlive)
+ *   - Far wanderers despawned (spawn.despawnDistance)
  *   - Herd aggro is O(N*C) not O(N²) — only checks chasers
  *
  * AI states:
@@ -38,11 +50,8 @@ export class EnemySystem {
         this._spawnTimer = 0;
         this._ecs = null;
         this._aiState = new Map();
-
-        // Spawn config — set from level JSON via setSpawnConfig()
-        this._countMin  = 4;
-        this._countMax  = 5;
-        this._playerId  = null; // set via setPlayerEntityId() for ZoneStatus lookup
+        this._spawn = { ...DEFAULT_SPAWN, point: { ...DEFAULT_SPAWN.point } };
+        this._playerId = null; // set via setPlayerEntityId() for ZoneStatus lookup
     }
 
     setECS(ecs) { this._ecs = ecs; }
@@ -50,10 +59,13 @@ export class EnemySystem {
     /** Player entity ID — used to read ZoneStatus and redirect chase target. */
     setPlayerEntityId(id) { this._playerId = id; }
 
-    /** Called from main.js after level load to pass level-specific spawn config. */
-    setSpawnConfig({ countMin, countMax } = {}) {
-        if (countMin !== undefined) this._countMin = countMin;
-        if (countMax !== undefined) this._countMax = countMax;
+    /** Called from main.js after archetype load. Accepts the 'spawn' block from enemy.json. */
+    setConfig(spawn = {}) {
+        this._spawn = {
+            ...DEFAULT_SPAWN,
+            ...spawn,
+            point: { ...DEFAULT_SPAWN.point, ...(spawn.point || {}) },
+        };
     }
 
     /** Called by ECS every frame. */
@@ -61,9 +73,9 @@ export class EnemySystem {
         this._ecs = ecs;
         this._spawnTimer += deltaTime;
 
-        if (this._spawnTimer >= ENEMY_CONFIG.spawnInterval) {
+        if (this._spawnTimer >= this._spawn.interval) {
             this._spawnTimer = 0;
-            if (this._aiState.size < ENEMY_CONFIG.maxAlive) {
+            if (this._aiState.size < this._spawn.maxAlive) {
                 this._spawnEnemy();
             }
         }
@@ -90,7 +102,7 @@ export class EnemySystem {
 
             // Despawn far-off-screen wanderers to free slots for fresh spawns
             const ai = this._aiState.get(entityId);
-            if (ai && ai.state === 'wander' && pos.distanceTo(playerPos) > ENEMY_CONFIG.despawnDistance) {
+            if (ai && ai.state === 'wander' && pos.distanceTo(playerPos) > this._spawn.despawnDistance) {
                 const instanceRef = ecs.getComponent(entityId, 'InstanceRef');
                 if (instanceRef) {
                     instanceRef.pool.release(instanceRef.index);
@@ -215,14 +227,22 @@ export class EnemySystem {
     }
 
     _spawnEnemy() {
-        const range = this._countMax - this._countMin + 1;
-        const count = this._countMin + Math.floor(Math.random() * range);
-        const slotsLeft = ENEMY_CONFIG.maxAlive - this._aiState.size;
+        const s = this._spawn;
+        const slotsLeft = s.maxAlive - this._aiState.size;
+        let count;
+        if (s.mode === 'trickle') {
+            count = 1;
+        } else {
+            const range = s.countMax - s.countMin + 1;
+            count = s.countMin + Math.floor(Math.random() * range);
+        }
         const toSpawn = Math.min(count, slotsLeft);
+        const sp = s.point;
+        const j = s.jitter;
         for (let i = 0; i < toSpawn; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = ENEMY_CONFIG.spawnDistance + Math.random() * 5;
-            const pos = new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+            const jx = (Math.random() * 2 - 1) * j;
+            const jz = (Math.random() * 2 - 1) * j;
+            const pos = new THREE.Vector3(sp.x + jx, 0, sp.z + jz);
             this._factory.create('enemy', pos);
         }
     }

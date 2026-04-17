@@ -205,14 +205,9 @@
                 "z": -24
             },
             "initialCount": 4
-        },
-        "enemies": {
-            "spawnDistance": 35,
-            "spawnInterval": 2,
-            "countMin": 8,
-            "countMax": 10
         }
     },
+    "_spawnNote": "Enemy spawn config moved to src/config/archetypes/enemy.json ('spawn' block).",
     "unlockZones": [
         {
             "cell": [

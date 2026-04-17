@@ -34,17 +34,8 @@ export const WORLD_CONFIG = {
     gridSpacing: 1
 };
 
-export const ENEMY_CONFIG = {
-    speed: 3.5,
-    spawnInterval: 1.5,
-    spawnDistance: 28,
-    maxAlive: 100,
-    despawnDistance: 50,
-    health: 4,
-    size: 0.6,
-    eyeColor: 0xff0000,
-    bodyColor: 0xff4444
-};
+// Enemy spawn + per-unit config has moved to src/config/archetypes/enemy.json
+// ("spawn" block + components). EnemySystem reads it via setConfig() at boot.
 
 export const COMBAT_CONFIG = {
     aggroRange: 10,
@@ -182,14 +173,14 @@ export const SCENE_CONFIG = {
 
 // Market Zone — selling-stall + customer economy tunables.
 export const MARKET_CONFIG = {
-    stallApproachRange:        6.0,   // distance at which a customer detours toward a stall
-    customerPauseSec:          0.6,   // pause at the stall before paying
-    customerSpawnIntervalSec:  4.0,   // seconds between customer spawns
-    customerMaxLive:           3,     // upper bound on simultaneous customers per spawner
-    customerWalkSpeed:         2.4,   // overrides Movement.speed if non-null
-    customerBuyProbability:    0.85,  // chance a passerby actually detours when a stocked stall is in range
-    customerLeaveLerpSpeed:    3.0,   // m/s when steering off-spline / back to spline
+    stallApproachRange: 6.0,   // distance at which a customer detours toward a stall
+    customerPauseSec: 0.6,   // pause at the stall before paying
+    customerSpawnIntervalSec: 4.0,   // seconds between customer spawns
+    customerMaxLive: 3,     // upper bound on simultaneous customers per spawner
+    customerWalkSpeed: 2.4,   // overrides Movement.speed if non-null
+    customerBuyProbability: 0.85,  // chance a passerby actually detours when a stocked stall is in range
+    customerLeaveLerpSpeed: 3.0,   // m/s when steering off-spline / back to spline
     stallCoinPayoutStaggerSec: 0.06,  // delay between successive coin arcs
-    counterBubbleThreshold:    10,    // hide the "×N" bubble at or below this count
-    customerSpawnEdgeMargin:   0.02   // start customers slightly inside the spline so getTangent is stable
+    counterBubbleThreshold: 10,    // hide the "×N" bubble at or below this count
+    customerSpawnEdgeMargin: 0.02   // start customers slightly inside the spline so getTangent is stable
 };

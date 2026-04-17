@@ -6,7 +6,7 @@ import { SceneDiorama } from './core/SceneDiorama.js';
 import { Lighting } from './core/Lighting.js';
 import { LightingDiorama } from './core/LightingDiorama.js';
 import EventBus from './core/EventBus.js';
-import { loadArchetypes } from './core/ArchetypeLoader.js';
+import { loadArchetypes, getArchetype } from './core/ArchetypeLoader.js';
 import ResourceRegistry from './core/ResourceRegistry.js';
 import SkillRegistry from './core/SkillRegistry.js';
 import StackConfigRegistry from './core/StackConfigRegistry.js';
@@ -218,9 +218,8 @@ class Game {
         this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
         this.enemySystem.setECS(this.ecs);
         this.enemySystem.setPlayerEntityId(this.playerId);
-        if (levelData.spawners?.enemies) {
-            this.enemySystem.setSpawnConfig(levelData.spawners.enemies);
-        }
+        const enemyArchetype = getArchetype('enemy');
+        if (enemyArchetype.spawn) this.enemySystem.setConfig(enemyArchetype.spawn);
         this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health']);
         this.gateSystem.setPlayerTransform(playerTransform);
 
