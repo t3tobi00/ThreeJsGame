@@ -7,7 +7,7 @@
  */
 
 const ARCHETYPE_NAMES = [
-    'player', 'enemy', 'speeder', 'tank',
+    'player', 'hero', 'enemy', 'speeder', 'tank',
     'villager', 'turret', 'wall', 'meat-table', 'coin-tray',
     'unlock-turret', 'gate',
     'tree', 'rock',

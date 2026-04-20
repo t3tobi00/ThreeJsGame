@@ -1,0 +1,52 @@
+{
+    "type": "Hero",
+    "mesh": {
+        "preset": "character-player",
+        "color": "0xffd700"
+    },
+    "spawn": {
+        "cost": {
+            "coin": 5
+        }
+    },
+    "components": {
+        "Health": {
+            "hp": 10,
+            "maxHp": 10,
+            "armor": 2
+        },
+        "Animator": {},
+        "SquashStretch": {
+            "intensity": 0.15,
+            "frequency": 6,
+            "trigger": "move"
+        },
+        "FlashAnim": {
+            "color": "0xff0000",
+            "duration": 0.15,
+            "onEvent": "entity:damaged"
+        },
+        "Collider": {
+            "shape": "circle",
+            "radius": 0.4,
+            "isStatic": true
+        },
+        "Tag": {
+            "tags": [
+                "hero",
+                "ally"
+            ]
+        },
+        "ZoneStatus": {},
+        "Movement": {
+            "speed": 3,
+            "controller": "idle",
+            "faction": "ally"
+        },
+        "WalkAnim": {
+            "bobHeight": 0.08,
+            "bobFreq": 8,
+            "tiltAngle": 0.06
+        }
+    }
+}

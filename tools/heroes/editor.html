@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hero Editor — ThesisGame2</title>
+    <style>
+        :root {
+            --bg: #1a1a1f;
+            --panel: #24242c;
+            --panel-light: #2f2f38;
+            --border: #3a3a45;
+            --text: #e8e8ec;
+            --text-dim: #8a8a94;
+            --accent: #ffd24d;
+            --accent-hover: #ffc21a;
+            --success: #66bb6a;
+            --danger: #ef5350;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .topbar {
+            max-width: 1100px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+        }
+
+        h1 { margin: 0; font-size: 22px; color: var(--accent); }
+
+        .topbar a { color: var(--text-dim); font-size: 13px; text-decoration: none; }
+        .topbar a:hover { color: var(--accent); }
+
+        .subtitle {
+            color: var(--text-dim);
+            max-width: 1100px;
+            margin: 0 auto 24px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+            gap: 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 900px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .right-panel {
+            position: sticky;
+            top: 24px;
+            align-self: start;
+            max-height: calc(100vh - 48px);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        section.group {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 14px;
+            background: var(--panel-light);
+            overflow: hidden;
+        }
+
+        section.group > header {
+            padding: 10px 14px;
+            user-select: none;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--accent);
+        }
+
+        section.group > .body {
+            padding: 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .field {
+            display: grid;
+            grid-template-columns: 140px 1fr auto;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .field:last-child { margin-bottom: 0; }
+
+        .field label {
+            color: var(--text-dim);
+            font-size: 13px;
+        }
+
+        .field input[type="number"],
+        .field input[type="text"] {
+            width: 100%;
+            padding: 6px 8px;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font: inherit;
+        }
+
+        .field input[type="color"] {
+            width: 48px;
+            height: 30px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .field input[type="range"] {
+            width: 100%;
+        }
+
+        .field .val {
+            color: var(--text-dim);
+            font-variant-numeric: tabular-nums;
+            min-width: 40px;
+            text-align: right;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .toggle-row .name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .toggle-row .desc {
+            color: var(--text-dim);
+            font-size: 12px;
+            font-weight: 400;
+        }
+
+        .toggle-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .subfields {
+            margin-top: 6px;
+            margin-bottom: 12px;
+            padding: 12px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .subfields.hidden { display: none; }
+
+        .btn {
+            padding: 8px 14px;
+            background: var(--panel-light);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            background: rgba(255,210,77,0.08);
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #1a0f00;
+            font-weight: 600;
+        }
+
+        .btn.primary:hover {
+            background: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        .json-output {
+            font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 12px;
+            white-space: pre;
+            overflow: auto;
+            flex: 1 1 0;
+            min-height: 280px;
+            max-height: 60vh;
+            color: #d4d4d4;
+            margin-bottom: 12px;
+        }
+
+        .copy-feedback {
+            display: inline-block;
+            color: var(--success);
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            margin-left: 12px;
+        }
+        .copy-feedback.show { opacity: 1; }
+
+        .target-path {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+        .target-path code {
+            background: var(--panel-light);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .loading, .error {
+            max-width: 1100px;
+            margin: 40px auto;
+            text-align: center;
+            color: var(--text-dim);
+        }
+
+        .error {
+            color: var(--danger);
+            padding: 20px;
+            background: var(--panel);
+            border: 1px solid var(--danger);
+            border-radius: 8px;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <h1>🛡️ Hero Editor</h1>
+        <a href="../index.html">← all tools</a>
+    </div>
+    <p class="subtitle">Edit the hero archetype — color, health, spawn cost, and which optional skills attach. Paste the output back into <code>hero.json</code>.</p>
+
+    <div id="loading" class="loading">Loading hero.json…</div>
+    <div id="error" class="error hidden"></div>
+
+    <div id="editor" class="layout hidden">
+        <div class="panel">
+            <section class="group">
+                <header>Appearance</header>
+                <div class="body">
+                    <div class="field">
+                        <label for="color">Mesh color</label>
+                        <input type="color" id="color" />
+                        <span class="val" id="colorVal">#ffd700</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="group">
+                <header>Health</header>
+                <div class="body">
+                    <div class="field">
+                        <label for="hp">HP</label>
+                        <input type="range" id="hp" min="1" max="100" step="1" />
+                        <span class="val" id="hpVal">10</span>
+                    </div>
+                    <div class="field">
+                        <label for="armor">Armor</label>
+                        <input type="range" id="armor" min="0" max="10" step="1" />
+                        <span class="val" id="armorVal">0</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="group">
+                <header>Spawn Cost</header>
+                <div class="body">
+                    <div class="field">
+                        <label for="costCoin">Coins per spawn</label>
+                        <input type="number" id="costCoin" min="0" step="1" />
+                        <span></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="group">
+                <header>Optional Skills</header>
+                <div class="body">
+
+                    <div class="toggle-row">
+                        <div class="name">
+                            <input type="checkbox" id="enableMovement" />
+                            <label for="enableMovement">Movement
+                                <div class="desc">Lets the hero move. Disabled = stands still.</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="subfields hidden" id="movementFields">
+                        <div class="field">
+                            <label for="moveSpeed">Speed</label>
+                            <input type="range" id="moveSpeed" min="0" max="15" step="0.5" />
+                            <span class="val" id="moveSpeedVal">0</span>
+                        </div>
+                    </div>
+
+                    <div class="toggle-row">
+                        <div class="name">
+                            <input type="checkbox" id="enableInventory" />
+                            <label for="enableInventory">InventoryStack
+                                <div class="desc">Can carry resources on their back.</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="subfields hidden" id="inventoryFields">
+                        <div class="field">
+                            <label for="invMaxSlots">Max slots</label>
+                            <input type="number" id="invMaxSlots" min="1" max="5" step="1" />
+                            <span></span>
+                        </div>
+                        <div class="field">
+                            <label for="invCap">Per-slot capacity</label>
+                            <input type="number" id="invCap" min="1" max="30" step="1" />
+                            <span></span>
+                        </div>
+                    </div>
+
+                    <div class="toggle-row">
+                        <div class="name">
+                            <input type="checkbox" id="enableCollector" />
+                            <label for="enableCollector">Collector
+                                <div class="desc">Pulls ground resources toward the hero.</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="subfields hidden" id="collectorFields">
+                        <div class="field">
+                            <label for="collRadius">Radius</label>
+                            <input type="range" id="collRadius" min="1" max="15" step="0.5" />
+                            <span class="val" id="collRadiusVal">5</span>
+                        </div>
+                    </div>
+
+                    <div class="toggle-row">
+                        <div class="name">
+                            <input type="checkbox" id="enableWalkAnim" />
+                            <label for="enableWalkAnim">WalkAnim
+                                <div class="desc">Procedural bob/tilt when moving. Safe to leave on.</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="subfields hidden" id="walkAnimFields">
+                        <div class="field">
+                            <label for="bobHeight">Bob height</label>
+                            <input type="range" id="bobHeight" min="0" max="0.3" step="0.01" />
+                            <span class="val" id="bobHeightVal">0.08</span>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+        </div>
+
+        <div class="panel right-panel">
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px;">
+                <button class="btn primary" id="copyBtn">📋 Copy JSON</button>
+                <button class="btn" id="resetBtn">Reset</button>
+                <span class="copy-feedback" id="copyFeedback">Copied ✓</span>
+            </div>
+            <pre class="json-output" id="jsonOutput"></pre>
+            <div class="target-path">
+                Paste into <code>src/config/archetypes/hero.json</code>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./editor.js"></script>
+</body>
+</html>

@@ -65,6 +65,73 @@ canvas {
                  "Twemoji Mozilla", sans-serif;
 }
 
+#hero-bar {
+    position: absolute;
+    top: 60px;
+    left: 12px;
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    pointer-events: auto;
+    z-index: 20;
+}
+
+.hero-btn {
+    background: linear-gradient(180deg, #f5c542 0%, #b0860b 100%);
+    border: 2px solid #f9e08a;
+    border-radius: 14px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #1a0f00;
+    font-weight: 900;
+    font-size: 0.95rem;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.8), 0 5px 8px rgba(0, 0, 0, 0.5);
+    text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.25);
+    transition: transform 0.1s, filter 0.15s;
+}
+
+.hero-btn:hover { filter: brightness(1.08); }
+.hero-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5); }
+
+.hero-btn.disabled {
+    filter: grayscale(0.8) brightness(0.7);
+    cursor: not-allowed;
+}
+
+.hero-btn .hero-icon {
+    font-size: 1.15rem;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+                 "Twemoji Mozilla", sans-serif;
+}
+
+.hero-btn .hero-cost {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 0.85rem;
+}
+
+.hero-btn.pulse { animation: hero-pulse 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.hero-btn.shake { animation: hero-shake 0.35s ease-in-out; }
+
+@keyframes hero-pulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+}
+
+@keyframes hero-shake {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-6px); }
+    40%      { transform: translateX(6px); }
+    60%      { transform: translateX(-4px); }
+    80%      { transform: translateX(4px); }
+}
+
 #joystick-container {
     position: absolute;
     bottom: 0;

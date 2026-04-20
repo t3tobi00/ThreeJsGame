@@ -15,6 +15,7 @@ import { SceneLoaderDiorama } from './core/SceneLoaderDiorama.js';
 import { isDioramaMode } from './core/SceneMode.js';
 import { Joystick } from './ui/Joystick.js';
 import { HUD } from './ui/HUD.js';
+import { HeroBar } from './ui/HeroBar.js';
 import { GameOverUI } from './ui/GameOverUI.js';
 import { FloatingUI } from './ui/FloatingUI.js';
 import { WorldHealthBar } from './ui/WorldHealthBar.js';
@@ -238,6 +239,7 @@ class Game {
 
         // HUD — self-wired via EventBus
         this.hud = new HUD(this.ecs, this.playerId);
+        this.heroBar = new HeroBar(this.ecs, this.scene.instance, this.factory, this.playerId);
         this.gameOverUI = new GameOverUI();
 
         // Floating HP bar above player's head — follows mesh in world space
