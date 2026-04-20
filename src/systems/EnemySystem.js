@@ -82,6 +82,20 @@ export class EnemySystem {
 
         const playerPos = this._playerTransform.mesh.position;
 
+        // Gather all valid aggro targets: the player + any ally (heroes).
+        // Enemies pick the nearest of these each frame.
+        const targets = [{ pos: playerPos, isPlayer: true }];
+        const potentialAllies = ecs.queryEntities(['Transform', 'Movement', 'Health']);
+        for (const id of potentialAllies) {
+            const m = ecs.getComponent(id, 'Movement');
+            if (!m || m.faction !== 'ally') continue;
+            const h = ecs.getComponent(id, 'Health');
+            if (!h || h.hp <= 0) continue;
+            const t = ecs.getComponent(id, 'Transform');
+            if (!t) continue;
+            targets.push({ pos: t.mesh.position, isPlayer: false });
+        }
+
         // Clean up AI state for dead/removed entities
         for (const [id] of this._aiState) {
             if (!entities.includes(id)) this._aiState.delete(id);
@@ -95,10 +109,11 @@ export class EnemySystem {
             const health = ecs.getComponent(entityId, 'Health');
 
             if (!transform || !movement || !health) continue;
+            if (movement.faction !== 'enemy') continue;
             if (health.hp <= 0) continue;
 
             const pos = transform.mesh.position;
-            const aiComp = ecs.getComponent(entityId, 'EnemyAI') || DEFAULT_AI;
+            const aiComp = ecs.getComponent(entityId, 'EnemyAI');
 
             // Despawn far-off-screen wanderers to free slots for fresh spawns
             const ai = this._aiState.get(entityId);
@@ -124,17 +139,25 @@ export class EnemySystem {
             }
 
             const aiState = this._aiState.get(entityId);
-            const distToPlayer = pos.distanceTo(playerPos);
 
-            if (aiState.state === 'wander' && distToPlayer < aiComp.aggroRadius) {
+            // Nearest aggro target (player or ally). Stored on the alive
+            // entry so Pass 3 can reuse it without re-scanning.
+            let nearestTarget = targets[0];
+            let nearestDist = pos.distanceTo(nearestTarget.pos);
+            for (let i = 1; i < targets.length; i++) {
+                const d = pos.distanceTo(targets[i].pos);
+                if (d < nearestDist) { nearestDist = d; nearestTarget = targets[i]; }
+            }
+
+            if (aiState.state === 'wander' && nearestDist < aiComp.aggroRadius) {
                 aiState.state = 'chase';
-            } else if (aiState.state === 'chase' && distToPlayer > aiComp.aggroRadius * 1.5) {
+            } else if (aiState.state === 'chase' && nearestDist > aiComp.aggroRadius * 1.5) {
                 aiState.state = 'wander';
                 aiState.wanderTarget = null;
                 aiState.pauseTimer = aiComp.wanderPauseMin;
             }
 
-            alive.push({ entityId, transform, movement, pos, ai: aiState, aiComp });
+            alive.push({ entityId, transform, movement, pos, ai: aiState, aiComp, nearestTarget });
         }
 
         // --- Pass 2: Herd aggro — O(N*C) where C = number of chasers ---
@@ -159,11 +182,17 @@ export class EnemySystem {
             ? ecs.getComponent(this._playerId, 'ZoneStatus') : null;
 
         // --- Pass 3: Movement ---
-        for (const { transform, movement, pos, ai, aiComp } of alive) {
+        for (const { transform, movement, pos, ai, aiComp, nearestTarget } of alive) {
             if (ai.state === 'chase') {
-                const target = (playerZoneStatus?.insideZone && playerZoneStatus.zoneBoundsWorld)
+                // Safe-zone boundary redirect only applies when the enemy
+                // is chasing the player AND the player is inside the zone.
+                // Allies (heroes) are always targeted directly — they're
+                // fair game wherever they stand.
+                const target = (nearestTarget.isPlayer
+                    && playerZoneStatus?.insideZone
+                    && playerZoneStatus.zoneBoundsWorld)
                     ? this._nearestBoundaryPoint(pos, playerZoneStatus.zoneBoundsWorld)
-                    : playerPos;
+                    : nearestTarget.pos;
                 const dir = new THREE.Vector3().subVectors(target, pos);
                 if (dir.length() > 0.5) {
                     dir.normalize();

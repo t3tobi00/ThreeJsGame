@@ -16,20 +16,20 @@
       "z": 0
     },
     "jitter": 2,
-    "maxAlive": 10,
+    "maxAlive": 15,
     "despawnDistance": 50,
     "countMin": 8,
     "countMax": 10
   },
   "components": {
     "Movement": {
-      "speed": 3,
+      "speed": 6,
       "controller": "simple_steering",
       "faction": "enemy"
     },
     "Health": {
-      "hp": 10,
-      "maxHp": 10,
+      "hp": 50,
+      "maxHp": 50,
       "armor": 0
     },
     "Tag": {
@@ -53,6 +53,7 @@
       "range": 1.2,
       "targetFactions": [
         "player",
+        "ally",
         "structure"
       ]
     },

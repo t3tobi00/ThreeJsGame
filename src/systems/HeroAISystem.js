@@ -1,0 +1,129 @@
+import * as THREE from 'three';
+
+/**
+ * HeroAISystem — Guard + pursuit steering for hero entities.
+ *
+ * Queries: ['Transform', 'Movement', 'HeroAI']
+ *
+ * Responsibilities:
+ *   - Find the nearest enemy (Movement.faction === 'enemy') within
+ *     `guardRadius` of the hero's homePosition.
+ *   - Pursue that target at Movement.speed; stop at `attackRange`
+ *     so the SkillSystem's auto-swing can land.
+ *   - Drop the target when it dies, wanders past guardRadius × LEASH,
+ *     or becomes invalid — then drift back to homePosition at
+ *     `returnSpeed`.
+ *
+ * Intentionally does NOT perform attacks. Combat is owned by
+ * SkillSystem via the hero's SkillLoadout (same path the player uses).
+ */
+const LEASH_MULT = 1.5;
+// Wider than a single collision nudge so that being bumped by a passing
+// player/villager doesn't re-trigger the "return home" drift every frame.
+const ARRIVE_EPSILON = 0.4;
+
+// Defensive list — any entity whose Movement.faction is in this set or
+// whose Tag includes any of these names is NEVER a valid hero target, no
+// matter what. Belt-and-suspenders over `faction === 'enemy'`.
+const NEVER_TARGET_FACTIONS = new Set(['player', 'ally', 'neutral']);
+const NEVER_TARGET_TAGS     = ['player', 'hero', 'ally'];
+
+function isValidEnemy(id, ecs) {
+    const m = ecs.getComponent(id, 'Movement');
+    if (!m) return false;
+    if (m.faction !== 'enemy') return false;
+    if (NEVER_TARGET_FACTIONS.has(m.faction)) return false;
+    const tag = ecs.getComponent(id, 'Tag');
+    if (tag) {
+        for (const t of NEVER_TARGET_TAGS) {
+            if (tag.has && tag.has(t)) return false;
+            if (Array.isArray(tag.tags) && tag.tags.includes(t)) return false;
+        }
+    }
+    return true;
+}
+
+export class HeroAISystem {
+    update(entities, deltaTime, ecs) {
+        const enemies = this._collectEnemies(ecs);
+
+        for (const id of entities) {
+            const transform = ecs.getComponent(id, 'Transform');
+            const movement  = ecs.getComponent(id, 'Movement');
+            const ai        = ecs.getComponent(id, 'HeroAI');
+            if (!transform || !movement || !ai) continue;
+
+            const pos = transform.mesh.position;
+
+            // Tick down the post-spawn grace timer. While > 0, the hero
+            // refuses to acquire or hold targets — it just stands put.
+            if (ai.graceTimer > 0) {
+                ai.graceTimer -= deltaTime;
+                ai.target = null;
+            }
+
+            // Re-validate current target every frame — faction AND existence.
+            // A previously-valid target whose faction changed (or which
+            // somehow wasn't a real enemy to begin with) gets dropped here.
+            if (ai.target != null) {
+                if (!ecs.hasComponents(ai.target, ['Transform', 'Movement', 'Health'])) {
+                    ai.target = null;
+                } else if (!isValidEnemy(ai.target, ecs)) {
+                    ai.target = null;
+                } else {
+                    const tTransform = ecs.getComponent(ai.target, 'Transform');
+                    const distFromHome = tTransform.mesh.position.distanceTo(ai.homePosition);
+                    if (distFromHome > ai.guardRadius * LEASH_MULT) {
+                        ai.target = null;
+                    }
+                }
+            }
+
+            // Acquire a new target — only while grace is over.
+            if (ai.target == null && ai.graceTimer <= 0) {
+                let bestId = null;
+                let bestDist = ai.guardRadius;
+                for (const eId of enemies) {
+                    if (!isValidEnemy(eId, ecs)) continue;   // defensive re-check
+                    const eTransform = ecs.getComponent(eId, 'Transform');
+                    if (!eTransform) continue;
+                    const dist = eTransform.mesh.position.distanceTo(ai.homePosition);
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestId = eId;
+                    }
+                }
+                if (bestId != null) ai.target = bestId;
+            }
+
+            if (ai.target != null) {
+                ai.state = 'pursue';
+                const tTransform = ecs.getComponent(ai.target, 'Transform');
+                const targetPos = tTransform.mesh.position;
+                const dx = targetPos.x - pos.x;
+                const dz = targetPos.z - pos.z;
+                const dist = Math.hypot(dx, dz);
+                if (dist > ai.attackRange && dist > 0) {
+                    pos.x += (dx / dist) * movement.speed * deltaTime;
+                    pos.z += (dz / dist) * movement.speed * deltaTime;
+                }
+                transform.mesh.rotation.y = Math.atan2(dx, dz);
+            } else {
+                // No target → stay put. Deliberately NO return-home drift:
+                // the hero guards wherever it currently stands. Prevents the
+                // "follows the player" behavior when home happens to coincide
+                // with the player's typical standing spot.
+                ai.state = 'idle';
+            }
+        }
+    }
+
+    _collectEnemies(ecs) {
+        const out = [];
+        const all = ecs.queryEntities(['Transform', 'Movement', 'Health']);
+        for (const id of all) {
+            if (isValidEnemy(id, ecs)) out.push(id);
+        }
+        return out;
+    }
+}

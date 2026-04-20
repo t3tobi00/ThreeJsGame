@@ -21,6 +21,7 @@ import { Component_Gate } from '../ecs/components/Component_Gate.js';
 import { Component_ContactDamage } from '../ecs/components/Component_ContactDamage.js';
 import { Component_Drops } from '../ecs/components/Component_Drops.js';
 import { Component_EnemyAI } from '../ecs/components/Component_EnemyAI.js';
+import { Component_HeroAI } from '../ecs/components/Component_HeroAI.js';
 import { Component_Collider } from '../ecs/components/Component_Collider.js';
 import { Component_ZoneStatus } from '../ecs/components/Component_ZoneStatus.js';
 import { Component_InstanceRef } from '../ecs/components/Component_InstanceRef.js';
@@ -58,6 +59,7 @@ const COMPONENT_MAP = {
     ContactDamage:   (d) => new Component_ContactDamage(d),
     Drops:           (d) => new Component_Drops(d),
     EnemyAI:         (d) => new Component_EnemyAI(d),
+    HeroAI:          (d) => new Component_HeroAI(d),
     Collider:        (d) => new Component_Collider(d),
     ZoneStatus:      ()  => new Component_ZoneStatus(),
     SkillLoadout:    (d) => new Component_SkillLoadout(d),

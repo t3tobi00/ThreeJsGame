@@ -15,10 +15,18 @@ const state = {
 };
 
 const SKILL_DEFAULTS = {
-    Movement: { speed: 3, controller: 'idle', faction: 'ally' },
+    Movement: { speed: 3, controller: 'hero_ai', faction: 'ally' },
     InventoryStack: { maxSlots: 1, slotCapacity: 5, anchorOffset: { x: 0, y: 1.55, z: -0.4 }, slotSpacing: 1.2, style: 'wobble' },
     Collector: { radius: 5, resourceTypes: ['coin'], pullForce: 1, pickupRate: 0.25 },
-    WalkAnim: { bobHeight: 0.08, bobFreq: 8, tiltAngle: 0.06 }
+    WalkAnim: { bobHeight: 0.08, bobFreq: 8, tiltAngle: 0.06 },
+    HeroAI:   { guardRadius: 8, attackRange: 2.5, returnSpeed: 2 }
+};
+
+// Melee requires three components at once — toggle them as a bundle.
+const MELEE_DEFAULTS = {
+    SkillLoadout: { activeSkill: 'sword' },
+    SkillState: {},
+    Arms: {}
 };
 
 async function loadJSON(path) {
@@ -75,6 +83,7 @@ function populateForm() {
     $('costCoin').value = costCoin;
 
     const togglePairs = [
+        { key: 'HeroAI',         enableId: 'enableHeroAI',    fieldsId: 'heroAIFields' },
         { key: 'Movement',       enableId: 'enableMovement',  fieldsId: 'movementFields' },
         { key: 'InventoryStack', enableId: 'enableInventory', fieldsId: 'inventoryFields' },
         { key: 'Collector',      enableId: 'enableCollector', fieldsId: 'collectorFields' },
@@ -86,6 +95,16 @@ function populateForm() {
         $(enableId).checked = enabled;
         $(fieldsId).classList.toggle('hidden', !enabled);
     }
+
+    $('enableMelee').checked = !!comps.SkillLoadout;
+
+    const ai = comps.HeroAI || SKILL_DEFAULTS.HeroAI;
+    $('guardRadius').value = ai.guardRadius ?? 8;
+    $('guardRadiusVal').textContent = ai.guardRadius ?? 8;
+    $('attackRange').value = ai.attackRange ?? 2.5;
+    $('attackRangeVal').textContent = ai.attackRange ?? 2.5;
+    $('returnSpeed').value = ai.returnSpeed ?? 2;
+    $('returnSpeedVal').textContent = ai.returnSpeed ?? 2;
 
     const mov = comps.Movement || SKILL_DEFAULTS.Movement;
     $('moveSpeed').value = mov.speed ?? 3;
@@ -133,6 +152,7 @@ function commitFromForm() {
     }
 
     const togglePairs = [
+        { key: 'HeroAI',         enableId: 'enableHeroAI',    fieldsId: 'heroAIFields',    read: readHeroAI },
         { key: 'Movement',       enableId: 'enableMovement',  fieldsId: 'movementFields',  read: readMovement },
         { key: 'InventoryStack', enableId: 'enableInventory', fieldsId: 'inventoryFields', read: readInventory },
         { key: 'Collector',      enableId: 'enableCollector', fieldsId: 'collectorFields', read: readCollector },
@@ -149,7 +169,27 @@ function commitFromForm() {
         }
     }
 
+    // Melee = SkillLoadout + SkillState + Arms bundle.
+    const meleeOn = $('enableMelee').checked;
+    if (meleeOn) {
+        for (const [k, v] of Object.entries(MELEE_DEFAULTS)) {
+            comps[k] = comps[k] || deepClone(v);
+        }
+    } else {
+        for (const k of Object.keys(MELEE_DEFAULTS)) delete comps[k];
+    }
+
     renderJSON();
+}
+
+function readHeroAI(existing) {
+    const guardRadius = parseFloat($('guardRadius').value);
+    const attackRange = parseFloat($('attackRange').value);
+    const returnSpeed = parseFloat($('returnSpeed').value);
+    $('guardRadiusVal').textContent = guardRadius;
+    $('attackRangeVal').textContent = attackRange;
+    $('returnSpeedVal').textContent = returnSpeed;
+    return { ...existing, guardRadius, attackRange, returnSpeed };
 }
 
 function readMovement(existing) {
@@ -183,6 +223,8 @@ function renderJSON() {
 function wireEvents() {
     const ids = [
         'color', 'hp', 'armor', 'costCoin',
+        'enableHeroAI', 'guardRadius', 'attackRange', 'returnSpeed',
+        'enableMelee',
         'enableMovement', 'moveSpeed',
         'enableInventory', 'invMaxSlots', 'invCap',
         'enableCollector', 'collRadius',

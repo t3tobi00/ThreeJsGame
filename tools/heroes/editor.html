@@ -325,6 +325,48 @@
             </section>
 
             <section class="group">
+                <header>Combat &amp; Guarding</header>
+                <div class="body">
+
+                    <div class="toggle-row">
+                        <div class="name">
+                            <input type="checkbox" id="enableHeroAI" />
+                            <label for="enableHeroAI">Pursue enemies
+                                <div class="desc">Hero chases any enemy that enters its guard radius, then drifts back home.</div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="subfields hidden" id="heroAIFields">
+                        <div class="field">
+                            <label for="guardRadius">Guard radius</label>
+                            <input type="range" id="guardRadius" min="1" max="25" step="0.5" />
+                            <span class="val" id="guardRadiusVal">8</span>
+                        </div>
+                        <div class="field">
+                            <label for="attackRange">Attack range</label>
+                            <input type="range" id="attackRange" min="0.5" max="6" step="0.1" />
+                            <span class="val" id="attackRangeVal">2.5</span>
+                        </div>
+                        <div class="field">
+                            <label for="returnSpeed">Return speed</label>
+                            <input type="range" id="returnSpeed" min="0.5" max="8" step="0.5" />
+                            <span class="val" id="returnSpeedVal">2</span>
+                        </div>
+                    </div>
+
+                    <div class="toggle-row">
+                        <div class="name">
+                            <input type="checkbox" id="enableMelee" />
+                            <label for="enableMelee">Melee attack (sword)
+                                <div class="desc">Equips the player's sword. The SkillSystem auto-swings at any enemy in weapon range.</div>
+                            </label>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <section class="group">
                 <header>Optional Skills</header>
                 <div class="body">
 
@@ -332,7 +374,7 @@
                         <div class="name">
                             <input type="checkbox" id="enableMovement" />
                             <label for="enableMovement">Movement
-                                <div class="desc">Lets the hero move. Disabled = stands still.</div>
+                                <div class="desc">Required for pursuing enemies. Disable for a fully static hero.</div>
                             </label>
                         </div>
                     </div>

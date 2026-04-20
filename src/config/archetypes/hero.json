@@ -11,9 +11,9 @@
     },
     "components": {
         "Health": {
-            "hp": 10,
-            "maxHp": 10,
-            "armor": 2
+            "hp": 5,
+            "maxHp": 5,
+            "armor": 0
         },
         "Animator": {},
         "SquashStretch": {
@@ -29,7 +29,7 @@
         "Collider": {
             "shape": "circle",
             "radius": 0.4,
-            "isStatic": true
+            "isStatic": false
         },
         "Tag": {
             "tags": [
@@ -40,13 +40,23 @@
         "ZoneStatus": {},
         "Movement": {
             "speed": 3,
-            "controller": "idle",
+            "controller": "hero_ai",
             "faction": "ally"
         },
         "WalkAnim": {
             "bobHeight": 0.08,
             "bobFreq": 8,
             "tiltAngle": 0.06
-        }
+        },
+        "HeroAI": {
+            "guardRadius": 8,
+            "attackRange": 2.5,
+            "returnSpeed": 2
+        },
+        "SkillLoadout": {
+            "activeSkill": "sword"
+        },
+        "SkillState": {},
+        "Arms": {}
     }
 }

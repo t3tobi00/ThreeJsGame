@@ -38,6 +38,7 @@ import { HarvestNodeSystem } from './systems/HarvestNodeSystem.js';
 import { StackSystem } from './systems/StackSystem.js';
 import { CameraSystem } from './systems/CameraSystem.js';
 import { EnemySystem } from './systems/EnemySystem.js';
+import { HeroAISystem } from './systems/HeroAISystem.js';
 import { CollectorSystem } from './systems/CollectorSystem.js';
 import { AgentAISystem } from './systems/AgentAISystem.js';
 import { TraderSystem } from './systems/TraderSystem.js';
@@ -99,6 +100,12 @@ class Game {
         // 5. Register all systems (entity creation happens in loadLevel)
         this.movementSystem = new MovementSystem(this.joystick, this.keyboard);
         this.ecs.registerSystem(this.movementSystem, ['Transform', 'Movement']);
+
+        // Hero steering — runs after MovementSystem so player input wins
+        // if both update the same frame. Heroes don't use MovementSystem
+        // (their controller is 'hero_ai', which MovementSystem ignores).
+        this.heroAISystem = new HeroAISystem();
+        this.ecs.registerSystem(this.heroAISystem, ['Transform', 'Movement', 'HeroAI']);
 
         // PlayerAnimSystem — procedural walk/idle anims for hero-tier characters
         // (those whose mesh exposes named limb pivots, e.g. 'character-player').
@@ -216,8 +223,21 @@ class Game {
         });
 
         // --- Player (NOT instanced — needs real mesh for camera follow + health bar) ---
-        const playerPos = levelData.spawners?.player?.position || { x: 0, y: 0, z: 0 };
-        this.playerId = this.factory.createPlayer(new THREE.Vector3(playerPos.x, playerPos.y, playerPos.z));
+        // Prefer cell-based spawn via GridSystem (see design/logic-flow/grid-system.md).
+        // Falls back to explicit position for legacy level JSONs.
+        const playerSpawn = levelData.spawners?.player;
+        if (playerSpawn?.cell) {
+            this.playerSpawnPos = this.grid.toWorld({
+                row: playerSpawn.cell[0],
+                col: playerSpawn.cell[1],
+                anchor: playerSpawn.anchor || 'center',
+                y: playerSpawn.position?.y ?? 0,
+            });
+        } else {
+            const p = playerSpawn?.position || { x: 0, y: 0, z: 0 };
+            this.playerSpawnPos = new THREE.Vector3(p.x, p.y, p.z);
+        }
+        this.playerId = this.factory.createPlayer(this.playerSpawnPos.clone());
         const playerTransform = this.ecs.getComponent(this.playerId, 'Transform');
 
         // Systems that need player reference
@@ -227,7 +247,7 @@ class Game {
         this.enemySystem.setPlayerEntityId(this.playerId);
         const enemyArchetype = getArchetype('enemy');
         if (enemyArchetype.spawn) this.enemySystem.setConfig(enemyArchetype.spawn);
-        this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health']);
+        this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health', 'EnemyAI']);
         this.gateSystem.setPlayerTransform(playerTransform);
 
         // SafeZoneSystem — after enemies move, before collision resolution
@@ -241,7 +261,7 @@ class Game {
 
         // HUD — self-wired via EventBus
         this.hud = new HUD(this.ecs, this.playerId);
-        this.heroBar = new HeroBar(this.ecs, this.scene.instance, this.factory, this.playerId);
+        this.heroBar = new HeroBar(this.ecs, this.scene.instance, this.factory, this.playerId, this.playerSpawnPos, this.camera.instance);
         this.gameOverUI = new GameOverUI();
 
         // Floating HP bar above player's head — follows mesh in world space
@@ -554,6 +574,7 @@ class Game {
         this.damagePopupUI.update(realDt);
         this.floatingUI.update();
         this.playerHealthBar.update();
+        if (this.heroBar) this.heroBar.update();
         if (this._market) this._market.update();
 
         // 3. Sync instanced character pools (proxy → GPU matrices)
