@@ -4,8 +4,9 @@ import * as THREE from 'three';
  * ECS MovementSystem — Universal physics and steering for ALL entities.
  */
 export class MovementSystem {
-    constructor(joystick) {
+    constructor(joystick, keyboard = null) {
         this.joystick = joystick;
+        this.keyboard = keyboard;
     }
 
     /**
@@ -24,9 +25,17 @@ export class MovementSystem {
             const velocity = new THREE.Vector3();
 
             // Handle Input/Controller Types
-            if (movement.controller === 'joystick' && this.joystick) {
-                const input = this.joystick.getVector();
-                velocity.set(input.x, 0, input.y);
+            if (movement.controller === 'joystick') {
+                // Player-controlled: sum keyboard + joystick, clamp to length 1.
+                // Either input source drives the player; both can contribute
+                // on devices that have both (e.g. laptop with touchscreen).
+                const kb = this.keyboard ? this.keyboard.getVector() : { x: 0, y: 0 };
+                const js = this.joystick ? this.joystick.getVector() : { x: 0, y: 0 };
+                let ix = kb.x + js.x;
+                let iy = kb.y + js.y;
+                const mag = Math.hypot(ix, iy);
+                if (mag > 1) { ix /= mag; iy /= mag; }
+                velocity.set(ix, 0, iy);
             }
             else if (movement.controller === 'simple_steering' && movement.targetPoint) {
                 // Point A to B steering

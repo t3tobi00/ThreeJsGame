@@ -1,16 +1,32 @@
+/**
+ * Joystick — fixed-position virtual joystick for touch devices.
+ *
+ * The base sits at a fixed location (bottom-left via CSS). Only pointer
+ * drags that START inside the base register — the rest of the screen
+ * stays free for other touch interactions (clicking heroes, dragging
+ * units, tapping UI buttons). Call setVisible(false) to hide (mouse-
+ * primary devices hide it via CSS media query).
+ *
+ * getVector() returns { x, y } normalized to [-1, 1]. y uses screen
+ * convention (-1 = up/forward, +1 = down/back) so KeyboardInput and
+ * Joystick can be summed directly by MovementSystem.
+ */
 export class Joystick {
     constructor() {
         this.active = false;
+        this.pointerId = null;
+        this.vector = { x: 0, y: 0 };
         this.origin = { x: 0, y: 0 };
-        this.current = { x: 0, y: 0 };
-        this.vector = { x: 0, y: 0 }; // Normalized -1 to 1
+        this.radius = 0;
 
         this.container = document.getElementById('joystick-container');
-        this.createElements();
-        this.setupListeners();
+        this._createElements();
+        this._setupListeners();
+        this._computeGeometry();
+        window.addEventListener('resize', () => this._computeGeometry());
     }
 
-    createElements() {
+    _createElements() {
         this.base = document.createElement('div');
         this.base.className = 'joystick-base';
 
@@ -21,70 +37,73 @@ export class Joystick {
         this.container.appendChild(this.base);
     }
 
-    setupListeners() {
-        this.container.addEventListener('pointerdown', (e) => this.onDown(e));
-        window.addEventListener('pointermove', (e) => this.onMove(e));
-        window.addEventListener('pointerup', () => this.onUp());
+    _computeGeometry() {
+        const rect = this.base.getBoundingClientRect();
+        this.radius = rect.width / 2;
+        this.origin.x = rect.left + this.radius;
+        this.origin.y = rect.top + this.radius;
     }
 
-    onDown(e) {
+    _setupListeners() {
+        this.base.addEventListener('pointerdown', (e) => this._onDown(e));
+        window.addEventListener('pointermove', (e) => this._onMove(e));
+        window.addEventListener('pointerup',    (e) => this._onUp(e));
+        window.addEventListener('pointercancel',(e) => this._onUp(e));
+    }
+
+    _onDown(e) {
+        if (this.active) return;
         if (e.cancelable) e.preventDefault();
         this.active = true;
-        this.origin = { x: e.clientX, y: e.clientY };
-        this.current = { x: e.clientX, y: e.clientY };
-
-        this.base.style.display = 'block';
-        this.base.style.left = `${this.origin.x}px`;
-        this.base.style.top = `${this.origin.y}px`;
-
-        this.updateStick();
+        this.pointerId = e.pointerId;
+        this._computeGeometry();
+        this._update(e.clientX, e.clientY);
+        try { this.base.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
     }
 
-    onMove(e) {
-        if (!this.active) return;
+    _onMove(e) {
+        if (!this.active || e.pointerId !== this.pointerId) return;
         if (e.cancelable) e.preventDefault();
+        this._update(e.clientX, e.clientY);
+    }
 
-        this.current = { x: e.clientX, y: e.clientY };
+    _onUp(e) {
+        if (!this.active || e.pointerId !== this.pointerId) return;
+        this.active = false;
+        this.pointerId = null;
+        this.vector.x = 0;
+        this.vector.y = 0;
+        this.stick.style.transform = 'translate(-50%, -50%)';
+    }
 
-        const dx = this.current.x - this.origin.x;
-        const dy = this.current.y - this.origin.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+    _update(cx, cy) {
+        const dx = cx - this.origin.x;
+        const dy = cy - this.origin.y;
+        const dist = Math.hypot(dx, dy);
 
-        // Input deadzone
-        if (dist < 8) {
-            this.vector = { x: 0, y: 0 };
-            this.updateStick();
+        if (dist < 6) {
+            this.vector.x = 0;
+            this.vector.y = 0;
+            this.stick.style.transform = 'translate(-50%, -50%)';
             return;
         }
 
-        const maxDist = Math.min(60, Math.min(window.innerWidth, window.innerHeight) * 0.08);
+        const clamped = Math.min(dist, this.radius);
+        const nx = (dx / dist) * clamped;
+        const ny = (dy / dist) * clamped;
 
-        if (dist > maxDist) {
-            const angle = Math.atan2(dy, dx);
-            this.current.x = this.origin.x + Math.cos(angle) * maxDist;
-            this.current.y = this.origin.y + Math.sin(angle) * maxDist;
-        }
+        this.vector.x = nx / this.radius;
+        this.vector.y = ny / this.radius;
 
-        this.vector.x = (this.current.x - this.origin.x) / maxDist;
-        this.vector.y = (this.current.y - this.origin.y) / maxDist;
-
-        this.updateStick();
-    }
-
-    onUp() {
-        this.active = false;
-        this.vector = { x: 0, y: 0 };
-        this.base.style.display = 'none';
-        this.updateStick();
-    }
-
-    updateStick() {
-        const dx = this.current.x - this.origin.x;
-        const dy = this.current.y - this.origin.y;
-        this.stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        this.stick.style.transform =
+            `translate(calc(-50% + ${nx}px), calc(-50% + ${ny}px))`;
     }
 
     getVector() {
         return this.vector;
+    }
+
+    setVisible(visible) {
+        this.container.style.display = visible ? '' : 'none';
     }
 }

@@ -14,6 +14,7 @@ import { SceneLoader } from './core/SceneLoader.js';
 import { SceneLoaderDiorama } from './core/SceneLoaderDiorama.js';
 import { isDioramaMode } from './core/SceneMode.js';
 import { Joystick } from './ui/Joystick.js';
+import { KeyboardInput } from './ui/KeyboardInput.js';
 import { HUD } from './ui/HUD.js';
 import { HeroBar } from './ui/HeroBar.js';
 import { GameOverUI } from './ui/GameOverUI.js';
@@ -85,6 +86,7 @@ class Game {
 
         // 2. UI
         this.joystick = new Joystick();
+        this.keyboard = new KeyboardInput();
         this.floatingUI = new FloatingUI(this.camera.instance);
 
         // 3. ECS
@@ -95,7 +97,7 @@ class Game {
         this.projectilePool = new ObjectPool(() => new Projectile(), 50, 'ProjectilePool');
 
         // 5. Register all systems (entity creation happens in loadLevel)
-        this.movementSystem = new MovementSystem(this.joystick);
+        this.movementSystem = new MovementSystem(this.joystick, this.keyboard);
         this.ecs.registerSystem(this.movementSystem, ['Transform', 'Movement']);
 
         // PlayerAnimSystem — procedural walk/idle anims for hero-tier characters
