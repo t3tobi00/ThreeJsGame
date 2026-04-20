@@ -415,7 +415,7 @@
         ]
     },
     "market": {
-        "_comment": "Phase-1 MVP selling loop. Single stall on the market pad (z=-22) sells Zombie Candy. Customers walk an east-west spline along the north edge of the pad, detour to the stall when stocked, drop coins on the attached tray.",
+        "_comment": "Phase-1 MVP selling lopo. Single stall on the market pad (z=-22) sells Zombie Candy. Customers walk an east-west spline along the north edge of the pad, detour to the stall when stocked, drop coins on the attached tray.",
         "road": {
             "pathId": "market-road-1",
             "waypoints": [

@@ -110,15 +110,25 @@ export class ResourceStack {
         this.items = [];
     }
 
-    /** Scale-pop animation on a mesh (scales down from 1.5× to 1×). */
+    /**
+     * Scale-pop animation. Animates from 1.5× the mesh's target scale down
+     * to the target. Target comes from mesh.userData.stackScale (set by
+     * Component_InventoryStack.addToSlot from StackConfigRegistry) so the
+     * animation respects per-resource sizing instead of hard-coding 1.0.
+     */
     static _pop(mesh) {
-        mesh.scale.set(1.5, 1.5, 1.5);
+        const target = (mesh.userData && mesh.userData.stackScale) || 1;
+        mesh.scale.set(target * 1.5, target * 1.5, target * 1.5);
         const tick = () => {
-            if (mesh.scale.x > 1.0) {
+            if (mesh.scale.x > target) {
                 mesh.scale.multiplyScalar(0.9);
+                if (mesh.scale.x < target) {
+                    mesh.scale.set(target, target, target);
+                    return;
+                }
                 requestAnimationFrame(tick);
             } else {
-                mesh.scale.set(1, 1, 1);
+                mesh.scale.set(target, target, target);
             }
         };
         tick();

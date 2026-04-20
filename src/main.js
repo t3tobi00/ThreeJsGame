@@ -45,6 +45,7 @@ import { createMarket } from './zones/market/MarketZone.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
 import { HealthSystem } from './systems/HealthSystem.js';
 import { UnlockZoneSystem } from './systems/UnlockZoneSystem.js';
+import { MachineSystem } from './systems/MachineSystem.js';
 import { BuildSystem } from './systems/BuildSystem.js';
 import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
@@ -156,6 +157,9 @@ class Game {
 
         this.unlockZoneSystem = new UnlockZoneSystem(this.scene.instance);
         this.ecs.registerSystem(this.unlockZoneSystem, ['Transform', 'UnlockZone']);
+
+        this.machineSystem = new MachineSystem(this.scene.instance);
+        this.ecs.registerSystem(this.machineSystem, ['Transform', 'Machine']);
 
         this.particleSystem = new ParticleSystem(this.scene.instance);
 
@@ -351,8 +355,7 @@ class Game {
                     : new THREE.Vector3(config.x || 0, config.y || 0, config.z || 0);
                 this.factory.create('gearworks-machine', pos, {
                     _meshOpts: { ...config },
-                    UnlockZone: {
-                        type: 'convert',
+                    Machine: {
                         cost: config.cost || { essence: 10 },
                         output: config.output || 'coin',
                         outputCount: config.outputCount || 1,
