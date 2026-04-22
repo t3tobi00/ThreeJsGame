@@ -1,4 +1,8 @@
 import * as THREE from 'three';
+import EventBus from '../core/EventBus.js';
+
+const COMBAT_PRIORITY = 10;
+const COMBAT_TAG = 'combat';
 
 /**
  * HeroAISystem — Guard + pursuit steering for hero entities.
@@ -96,7 +100,19 @@ export class HeroAISystem {
                 if (bestId != null) ai.target = bestId;
             }
 
+            const bs = ecs.getComponent(id, 'BehaviorState');
+
             if (ai.target != null) {
+                // Cooperate with BehaviorState: claim combat priority so
+                // walk-path (drag-to-waypoint) and other lower-priority
+                // behaviors yield. Skip if something stronger owns control.
+                if (bs && bs.priority > COMBAT_PRIORITY) continue;
+                if (bs && bs.tag !== COMBAT_TAG) {
+                    bs.priority = COMBAT_PRIORITY;
+                    bs.tag = COMBAT_TAG;
+                    EventBus.emit('behavior:changed', { entityId: id, tag: COMBAT_TAG, priority: COMBAT_PRIORITY });
+                }
+
                 ai.state = 'pursue';
                 const tTransform = ecs.getComponent(ai.target, 'Transform');
                 const targetPos = tTransform.mesh.position;
@@ -109,10 +125,16 @@ export class HeroAISystem {
                 }
                 transform.mesh.rotation.y = Math.atan2(dx, dz);
             } else {
-                // No target → stay put. Deliberately NO return-home drift:
-                // the hero guards wherever it currently stands. Prevents the
-                // "follows the player" behavior when home happens to coincide
-                // with the player's typical standing spot.
+                // No target → release combat claim so walk-path can resume.
+                // Deliberately NO return-home drift: the hero guards wherever
+                // it currently stands. Prevents the "follows the player"
+                // behavior when home happens to coincide with the player's
+                // typical standing spot.
+                if (bs && bs.tag === COMBAT_TAG) {
+                    bs.priority = 0;
+                    bs.tag = 'idle';
+                    EventBus.emit('behavior:changed', { entityId: id, tag: 'idle', priority: 0 });
+                }
                 ai.state = 'idle';
             }
         }

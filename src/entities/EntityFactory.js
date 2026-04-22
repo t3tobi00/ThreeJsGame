@@ -34,6 +34,9 @@ import { Component_Machine } from '../ecs/components/Component_Machine.js';
 import { Component_Stall } from '../ecs/components/Component_Stall.js';
 import { Component_Customer } from '../ecs/components/Component_Customer.js';
 import { Component_RoadPath } from '../ecs/components/Component_RoadPath.js';
+import { Component_DragCommandable } from '../ecs/components/Component_DragCommandable.js';
+import { Component_Waypoints } from '../ecs/components/Component_Waypoints.js';
+import { Component_BehaviorState } from '../ecs/components/Component_BehaviorState.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -71,6 +74,9 @@ const COMPONENT_MAP = {
     Stall:           (d) => new Component_Stall(d),
     Customer:        (d) => new Component_Customer(d),
     RoadPath:        (d) => new Component_RoadPath(d),
+    DragCommandable: (d) => new Component_DragCommandable(d),
+    Waypoints:       (d) => new Component_Waypoints(d),
+    BehaviorState:   (d) => new Component_BehaviorState(d),
 };
 
 

@@ -39,6 +39,8 @@ import { StackSystem } from './systems/StackSystem.js';
 import { CameraSystem } from './systems/CameraSystem.js';
 import { EnemySystem } from './systems/EnemySystem.js';
 import { HeroAISystem } from './systems/HeroAISystem.js';
+import { WaypointFollowSystem } from './systems/WaypointFollowSystem.js';
+import { DragInputSystem } from './systems/DragInputSystem.js';
 import { CollectorSystem } from './systems/CollectorSystem.js';
 import { AgentAISystem } from './systems/AgentAISystem.js';
 import { TraderSystem } from './systems/TraderSystem.js';
@@ -106,6 +108,19 @@ class Game {
         // (their controller is 'hero_ai', which MovementSystem ignores).
         this.heroAISystem = new HeroAISystem();
         this.ecs.registerSystem(this.heroAISystem, ['Transform', 'Movement', 'HeroAI']);
+
+        // WaypointFollowSystem — walks any entity with a Waypoints + BehaviorState
+        // along a drag-drawn path. Runs AFTER HeroAISystem so combat claims win
+        // the frame and walk-path yields; resumes automatically when combat
+        // releases. Character-agnostic: any entity with the right components.
+        this.waypointFollowSystem = new WaypointFollowSystem();
+        this.ecs.registerSystem(this.waypointFollowSystem, ['Transform', 'Movement', 'Waypoints', 'BehaviorState']);
+
+        // DragInputSystem — pointer-driven tap-select + drag-to-waypoint input.
+        // Registered here without entity requirements; canvas/camera/joystick
+        // refs are supplied inside loadLevel() once the player mesh and
+        // camera are ready. The update() hook pulses the selection ring.
+        this.dragInputSystem = null;
 
         // PlayerAnimSystem — procedural walk/idle anims for hero-tier characters
         // (those whose mesh exposes named limb pivots, e.g. 'character-player').
@@ -242,6 +257,19 @@ class Game {
 
         // Systems that need player reference
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
+
+        // DragInputSystem — wired here because it needs the renderer canvas
+        // and the already-constructed camera/scene/joystick. Registered with
+        // no component requirements (entities arg is unused); it drives
+        // selection + path assignment through pointer events.
+        this.dragInputSystem = new DragInputSystem(
+            this.ecs,
+            this.camera.instance,
+            this.scene.instance,
+            this.renderer.threeRenderer.domElement,
+            this.joystick
+        );
+        this.ecs.registerSystem(this.dragInputSystem, []);
         this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
         this.enemySystem.setECS(this.ecs);
         this.enemySystem.setPlayerEntityId(this.playerId);

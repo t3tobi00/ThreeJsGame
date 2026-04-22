@@ -57,6 +57,22 @@
             "activeSkill": "sword"
         },
         "SkillState": {},
-        "Arms": {}
+        "Arms": {},
+        "DragCommandable": {
+            "enabled": true,
+            "ringColor": "0xffd700",
+            "trailColor": "0xffd700",
+            "trailWidth": 0.15,
+            "ringRadius": 0.7,
+            "pickRadius": 0.9
+        },
+        "Waypoints": {
+            "onInterruptResume": "destination",
+            "arrivalThreshold": 0.25
+        },
+        "BehaviorState": {
+            "priority": 0,
+            "tag": "idle"
+        }
     }
 }
