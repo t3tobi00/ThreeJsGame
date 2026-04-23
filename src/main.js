@@ -88,8 +88,15 @@ class Game {
             : new Lighting(this.scene.instance);
 
         // 2. UI
-        this.joystick = new Joystick();
-        this.keyboard = new KeyboardInput();
+        // Manual player control DISABLED — drag-to-waypoint now drives the
+        // player (same gesture as the hero). To re-enable keyboard + joystick
+        // movement, uncomment the two `new` lines below and remove the null
+        // assignments. The MovementSystem + DragInputSystem both accept null
+        // here, so flipping this back on is a one-line change.
+        // this.joystick = new Joystick();
+        // this.keyboard = new KeyboardInput();
+        this.joystick = null;
+        this.keyboard = null;
         this.floatingUI = new FloatingUI(this.camera.instance);
 
         // 3. ECS

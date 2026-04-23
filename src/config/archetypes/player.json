@@ -93,6 +93,22 @@
       "radius": 0.4,
       "isStatic": false
     },
-    "ZoneStatus": {}
+    "ZoneStatus": {},
+    "DragCommandable": {
+      "enabled": true,
+      "ringColor": "0x44ccff",
+      "trailColor": "0x44ccff",
+      "trailWidth": 0.15,
+      "ringRadius": 0.7,
+      "pickRadius": 0.9
+    },
+    "Waypoints": {
+      "onInterruptResume": "destination",
+      "arrivalThreshold": 0.25
+    },
+    "BehaviorState": {
+      "priority": 0,
+      "tag": "idle"
+    }
   }
 }
