@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import { CAMERA_CONFIG } from '../config/gameConfig.js';
 import EventBus from '../core/EventBus.js';
 
+// Zoom clamps — keep the view inside sensible limits so pinch or wheel
+// input can't push the frustum to a useless size.
+const MIN_ZOOM = 0.4;   // wider view (zoomed out)
+const MAX_ZOOM = 2.5;   // tighter view (zoomed in)
+
 export class CameraSystem {
     constructor(camera, target) {
         this.camera = camera;
@@ -11,6 +16,11 @@ export class CameraSystem {
         // Accumulated by pan(), cleared by recenter(). Persistent until
         // the user recenters so the view stays where they left it.
         this._panOffset = new THREE.Vector3(0, 0, 0);
+
+        // Zoom factor. 1.0 = default (CAMERA_CONFIG.frustumSize). >1 = zoomed
+        // in (smaller frustum → larger things). <1 = zoomed out. Effective
+        // frustum = CAMERA_CONFIG.frustumSize / _zoom. Persistent.
+        this._zoom = 1.0;
 
         // Smoothed follow position — INTERNAL state, separate from
         // camera.position so the follow lerp never sees the pan offset.
@@ -55,6 +65,25 @@ export class CameraSystem {
         this._panOffset.set(0, 0, 0);
     }
 
+    /**
+     * Set an absolute zoom factor. Clamped to [MIN_ZOOM, MAX_ZOOM]. No
+     * anchor math — zoom scales around the CURRENT view center (simplest
+     * model; sufficient alongside independent pan).
+     */
+    setZoom(z) {
+        this._zoom = THREE.MathUtils.clamp(z, MIN_ZOOM, MAX_ZOOM);
+    }
+
+    /** Multiply the current zoom by `factor`, with clamping. */
+    zoomBy(factor) {
+        this.setZoom(this._zoom * factor);
+    }
+
+    /** Current zoom factor. */
+    getZoom() {
+        return this._zoom;
+    }
+
     update(deltaTime) {
         // Portrait mode compensation
         const aspect = window.innerWidth / window.innerHeight;
@@ -64,8 +93,9 @@ export class CameraSystem {
             frustumMult = 1.3;
         }
 
-        // Apply Orthographic adjustment
-        const s = CAMERA_CONFIG.frustumSize * frustumMult;
+        // Apply Orthographic adjustment. Frustum scales INVERSELY with zoom
+        // (higher zoom = tighter frustum = more magnified).
+        const s = (CAMERA_CONFIG.frustumSize * frustumMult) / this._zoom;
         if (this.camera.instance.top !== s / 2) {
             this.camera.instance.left = s * aspect / -2;
             this.camera.instance.right = s * aspect / 2;

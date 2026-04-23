@@ -80,6 +80,11 @@ export class DragInputSystem {
         this._panAnchorMidZ = 0;
         this._panAnchorSet = false;
 
+        // Pinch-zoom state — captured at pan-start. Zoom factor each frame
+        // = startZoom * (currentFingerDist / startFingerDist).
+        this._pinchStartDist = 0;
+        this._pinchStartZoom = 1;
+
         // Visuals
         this.trailGeometry = null;
         this.trailLine = null;
@@ -150,15 +155,26 @@ export class DragInputSystem {
          || this.mode === MODE_GROUP_DRAG
          || this.mode === MODE_MARQUEE_DRAG) return;
 
-        // Normalize deltaMode: 0=pixel (trackpads/most mice), 1=line, 2=page.
+        // ctrlKey-on-wheel = MacBook trackpad pinch (browser convention).
+        // Ctrl+scroll on any device is also widely expected to zoom. Treat as
+        // zoom; route everything else to pan.
+        if (e.ctrlKey) {
+            // deltaY is typically in pixels for pinch. Convert to a smooth
+            // multiplicative factor — exp keeps zoom-in and zoom-out rates
+            // symmetric regardless of direction.
+            const factor = Math.exp(-e.deltaY * 0.01);
+            this.cameraSystem.zoomBy(factor);
+            return;
+        }
+
+        // Normalize deltaMode for pan path: 0=pixel, 1=line, 2=page.
         let dx = e.deltaX;
         let dy = e.deltaY;
-        if (e.deltaMode === 1)      { dx *= 16; dy *= 16; }   // line → px
+        if (e.deltaMode === 1)      { dx *= 16; dy *= 16; }
         else if (e.deltaMode === 2) { dx *= window.innerHeight; dy *= window.innerHeight; }
 
         // Convert pixel delta → world ΔXZ via a live-camera raycast pair at
-        // screen center. Wheel events are discrete, so no feedback-loop
-        // concern (unlike sustained touch pan, which uses a snapshot camera).
+        // screen center. Wheel events are discrete, so no feedback concern.
         const rect = this.canvas.getBoundingClientRect();
         const cx = rect.left + rect.width  / 2;
         const cy = rect.top  + rect.height / 2;
@@ -168,8 +184,7 @@ export class DragInputSystem {
         if (!this._screenToGround(cx + dx, cy + dy, p2)) return;
 
         // Grab-the-map: camera moves OPPOSITE the swipe so the ground stays
-        // under the fingers. Matches touch pan; matches macOS natural-scroll
-        // convention.
+        // under the fingers. Matches touch pan and macOS natural-scroll.
         const base = this.cameraSystem.getPan();
         this.cameraSystem.setPan(base.x - (p2.x - p1.x), base.z - (p2.z - p1.z));
     }
@@ -389,12 +404,29 @@ export class DragInputSystem {
         // the snapshot-camera frame. Never updated until pan ends.
         this._panAnchorSet = false;
         this._seedPanAnchor();
+
+        // Pinch-zoom baseline — record fingers' screen distance and current
+        // zoom. _panStep then drives zoom = startZoom * (currDist / startDist)
+        // each frame, decoupled from pan.
+        this._pinchStartDist = this._pointerPairDist();
+        this._pinchStartZoom = this.cameraSystem?.getZoom?.() ?? 1;
     }
 
     _exitPanMode() {
         this.mode = MODE_IDLE;
         this._panCamSnapshot = null;
         this._panAnchorSet = false;
+        this._pinchStartDist = 0;
+    }
+
+    _pointerPairDist() {
+        if (this.pointers.size < 2) return 0;
+        const iter = this.pointers.values();
+        const a = iter.next().value;
+        const b = iter.next().value;
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        return Math.hypot(dx, dy);
     }
 
     _seedPanAnchor() {
@@ -437,6 +469,16 @@ export class DragInputSystem {
         const dx = this._panAnchorMidX - curMidX;
         const dz = this._panAnchorMidZ - curMidZ;
         this.cameraSystem.setPan(this._panBaseX + dx, this._panBaseZ + dz);
+
+        // Pinch-zoom: apply absolute zoom based on the finger distance ratio.
+        // Decoupled from pan — zoom changes the frustum, pan changes position.
+        if (this._pinchStartDist > 0) {
+            const curDist = this._pointerPairDist();
+            if (curDist > 0) {
+                const factor = curDist / this._pinchStartDist;
+                this.cameraSystem.setZoom(this._pinchStartZoom * factor);
+            }
+        }
     }
 
     _snapshotScreenToGround(clientX, clientY, out) {
