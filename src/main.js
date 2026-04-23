@@ -266,15 +266,17 @@ class Game {
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
 
         // DragInputSystem — wired here because it needs the renderer canvas
-        // and the already-constructed camera/scene/joystick. Registered with
-        // no component requirements (entities arg is unused); it drives
-        // selection + path assignment through pointer events.
+        // and the already-constructed camera/scene/joystick/cameraSystem.
+        // Registered with no component requirements (entities arg is unused);
+        // it drives single-unit commands, marquee group selection, group
+        // moves, and two-finger camera pan through pointer events.
         this.dragInputSystem = new DragInputSystem(
             this.ecs,
             this.camera.instance,
             this.scene.instance,
             this.renderer.threeRenderer.domElement,
-            this.joystick
+            this.joystick,
+            this.cameraSystem
         );
         this.ecs.registerSystem(this.dragInputSystem, []);
         this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
