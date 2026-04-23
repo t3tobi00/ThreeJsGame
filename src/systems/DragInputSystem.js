@@ -275,21 +275,27 @@ export class DragInputSystem {
 
         const pickedId = this._pickEntityAt(this._hit);
         if (pickedId != null && this.selectedGroup.has(pickedId)) {
-            // Touched a unit inside the selected group → group-move gesture.
+            // Touched a unit already in the selected group → ARMED_GROUP.
+            // Tap release (no drag) → remove this one from the group.
+            // Drag → group-move command for the whole group.
             this.mode = MODE_ARMED_GROUP;
             this.armedId = pickedId;
-            // Ring is already visible (group selection). No new ring pop.
+            // Ring is already visible from group selection. No new ring pop.
         } else if (pickedId != null) {
-            // Touched a commandable unit that ISN'T in the group → single-
-            // unit command. If a group exists, it is cleared (user intent:
-            // command just this one).
-            if (this.selectedGroup.size > 0) this._clearGroup();
+            // Touched a commandable unit NOT in group → ARMED_SINGLE.
+            // Tap release (no drag) → replace selection with just this unit.
+            // Drag → clear any existing group + single-unit command.
+            // NOTE: we deliberately do NOT clear the existing group here —
+            // the decision to clear (drag) or replace (tap) is made on
+            // release, not at touchdown. This lets tap-to-replace behave
+            // predictably for long-distance commands.
             this.mode = MODE_ARMED_SINGLE;
             this.armedId = pickedId;
             this._showRingFor(pickedId);
             EventBus.emit('drag:armed', { entityId: pickedId });
         } else {
-            // Empty ground → potential marquee.
+            // Empty ground → could become a marquee (on drag) or a
+            // long-distance command (on tap release if a group is selected).
             this.mode = MODE_ARMED_MARQUEE;
             this.armedId = null;
         }
@@ -303,6 +309,11 @@ export class DragInputSystem {
         // Promote armed → drag once past the tap threshold
         if (this.mode === MODE_ARMED_SINGLE && past) {
             this.mode = MODE_SINGLE_DRAG;
+            // Drag from a non-group unit = single-unit command. Clear any
+            // previously selected group (user is commanding just this one).
+            // The armed unit isn't in that group (guaranteed by ARMED_SINGLE
+            // entry condition), so its ring survives _clearGroup.
+            if (this.selectedGroup.size > 0) this._clearGroup();
             this._beginTrail();
         } else if (this.mode === MODE_ARMED_GROUP && past) {
             this.mode = MODE_GROUP_DRAG;
@@ -333,25 +344,50 @@ export class DragInputSystem {
                 }
                 this._hideRingFor(this.armedId);
                 break;
+
             case MODE_GROUP_DRAG:
                 if (this.hasHit) this._commitGroup(this.lastHit);
                 this._clearGroup();
                 break;
+
             case MODE_MARQUEE_DRAG:
                 this._commitMarquee(this.startGround, this.lastHit);
                 break;
-            // ARMED_* without movement = tap → no-op. For ARMED_SINGLE we
-            // also hide the ring that popped on touchdown so there's no
-            // lingering selection.
+
+            // Tap on a non-group commandable unit → REPLACE the selection
+            // with just that unit (ring persists). Classic "single select."
             case MODE_ARMED_SINGLE:
-                this._hideRingFor(this.armedId);
+                if (this.armedId != null) {
+                    // Drop any previous group selection. The armed unit is
+                    // guaranteed NOT in that group, so _clearGroup leaves its
+                    // ring intact — which we then promote to persistent by
+                    // adding to selectedGroup.
+                    if (this.selectedGroup.size > 0) this._clearGroup();
+                    this.selectedGroup.add(this.armedId);
+                    EventBus.emit('drag:group_selected', { entityIds: [this.armedId] });
+                }
                 break;
+
+            // Tap on a unit already in the group → DESELECT just that unit.
+            // Rest of the group stays selected. If this was the only member,
+            // the group becomes empty.
             case MODE_ARMED_GROUP:
-                // tap-on-selected-group-unit: do nothing; group persists.
+                if (this.armedId != null) {
+                    this.selectedGroup.delete(this.armedId);
+                    this._hideRingFor(this.armedId);
+                    EventBus.emit('drag:group_selected', { entityIds: Array.from(this.selectedGroup) });
+                }
                 break;
+
+            // Tap on empty ground.
+            //   - With a group selected → long-distance command: the whole
+            //     group marches to the tap point. Ring clears.
+            //   - With nothing selected → no-op (prevents misfires).
             case MODE_ARMED_MARQUEE:
-                // tap on empty ground while group selected → clear group.
-                if (this.selectedGroup.size > 0) this._clearGroup();
+                if (this.selectedGroup.size > 0 && this.hasHit) {
+                    this._commitGroup(this.lastHit);
+                    this._clearGroup();
+                }
                 break;
         }
     }
