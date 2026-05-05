@@ -67,7 +67,8 @@ export class ContactDamageSystem {
                 if (dist > contact.range) continue;
 
                 contact.timeSinceLastHit = 0;
-                EventBus.emit('entity:damaged', { entityId: targetId, damage: contact.damage });
+                EventBus.emit('entity:damaged',  { entityId: targetId, damage: contact.damage });
+                EventBus.emit('entity:attacked', { attackerId, targetId });
                 break; // one target per cooldown cycle
             }
         }

@@ -58,6 +58,44 @@ export class PlayerAnimSystem {
             // Advance walk phase
             walkAnim.phase += deltaTime * walkAnim.bobFreq * (0.4 + speed01);
 
+            // ── Zombie style: arms locked forward, stiff lurch, side-to-side sway ──
+            if (walkAnim.style === 'zombie') {
+                const armRest   = root.userData.zombieArmRestX  ?? -Math.PI / 2;
+                const torsoRest = root.userData.zombieTorsoRestX ?? 0.12;
+
+                if (moving) {
+                    const swing = Math.sin(walkAnim.phase) * (0.4 + speed01 * 0.3);
+                    refs.leftArm.rotation.x  = armRest + Math.sin(walkAnim.phase) * 0.08;
+                    refs.rightArm.rotation.x = armRest - Math.sin(walkAnim.phase) * 0.08;
+                    refs.leftLeg.rotation.x  = -swing * 0.55;
+                    refs.rightLeg.rotation.x =  swing * 0.55;
+                    if (refs.body) {
+                        refs.body.position.y =
+                            walkAnim._bodyRestY +
+                            Math.abs(Math.sin(walkAnim.phase)) * walkAnim.bobHeight * 0.6;
+                    }
+                    if (refs.torso) {
+                        refs.torso.rotation.z = Math.sin(walkAnim.phase) * 0.10;
+                        refs.torso.rotation.x = torsoRest + walkAnim.tiltAngle * speed01;
+                    }
+                } else {
+                    const k = Math.min(1, deltaTime * 6);
+                    refs.leftArm.rotation.x  += (armRest - refs.leftArm.rotation.x)  * k;
+                    refs.rightArm.rotation.x += (armRest - refs.rightArm.rotation.x) * k;
+                    refs.leftLeg.rotation.x  += (0 - refs.leftLeg.rotation.x)  * k;
+                    refs.rightLeg.rotation.x += (0 - refs.rightLeg.rotation.x) * k;
+                    if (refs.torso) {
+                        refs.torso.rotation.z += (0 - refs.torso.rotation.z) * k;
+                        refs.torso.rotation.x += (torsoRest - refs.torso.rotation.x) * k;
+                    }
+                    if (refs.body) {
+                        const t = performance.now() * 0.0015;
+                        refs.body.position.y = walkAnim._bodyRestY + Math.sin(t) * 0.012;
+                    }
+                }
+                continue;
+            }
+
             if (moving) {
                 const swing = Math.sin(walkAnim.phase) * (0.6 + speed01 * 0.4);
 

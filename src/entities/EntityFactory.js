@@ -19,6 +19,7 @@ import { Component_SpawnAnim } from '../ecs/components/Component_SpawnAnim.js';
 import { Component_UnlockZone } from '../ecs/components/Component_UnlockZone.js';
 import { Component_Gate } from '../ecs/components/Component_Gate.js';
 import { Component_ContactDamage } from '../ecs/components/Component_ContactDamage.js';
+import { Component_Spitter } from '../ecs/components/Component_Spitter.js';
 import { Component_Drops } from '../ecs/components/Component_Drops.js';
 import { Component_EnemyAI } from '../ecs/components/Component_EnemyAI.js';
 import { Component_HeroAI } from '../ecs/components/Component_HeroAI.js';
@@ -60,6 +61,7 @@ const COMPONENT_MAP = {
     UnlockZone:      (d) => new Component_UnlockZone(d),
     Gate:            (d) => new Component_Gate(d),
     ContactDamage:   (d) => new Component_ContactDamage(d),
+    Spitter:         (d) => new Component_Spitter(d),
     Drops:           (d) => new Component_Drops(d),
     EnemyAI:         (d) => new Component_EnemyAI(d),
     HeroAI:          (d) => new Component_HeroAI(d),

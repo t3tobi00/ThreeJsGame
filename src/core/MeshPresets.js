@@ -186,6 +186,113 @@ MeshPresets.register('character-player', ({ color = 0x3366ff } = {}) => {
     return root;
 });
 
+MeshPresets.register('character-zombie', ({ color = 0x6a8a4a } = {}) => {
+    // Same rig as character-player so PlayerAnimSystem + LungeAnimSystem can
+    // drive joints by name. Differences vs player:
+    //   - arms pre-rotated forward (zombie reach pose)
+    //   - torso slightly hunched
+    //   - head tilted forward
+    //   - sickly green/gray skin
+    // PlayerAnimSystem reads WalkAnim.style === 'zombie' to lock arms forward
+    // and use a stiff-leg lurch instead of the human swing cycle.
+
+    const root = new THREE.Group();
+
+    const torso = new THREE.Group();
+    torso.name = 'torso';
+    torso.rotation.x = 0.12;          // hunch
+    root.add(torso);
+
+    const pelvis = new THREE.Group();
+    pelvis.name = 'pelvis';
+    pelvis.position.y = 0.55;
+    root.add(pelvis);
+
+    const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
+    const limbMat = new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0x8aa874, roughness: 0.8 });
+
+    const body = new THREE.Mesh(_charBodyGeo, bodyMat);
+    body.position.y = 0.85;
+    body.castShadow = true;
+    body.name = 'body';
+    torso.add(body);
+
+    const head = new THREE.Group();
+    head.name = 'head';
+    head.position.y = 1.45;
+    head.rotation.x = 0.18;           // tilted forward
+    torso.add(head);
+
+    const headMesh = new THREE.Mesh(_charHeadGeo, skinMat);
+    headMesh.castShadow = true;
+    head.add(headMesh);
+
+    const leftEye  = new THREE.Mesh(_charEyeGeo, _charEyeMat);
+    leftEye.position.set(-0.08, 0.02, 0.18);
+    const rightEye = new THREE.Mesh(_charEyeGeo, _charEyeMat);
+    rightEye.position.set( 0.08, 0.02, 0.18);
+    head.add(leftEye, rightEye);
+
+    const SEG_LEN = 0.32;
+    const SEG_HALF = SEG_LEN / 2;
+
+    const makeTwoSegmentLimb = (xOrigin, yOrigin) => {
+        const shoulder = new THREE.Group();
+        shoulder.position.set(xOrigin, yOrigin, 0);
+
+        const upper = new THREE.Mesh(_charLimbGeo, limbMat);
+        upper.position.y = -SEG_HALF;
+        upper.castShadow = true;
+        shoulder.add(upper);
+
+        const joint = new THREE.Group();
+        joint.position.y = -SEG_LEN;
+        shoulder.add(joint);
+
+        const lower = new THREE.Mesh(_charLimbGeo, limbMat);
+        lower.position.y = -SEG_HALF;
+        lower.castShadow = true;
+        joint.add(lower);
+
+        return { shoulder, joint };
+    };
+
+    // Arms — locked forward in classic zombie reach
+    const ARM_REACH_X = -Math.PI / 2 + 0.18;
+
+    const leftArmPair = makeTwoSegmentLimb(-0.32, 1.15);
+    leftArmPair.shoulder.name = 'leftArm';
+    leftArmPair.joint.name    = 'leftElbow';
+    leftArmPair.shoulder.rotation.x = ARM_REACH_X;
+    leftArmPair.shoulder.rotation.z = 0.12;
+    torso.add(leftArmPair.shoulder);
+
+    const rightArmPair = makeTwoSegmentLimb(0.32, 1.15);
+    rightArmPair.shoulder.name = 'rightArm';
+    rightArmPair.joint.name    = 'rightElbow';
+    rightArmPair.shoulder.rotation.x = ARM_REACH_X;
+    rightArmPair.shoulder.rotation.z = -0.12;
+    torso.add(rightArmPair.shoulder);
+
+    // Legs — neutral stance, animated stiff by zombie walk
+    const leftLegPair = makeTwoSegmentLimb(-0.13, 0);
+    leftLegPair.shoulder.name = 'leftLeg';
+    leftLegPair.joint.name    = 'leftKnee';
+    pelvis.add(leftLegPair.shoulder);
+
+    const rightLegPair = makeTwoSegmentLimb(0.13, 0);
+    rightLegPair.shoulder.name = 'rightLeg';
+    rightLegPair.joint.name    = 'rightKnee';
+    pelvis.add(rightLegPair.shoulder);
+
+    root.userData.bodyRestY = body.position.y;
+    root.userData.zombieArmRestX = ARM_REACH_X;
+    root.userData.zombieTorsoRestX = 0.12;
+
+    return root;
+});
+
 MeshPresets.register('table', ({ color = 0x8B4513, width = 2, depth = 2, height = 0.6 } = {}) => {
     const group = new THREE.Group();
     const boxGeo = new THREE.BoxGeometry(width, height, depth);

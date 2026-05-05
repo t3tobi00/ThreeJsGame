@@ -30,9 +30,13 @@ export class CameraSystem {
         // Screen shake — amplitude decays each frame. Triggered via 'camera:shake'.
         this._shakeAmount = 0;
         EventBus.on('camera:shake', ({ amount = 0.2 } = {}) => {
-            // Take the larger of current vs incoming so back-to-back shakes
-            // don't downgrade in strength
-            this._shakeAmount = Math.max(this._shakeAmount, amount);
+            // Anti-stack: in a swarm, many overlapping hits would otherwise
+            // refresh the shake every frame and feel like a constant rumble.
+            // Only refresh if the current shake has decayed below half the
+            // incoming amount, OR the new burst is genuinely stronger.
+            if (this._shakeAmount < amount * 0.5 || amount > this._shakeAmount) {
+                this._shakeAmount = amount;
+            }
         });
     }
 

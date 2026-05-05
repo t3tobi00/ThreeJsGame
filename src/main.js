@@ -52,6 +52,9 @@ import { StallSystem } from './systems/StallSystem.js';
 import { CustomerAISystem } from './systems/CustomerAISystem.js';
 import { createMarket } from './zones/market/MarketZone.js';
 import { ParticleSystem } from './systems/ParticleSystem.js';
+import { LungeAnimSystem } from './systems/LungeAnimSystem.js';
+import { SpitterSystem } from './systems/SpitterSystem.js';
+import { PoisonCloudSystem } from './systems/PoisonCloudSystem.js';
 import { HealthSystem } from './systems/HealthSystem.js';
 import { UnlockZoneSystem } from './systems/UnlockZoneSystem.js';
 import { MachineSystem } from './systems/MachineSystem.js';
@@ -217,6 +220,29 @@ class Game {
         this.ecs.registerSystem(this.machineSystem, ['Transform', 'Machine']);
 
         this.particleSystem = new ParticleSystem(this.scene.instance);
+
+        this.lungeAnimSystem = new LungeAnimSystem();
+        this.lungeAnimSystem.setECS(this.ecs);
+
+        this.spitterSystem = new SpitterSystem(this.scene.instance, this.particleSystem);
+        this.spitterSystem.setECS(this.ecs);
+        this.ecs.registerSystem(this.spitterSystem, ['Transform', 'Spitter']);
+
+        this.poisonCloudSystem = new PoisonCloudSystem(this.scene.instance, this.particleSystem);
+        this.poisonCloudSystem.setECS(this.ecs);
+
+        // Blood splatter on any combatant hit — zombies bleed when struck,
+        // player/allies bleed when bitten. Skips inert targets (trees, walls,
+        // rocks) and silent damage (poison gas ticks).
+        EventBus.on('entity:damaged', ({ entityId, silent }) => {
+            if (silent) return;
+            const movement = this.ecs.getComponent(entityId, 'Movement');
+            if (!movement) return;
+            const f = movement.faction;
+            if (f !== 'enemy' && f !== 'player' && f !== 'ally') return;
+            const tr = this.ecs.getComponent(entityId, 'Transform');
+            if (tr?.mesh) this.particleSystem.createBloodSplatter(tr.mesh.position);
+        });
 
         this.buildSystem = new BuildSystem(this.scene.instance, this.factory, this.particleSystem);
         this.buildSystem.setECS(this.ecs);
@@ -674,6 +700,8 @@ class Game {
         // shake visible during freeze); particles/effects pause with gameplay.
         this.cameraSystem.update(realDt);
         this.particleSystem.update(deltaTime);
+        this.lungeAnimSystem.update(deltaTime);
+        this.poisonCloudSystem.update(deltaTime);
         this.skillEffectSystem.update(deltaTime);
         this.harvestNodeSystem.update(deltaTime);
         if (this.prototypeStateMachine) this.prototypeStateMachine.update(deltaTime);

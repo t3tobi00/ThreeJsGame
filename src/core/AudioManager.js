@@ -117,6 +117,23 @@ export class AudioManager {
         defeat_thud(ctx) {
             this._noiseBurst(ctx, { dur: 0.8, filterFreq: 200, gain: 0.4 });
             this._tone(ctx, { freq: 80, dur: 0.8, gain: 0.3, type: 'sine' });
+        },
+        snarl(ctx) {
+            // Guttural zombie growl — low sawtooth + filtered noise
+            const t0 = ctx.currentTime;
+            this._tone(ctx, { freq: 130, dur: 0.28, gain: 0.22, type: 'sawtooth' }, t0);
+            this._tone(ctx, { freq: 95,  dur: 0.30, gain: 0.18, type: 'sawtooth' }, t0 + 0.05);
+            this._noiseBurst(ctx, { dur: 0.32, filterFreq: 600, filterSweepTo: 200, gain: 0.28 });
+        },
+        spit_hiss(ctx) {
+            // Wet hiss/intake during the spit windup
+            this._noiseBurst(ctx, { dur: 0.28, filterFreq: 2400, filterSweepTo: 800, gain: 0.18 });
+        },
+        spit_splat(ctx) {
+            // Wet splat when the spit lands
+            const t0 = ctx.currentTime;
+            this._noiseBurst(ctx, { dur: 0.18, filterFreq: 1200, filterSweepTo: 400, gain: 0.30 });
+            this._tone(ctx, { freq: 180, dur: 0.10, gain: 0.18, type: 'square' }, t0);
         }
     };
 
@@ -161,12 +178,17 @@ export class AudioManager {
     // ─── Event wiring ────────────────────────────────────────────
 
     _wireEvents() {
-        EventBus.on('entity:damaged', ({ entityId }) => {
+        EventBus.on('entity:damaged', ({ entityId, silent }) => {
+            if (silent) return;
             if (!this.ecs) return;
             const movement = this.ecs.getComponent(entityId, 'Movement');
             if (!movement) return;
             if (movement.faction === 'player' || movement.faction === 'ally') {
                 this.play('grunt');
+            }
+            if (movement.faction === 'player') {
+                this.play('snarl');
+                EventBus.emit('camera:shake', { amount: 0.18, duration: 0.2 });
             }
         });
 
