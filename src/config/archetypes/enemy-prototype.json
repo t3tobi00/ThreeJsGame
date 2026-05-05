@@ -1,0 +1,10 @@
+{
+    "_doc": "Prototype-mode zombie. Extends legacy enemy.json with §4 numbers: HP 30, 5 DMG, 1 atk-sec, 8-tile aggro. Speed 3 (was 6 in legacy) — clearly slower than the player (speed 8) so the player can outrun a single zombie but is challenged by multiple. Drops are inherited (single 'meat' which the FEATURE_FLAGS.USE_ESSENCE_DROPS swap turns into essence). The spawn block is also inherited but PrototypeStateMachine overrides it per state.",
+    "extends": "enemy",
+    "components": {
+        "Health":        { "hp": 30, "maxHp": 30, "armor": 0 },
+        "Movement":      { "speed": 4, "controller": "simple_steering", "faction": "enemy" },
+        "ContactDamage": { "damage": 5, "cooldown": 1.0, "range": 1.2, "targetFactions": ["player", "ally", "structure"] },
+        "EnemyAI":       { "aggroRadius": 8, "herdRadius": 5, "wanderSpeed": 0.6, "wanderRadius": 12, "wanderPauseMin": 1, "wanderPauseMax": 3 }
+    }
+}

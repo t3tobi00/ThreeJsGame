@@ -1,0 +1,221 @@
+{
+    "_doc": "Act 1 state machine per newGameDesign/PROTOTYPE_PLAN.md §4. Purely milestone-driven (no time-based auto-advance). Stall escalation is granular: each escalation tier checks WHAT specifically the player hasn't done (player inventory + zoneNotBuilt) and pushes a wave of marchers from the spawn point if the sub-step is still failing.",
+
+    "firstState": "A",
+
+    "spawnConfigs": {
+        "spawn_a_baseline": {
+            "_doc": "State A: light steady trickle while player picks off the 5 marchers.",
+            "archetype": "enemy-prototype",
+            "mode": "trickle", "interval": 2.5, "maxAlive": 6,
+            "countMin": 1, "countMax": 1,
+            "point": { "x": 0, "z": -22 }, "jitter": 4, "despawnDistance": 50
+        },
+        "spawn_b_baseline": {
+            "_doc": "State B: trickle while player gathers wood + builds.",
+            "archetype": "enemy-prototype",
+            "mode": "trickle", "interval": 2.0, "maxAlive": 8,
+            "countMin": 1, "countMax": 1,
+            "point": { "x": 0, "z": -22 }, "jitter": 4, "despawnDistance": 50
+        },
+        "spawn_c_baseline": {
+            "_doc": "State C: trickle as player kills for essence + spawns soldier.",
+            "archetype": "enemy-prototype",
+            "mode": "trickle", "interval": 1.8, "maxAlive": 9,
+            "countMin": 1, "countMax": 1,
+            "point": { "x": 0, "z": -22 }, "jitter": 4, "despawnDistance": 50
+        },
+        "spawn_d_baseline": {
+            "_doc": "State D: trickle while player gathers + builds second wall.",
+            "archetype": "enemy-prototype",
+            "mode": "trickle", "interval": 1.5, "maxAlive": 10,
+            "countMin": 1, "countMax": 2,
+            "point": { "x": 0, "z": -22 }, "jitter": 4, "despawnDistance": 50
+        }
+    },
+
+    "states": {
+        "A": {
+            "_name": "BLOOD — survival burst",
+            "_doc":  "Drop in. 5 marchers + 7 idlers near spawn. Exit: 5 zombie kills. If player stalls (5 not killed within 20s/40s), send a wave of marchers from spawn pt.",
+            "entryActions": [
+                { "call": "enemy.setSpawnConfig", "arg": "spawn_a_baseline" },
+                { "call": "audio.cue",            "arg": "chime_info" }
+            ],
+            "exitTriggers": [
+                { "event": "entity:died", "filter": { "faction": "enemy" }, "count": 5 }
+            ],
+            "stallEscalation": [
+                {
+                    "_doc": "20s in, still hasn't killed 5 — push 3 fresh marchers.",
+                    "afterSeconds": 20,
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 3, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue", "arg": "chime_info" }
+                    ]
+                },
+                {
+                    "_doc": "40s in, still stalling — heavier wave + alert sting.",
+                    "afterSeconds": 40,
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 5, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue", "arg": "alert_high" }
+                    ]
+                }
+            ],
+            "next": "B"
+        },
+
+        "B": {
+            "_name": "DEFENSE — wall up",
+            "_doc":  "Wall ghost #1 reveals. ALSO activates the 7 reserve idlers near spawn so they march south. Exit: 1 wall built. Stall checks: hasn't chopped wood (15s)? has wood but not built (30s)?",
+            "entryActions": [
+                { "call": "enemy.activateReserves", "arg": null },
+                { "call": "factory.activateGhost",  "arg": "wall_ghost_1" },
+                { "call": "pulseTrees",             "arg": true },
+                { "call": "audio.cue",              "arg": "chime_info" },
+                { "call": "enemy.setSpawnConfig",   "arg": "spawn_b_baseline" }
+            ],
+            "exitTriggers": [
+                { "event": "zone:built", "filter": { "archetype": "wall" }, "count": 1 }
+            ],
+            "stallEscalation": [
+                {
+                    "_doc": "15s in, hasn't started chopping (wood < 5) — push wood pressure.",
+                    "afterSeconds": 15,
+                    "stallCondition": { "playerInventoryLt": { "wood": 5 } },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 3, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "chime_info" },
+                        { "call": "hud.showAlert",  "arg": "Chop the trees!" }
+                    ]
+                },
+                {
+                    "_doc": "30s in, has wood but didn't build the wall — push build pressure.",
+                    "afterSeconds": 30,
+                    "stallCondition": {
+                        "playerInventoryGte": { "wood": 10 },
+                        "zoneNotBuilt": "wall_ghost_1"
+                    },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "alert_high" },
+                        { "call": "hud.showAlert",  "arg": "Build the wall!" }
+                    ]
+                },
+                {
+                    "_doc": "45s in, still no wall regardless of resources — heavy push.",
+                    "afterSeconds": 45,
+                    "stallCondition": { "zoneNotBuilt": "wall_ghost_1" },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 6, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "alert_high" }
+                    ]
+                }
+            ],
+            "next": "C"
+        },
+
+        "C": {
+            "_name": "ARMY — spawn pads",
+            "_doc":  "Scout + Bruiser pads reveal. Exit: any soldier spawned. Stall checks: hasn't collected essence (15s)? has 8E but not spawned (30s)?",
+            "entryActions": [
+                { "call": "factory.activateGhost", "arg": "scout_pad" },
+                { "call": "factory.activateGhost", "arg": "bruiser_pad" },
+                { "call": "audio.cue",             "arg": "chime_info" },
+                { "call": "enemy.setSpawnConfig",  "arg": "spawn_c_baseline" }
+            ],
+            "exitTriggers": [
+                { "event": "zone:spawned", "filter": { "archetype": "scout" },   "count": 1 },
+                { "event": "zone:spawned", "filter": { "archetype": "bruiser" }, "count": 1 }
+            ],
+            "stallEscalation": [
+                {
+                    "_doc": "15s in, hasn't enough essence (need 8 for scout) — push for more kills.",
+                    "afterSeconds": 15,
+                    "stallCondition": { "playerInventoryLt": { "essence": 8 } },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "chime_info" },
+                        { "call": "hud.showAlert",  "arg": "Kill zombies for essence!" }
+                    ]
+                },
+                {
+                    "_doc": "30s in, has 8E but didn't spawn a soldier — push for spawn.",
+                    "afterSeconds": 30,
+                    "stallCondition": { "playerInventoryGte": { "essence": 8 } },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "alert_high" },
+                        { "call": "hud.showAlert",  "arg": "Stand on the Spawn Pad!" }
+                    ]
+                },
+                {
+                    "_doc": "45s in, no soldier yet — heavy push.",
+                    "afterSeconds": 45,
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 6, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "alert_high" }
+                    ]
+                }
+            ],
+            "next": "D"
+        },
+
+        "D": {
+            "_name": "MULTI-FRONT — second wall",
+            "_doc":  "Wall ghost #2 reveals. Player must build the second wall. Exit: 1 wall built (since D entry). Stall checks: hasn't gathered wood (15s)? has wood but not built (30s)?",
+            "entryActions": [
+                { "call": "factory.activateGhost", "arg": "wall_ghost_2" },
+                { "call": "audio.cue",             "arg": "chime_info" },
+                { "call": "enemy.setSpawnConfig",  "arg": "spawn_d_baseline" }
+            ],
+            "exitTriggers": [
+                { "event": "zone:built", "filter": { "archetype": "wall" }, "count": 1 }
+            ],
+            "stallEscalation": [
+                {
+                    "_doc": "15s in, no fresh wood — push wood pressure.",
+                    "afterSeconds": 15,
+                    "stallCondition": { "playerInventoryLt": { "wood": 5 } },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 3, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "chime_info" },
+                        { "call": "hud.showAlert",  "arg": "Chop more trees!" }
+                    ]
+                },
+                {
+                    "_doc": "30s in, has wood but no second wall — build pressure.",
+                    "afterSeconds": 30,
+                    "stallCondition": {
+                        "playerInventoryGte": { "wood": 10 },
+                        "zoneNotBuilt": "wall_ghost_2"
+                    },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "alert_high" },
+                        { "call": "hud.showAlert",  "arg": "Build the second wall!" }
+                    ]
+                },
+                {
+                    "_doc": "45s in, no second wall regardless — heavy push.",
+                    "afterSeconds": 45,
+                    "stallCondition": { "zoneNotBuilt": "wall_ghost_2" },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 6, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "alert_high" }
+                    ]
+                }
+            ],
+            "next": "END"
+        },
+
+        "END": {
+            "_name": "End of run (Act 1 stub)",
+            "_doc":  "Triggers PrototypeEndUI Victory. When Act 2 lands, change D.next to E and add States E/F here.",
+            "entryActions": [
+                { "call": "audio.cue", "arg": "victory_chord" }
+            ]
+        }
+    }
+}

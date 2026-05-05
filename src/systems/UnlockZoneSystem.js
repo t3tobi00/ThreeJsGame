@@ -9,15 +9,16 @@ import EventBus from '../core/EventBus.js';
  * Queries: ['Transform', 'UnlockZone']
  * Emits: 'zone:funded' { zoneId, type, builds, spawns, spawnCount }
  *        'stack:changed' { entityId, count }
+ *
+ * Visuals: each zone gets corner brackets + flat cost/progress UI via UnlockZoneUI.
  */
 export class UnlockZoneSystem {
     constructor(scene) {
         this.scene = scene;
         this._transfer = new ResourceTransfer();
         this._ecs = null;
-        this._uiMap = new Map(); // zoneId -> UnlockZoneUI
+        this._uiMap = new Map();    // zoneId -> UnlockZoneUI
 
-        // Clean up UI when a build zone is destroyed
         EventBus.on('zone:built', ({ zoneId }) => {
             this._destroyUI(zoneId);
         });
@@ -31,15 +32,18 @@ export class UnlockZoneSystem {
 
         // Clean up UIs for zones that no longer exist
         for (const [id] of this._uiMap) {
-            if (!entities.includes(id)) {
-                this._destroyUI(id);
-            }
+            if (!entities.includes(id)) this._destroyUI(id);
         }
 
         for (const zoneId of entities) {
             const zoneTransform = ecs.getComponent(zoneId, 'Transform');
             const zone = ecs.getComponent(zoneId, 'UnlockZone');
             if (!zoneTransform || !zone) continue;
+
+            // Hidden zones (level JSON `hidden:true`) sit dormant until a
+            // PrototypeStateMachine entry action calls factory.activateGhost
+            // and toggles the mesh.visible flag. While hidden: no drain, no UI.
+            if (!zoneTransform.mesh.visible) continue;
 
             // Create UI on first encounter
             const ui = this._ensureUI(zoneId, zoneTransform, zone);

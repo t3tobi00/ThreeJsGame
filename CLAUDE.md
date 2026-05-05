@@ -1,8 +1,23 @@
 # Base Defense Tycoon - Project Guide
 
+> **🚧 ACTIVE FOCUS: PROTOTYPE MODE 🚧**
+> The full project focus is on the `?prototype` mode — a 5-minute playable-ad-style
+> demo of the V1 game idea. Legacy gameplay and diorama mode are kept working but
+> NOT being actively developed. V1 phase docs (under `newGameDesign/`) are
+> reference only.
+>
+> **Read first when continuing work:**
+> 1. `newGameDesign/PROTOTYPE_STATUS.md` — current state of the prototype build
+> 2. `newGameDesign/PROTOTYPE_PLAN.md` — locked design spec (25 decisions)
+> 3. `~/.claude/plans/yes-binary-bentley.md` — full implementation plan
+>
+> **Boot the prototype:** `python3 -m http.server 8000` then `http://localhost:8000/?prototype`
+
 ## Quick Orientation
 
 Read these files to understand the project:
+- `newGameDesign/PROTOTYPE_STATUS.md` — current prototype build state (priority for active work)
+- `newGameDesign/PROTOTYPE_PLAN.md` — locked spec for the 5-min playable-ad prototype
 - `PROJECT_DOCS.md` — Full development history, current architecture, known issues
 - `ISOMETRIC_MOBILE_GUIDE.md` — Camera/viewport lessons learned
 - `idea.md` — Original game design specification

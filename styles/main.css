@@ -172,6 +172,11 @@ canvas {
     #joystick-container { display: none; }
 }
 
+/* Prototype mode — keep the joystick visible on desktops too.
+   Drag-to-waypoint is great for long moves, but joystick lets the player
+   make small/precise position adjustments while combat is active. */
+body.prototype-mode #joystick-container { display: block !important; }
+
 .hud-item.pop {
     animation: pop-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

@@ -56,7 +56,40 @@ export class UnlockZoneUI {
         }
 
         this._createCornerBrackets();
+        this._createFillOverlay();
         this._createContentPlane();
+    }
+
+    // ── Whole-zone water fill (rises south → north as drains land) ──
+
+    _createFillOverlay() {
+        const geo = new THREE.PlaneGeometry(this.size, this.size);
+        const mat = new THREE.MeshBasicMaterial({
+            color: 0x44dd88,
+            transparent: true,
+            opacity: 0.55,
+            depthWrite: false
+        });
+        const fill = new THREE.Mesh(geo, mat);
+        fill.rotation.x = -Math.PI / 2;
+        fill.position.y = 0.02;        // above base (0.005), below content (0.07)
+        fill.scale.y = 0.0001;          // start collapsed
+        fill.position.z = -this.size / 2;
+        fill.visible = false;
+        this._fillMesh = fill;
+        this.group.add(fill);
+        this._disposables.push(geo, mat);
+    }
+
+    _setFillRatio(ratio) {
+        const r = Math.max(0, Math.min(1, ratio));
+        if (r <= 0) {
+            this._fillMesh.visible = false;
+            return;
+        }
+        this._fillMesh.visible = true;
+        this._fillMesh.scale.y = r;
+        this._fillMesh.position.z = (this.size / 2) * (r - 1);
     }
 
     // ── Corner Brackets (slim, pointing inward) ────────────────────
@@ -278,6 +311,13 @@ export class UnlockZoneUI {
         }
         if (changed) {
             this._renderContent();
+            let totalProg = 0;
+            let totalCost = 0;
+            for (const [type, needed] of Object.entries(this.cost)) {
+                totalCost += needed;
+                totalProg += Math.min(needed, this.progress[type] || 0);
+            }
+            this._setFillRatio(totalCost > 0 ? totalProg / totalCost : 0);
         }
     }
 
@@ -300,6 +340,7 @@ export class UnlockZoneUI {
 
     destroy() {
         for (const b of this.brackets) this.group.remove(b);
+        if (this._fillMesh) this.group.remove(this._fillMesh);
         if (this._contentPlane) {
             this.group.remove(this._contentPlane);
             this._texture.dispose();

@@ -1,0 +1,7 @@
+{
+    "_doc": "Prototype-mode player. Extends the legacy player.json with HP 10→100 per PROTOTYPE_PLAN §4. SkillLoadout (sword) is intentionally retained — the sword skill damages both zombies and trees, and the prototype still relies on it for tree chopping.",
+    "extends": "player",
+    "components": {
+        "Health": { "hp": 100, "maxHp": 100, "armor": 0 }
+    }
+}

@@ -46,13 +46,17 @@ export class BuildSystem {
 
         if (type === 'build') {
             const buildPos = (zone && zone.buildsAt) ? zone.buildsAt.clone() : pos;
+            // Capture tags BEFORE destruction so PrototypeStateMachine can
+            // distinguish e.g. wall_ghost_1 from wall_ghost_2 in progress checks.
+            const tagComp = this._ecs.getComponent(zoneId, 'Tag');
+            const tags = tagComp ? [...tagComp.tags] : [];
             if (builds) {
                 this.factory.create(builds, buildPos);
             }
             if (transform.mesh) this.scene.remove(transform.mesh);
             this._ecs.destroyEntity(zoneId);
 
-            EventBus.emit('zone:built', { zoneId, archetype: builds, position: buildPos });
+            EventBus.emit('zone:built', { zoneId, archetype: builds, position: buildPos, tags });
 
         } else if (type === 'spawner') {
             const spawnPos = (zone && zone.spawnsAt) ? zone.spawnsAt.clone() : pos;
@@ -74,7 +78,9 @@ export class BuildSystem {
                 }
             }
 
-            EventBus.emit('zone:spawned', { zoneId, archetype: spawns, count });
+            const spawnerTagComp = this._ecs.getComponent(zoneId, 'Tag');
+            const spawnerTags = spawnerTagComp ? [...spawnerTagComp.tags] : [];
+            EventBus.emit('zone:spawned', { zoneId, archetype: spawns, count, tags: spawnerTags });
 
         } else if (type === 'convert') {
             if (!zone) return;

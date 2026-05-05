@@ -1,0 +1,12 @@
+{
+    "_doc": "Marcher zombie — permanently chases the nearest player/ally from anywhere on the map (ignores aggroRadius). Used for the 5 zombies pre-placed at the spawn cluster that need to walk south toward the player from boot. Other 7 pre-placed zombies use plain enemy-prototype and wander idle near the spawn until the player approaches.",
+    "extends": "enemy-prototype",
+    "components": {
+        "EnemyAI": {
+            "permanentChase": true
+        },
+        "Tag": {
+            "tags": ["enemy", "zombie", "marcher"]
+        }
+    }
+}

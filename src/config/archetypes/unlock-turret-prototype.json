@@ -1,0 +1,4 @@
+{
+    "extends": "unlock-turret",
+    "mesh": { "preset": "unlock-zone-flat", "color": "0x00aaff", "size": 4 }
+}

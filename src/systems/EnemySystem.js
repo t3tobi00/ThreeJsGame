@@ -52,12 +52,22 @@ export class EnemySystem {
         this._aiState = new Map();
         this._spawn = { ...DEFAULT_SPAWN, point: { ...DEFAULT_SPAWN.point } };
         this._playerId = null; // set via setPlayerEntityId() for ZoneStatus lookup
+        this._frozen = false;  // when true, update() short-circuits — zombies sit still
     }
 
     setECS(ecs) { this._ecs = ecs; }
 
     /** Player entity ID — used to read ZoneStatus and redirect chase target. */
     setPlayerEntityId(id) { this._playerId = id; }
+
+    /**
+     * Freeze enemy AI + spawning. Used by PrototypeStateMachine BOOT state to
+     * give the player a few seconds to orient before zombies start aggroing.
+     * Pre-placed zombies remain in the world but don't move; ContactDamage
+     * still applies if the player walks into them, so combat is not disabled
+     * — only autonomous AI is paused.
+     */
+    setFrozen(frozen) { this._frozen = !!frozen; }
 
     /** Called from main.js after archetype load. Accepts the 'spawn' block from enemy.json. */
     setConfig(spawn = {}) {
@@ -70,6 +80,7 @@ export class EnemySystem {
 
     /** Called by ECS every frame. */
     update(entities, deltaTime, ecs) {
+        if (this._frozen) return;
         this._ecs = ecs;
         this._spawnTimer += deltaTime;
 
@@ -130,8 +141,11 @@ export class EnemySystem {
             }
 
             if (!this._aiState.has(entityId)) {
+                // Marchers (permanentChase) start in 'chase' so they walk toward
+                // the player from anywhere on the map. Standard zombies start
+                // in 'wander' and only chase when within aggroRadius.
                 this._aiState.set(entityId, {
-                    state: 'wander',
+                    state: aiComp.permanentChase ? 'chase' : 'wander',
                     spawnPos: pos.clone(),
                     wanderTarget: null,
                     pauseTimer: Math.random() * aiComp.wanderPauseMax
@@ -149,13 +163,17 @@ export class EnemySystem {
                 if (d < nearestDist) { nearestDist = d; nearestTarget = targets[i]; }
             }
 
-            if (aiState.state === 'wander' && nearestDist < aiComp.aggroRadius) {
-                aiState.state = 'chase';
-            } else if (aiState.state === 'chase' && nearestDist > aiComp.aggroRadius * 1.5) {
-                aiState.state = 'wander';
-                aiState.wanderTarget = null;
-                aiState.pauseTimer = aiComp.wanderPauseMin;
+            if (!aiComp.permanentChase) {
+                // Standard wander↔chase transitions based on aggroRadius.
+                if (aiState.state === 'wander' && nearestDist < aiComp.aggroRadius) {
+                    aiState.state = 'chase';
+                } else if (aiState.state === 'chase' && nearestDist > aiComp.aggroRadius * 1.5) {
+                    aiState.state = 'wander';
+                    aiState.wanderTarget = null;
+                    aiState.pauseTimer = aiComp.wanderPauseMin;
+                }
             }
+            // Marchers stay in 'chase' permanently — no transition logic runs.
 
             alive.push({ entityId, transform, movement, pos, ai: aiState, aiComp, nearestTarget });
         }
@@ -268,11 +286,14 @@ export class EnemySystem {
         const toSpawn = Math.min(count, slotsLeft);
         const sp = s.point;
         const j = s.jitter;
+        // Spawn config can override which archetype to spawn (e.g.
+        // 'enemy-prototype' under ?prototype mode). Defaults to 'enemy'.
+        const archetype = s.archetype || 'enemy';
         for (let i = 0; i < toSpawn; i++) {
             const jx = (Math.random() * 2 - 1) * j;
             const jz = (Math.random() * 2 - 1) * j;
             const pos = new THREE.Vector3(sp.x + jx, 0, sp.z + jz);
-            this._factory.create('enemy', pos);
+            this._factory.create(archetype, pos);
         }
     }
 }

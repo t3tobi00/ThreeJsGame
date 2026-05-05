@@ -1,33 +1,47 @@
 // SceneMode — single source of truth for which world the game boots into.
 //
-// Resolution order:
-//   1. URL query param `?diorama` (or `?scene=diorama`) — wins, for quick toggling
-//   2. URL query param `?scene=legacy` — explicit opt-out
-//   3. SCENE_CONFIG.mode in src/config/gameConfig.js
+// Three modes share the same engine:
+//   • legacy    — original gameplay scene (default)
+//   • diorama   — parallel "Cardboard Diorama" world
+//   • prototype — 5-min playable-ad demo of V1 (newGameDesign/PROTOTYPE_PLAN.md)
 //
-// Both code paths (Scene/Lighting/SceneLoader/level JSON) consult this.
-// Removing `?diorama` from the URL or setting SCENE_CONFIG.mode='legacy' is the
-// full rollback — no other change required.
+// Resolution order (first match wins per pass; later passes can override):
+//   1. SCENE_CONFIG.mode in src/config/gameConfig.js (baseline)
+//   2. URL bare flag ?prototype  → 'prototype'
+//   3. URL bare flag ?diorama    → 'diorama'
+//   4. URL ?scene=prototype|diorama|legacy (explicit, overrides bare flags)
+//
+// Callers (Scene/Lighting/SceneLoader/level JSON) consult these helpers rather
+// than re-parsing the URL. Removing the URL flag AND setting
+// SCENE_CONFIG.mode='legacy' is the full rollback to the original game.
 
 import { SCENE_CONFIG } from '../config/gameConfig.js';
 
-let _cached = null;
+let _cachedMode = null;
 
-export function isDioramaMode() {
-    if (_cached !== null) return _cached;
+function _resolveMode() {
+    if (_cachedMode !== null) return _cachedMode;
 
     let mode = SCENE_CONFIG?.mode || 'legacy';
     if (typeof window !== 'undefined' && window.location?.search) {
         const params = new URLSearchParams(window.location.search);
-        if (params.has('diorama')) mode = 'diorama';
-        if (params.get('scene') === 'diorama') mode = 'diorama';
-        if (params.get('scene') === 'legacy')  mode = 'legacy';
+        // Bare flags
+        if (params.has('prototype')) mode = 'prototype';
+        if (params.has('diorama'))   mode = 'diorama';
+        // ?scene=X overrides bare flags when both are present
+        const sceneParam = params.get('scene');
+        if (sceneParam === 'prototype') mode = 'prototype';
+        if (sceneParam === 'diorama')   mode = 'diorama';
+        if (sceneParam === 'legacy')    mode = 'legacy';
     }
 
-    _cached = (mode === 'diorama');
-    return _cached;
+    _cachedMode = mode;
+    return _cachedMode;
 }
 
+export function isDioramaMode()   { return _resolveMode() === 'diorama'; }
+export function isPrototypeMode() { return _resolveMode() === 'prototype'; }
+
 export function getSceneMode() {
-    return isDioramaMode() ? 'diorama' : 'legacy';
+    return _resolveMode();
 }

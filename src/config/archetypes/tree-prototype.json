@@ -1,0 +1,8 @@
+{
+    "_doc": "Prototype-mode tree. Extends legacy tree.json with §4 numbers: 5 HP (was 30), deterministic 5 wood drop on death (was 3-5). The wood is delivered via the existing magnetic-harvest pipeline once the tree is felled.",
+    "extends": "tree",
+    "components": {
+        "Health": { "hp": 5, "maxHp": 5, "armor": 0 },
+        "Drops":  { "table": [{ "type": "wood", "chance": 1.0, "min": 5, "max": 5 }] }
+    }
+}

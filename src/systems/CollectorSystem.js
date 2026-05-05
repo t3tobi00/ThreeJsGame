@@ -63,6 +63,32 @@ export class CollectorSystem {
     update(entities, deltaTime, ecs) {
         this._transfer.update(deltaTime);
 
+        // --- Decay tick (essence drops only — disk.userData.decayLeft set in _spawnDisks) ---
+        for (const disk of this._disks) {
+            if (disk.collected || disk.isFlying) continue;
+            if (disk.userData?.decayLeft == null) continue;
+            disk.userData.decayLeft -= deltaTime;
+            if (disk.userData.decayLeft <= 0) {
+                this.scene.remove(disk);
+                if (disk._pool) disk._pool.release(disk);
+                disk.collected = true;
+                continue;
+            }
+            // Shrink: scale 1.0 → 0.4 across the full 10s window
+            const t = disk.userData.decayLeft / disk.userData.decayTotal;
+            const s = 0.4 + 0.6 * t;
+            disk.scale.set(s, s, s);
+            // Opacity fade: 1.0 → 0.0 across the last 3 seconds
+            if (disk.userData.decayLeft < 3.0) {
+                this._setDiskOpacity(disk, disk.userData.decayLeft / 3.0);
+                if (!disk.userData.decayWarned) {
+                    disk.userData.decayWarned = true;
+                    EventBus.emit('essence:fading', { resourceType: disk._resourceType });
+                }
+            }
+        }
+        this._disks = this._disks.filter(d => !d.collected);
+
         // --- Ground disk collection ---
         for (const disk of this._disks) {
             if (disk.isFlying) {
@@ -192,9 +218,41 @@ export class CollectorSystem {
             disk.flightElapsed = 0;
             disk._resourceType = resourceType;
             disk._pool = pool;
+
+            // Reset visual state in case this disk was previously decayed
+            // before pool release (otherwise we'd reuse a shrunken/faded mesh).
+            disk.scale.set(1, 1, 1);
+            this._setDiskOpacity(disk, 1.0);
+
+            // Prototype: 10s decay timer on uncollected essence drops.
+            // Magnet pickup removes the disk from this._disks, naturally
+            // canceling the decay. Other resource types ignore decay.
+            disk.userData = disk.userData || {};
+            if (resourceType === 'essence') {
+                disk.userData.decayLeft = 10.0;
+                disk.userData.decayTotal = 10.0;
+                disk.userData.decayWarned = false;
+            } else {
+                disk.userData.decayLeft = null;
+            }
+
             this.scene.add(disk);
             this._disks.push(disk);
         }
+    }
+
+    /** Set opacity on disk + all child meshes (some presets are groups). */
+    _setDiskOpacity(disk, opacity) {
+        const apply = (mesh) => {
+            if (!mesh.material) return;
+            const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            for (const m of mats) {
+                if (opacity < 1.0) m.transparent = true;
+                m.opacity = opacity;
+            }
+        };
+        apply(disk);
+        disk.traverse((child) => apply(child));
     }
 
     _startFlight(disk, entityId, targetPos, collector) {

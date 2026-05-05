@@ -1,0 +1,128 @@
+{
+    "name": "Prototype — Act 1 layout",
+    "_doc": "Act 1 layout per newGameDesign/PROTOTYPE_PLAN.md §4 typical playthrough. 12 zombies pre-placed across 3 ring distances. 4 wall ghosts (1 active in State B, 1 more activated in D, the remaining 2 reserved for Act 2's State E). 2 spawn pads (Scout + Bruiser) hidden until State C. 6 trees clustered ~10-14 tiles north for wood gathering.",
+
+    "grid": {
+        "origin": { "x": -30, "z": -30 },
+        "cellSize": 2,
+        "cols": 30,
+        "rows": 30
+    },
+
+    "ground": {
+        "dangerZone": {
+            "size": 100,
+            "color": "0x3a5a3a"
+        }
+    },
+
+    "props": {
+        "rocks": 0,
+        "deadTrees": 0,
+        "spawnRadius": { "min": 0, "max": 0 }
+    },
+
+    "entities": [
+        "_doc 12 zombies pre-placed at the spawn area (~z=-19 to -26, north). 5 marchers commit to chasing the player from boot (permanentChase EnemyAI flag); other 7 wander idle near spawn until the player approaches their aggroRadius. Per PROTOTYPE_PLAN §4 typical playthrough: '12 zombies pre-placed; 5 aggro on player.'",
+
+        "_doc 5 marchers at z=-19, spread east-west — walk south at speed 4 → reach player (z=0) in ~4.75s",
+        { "archetype": "enemy-prototype-marcher", "position": { "x": -4, "y": 0, "z": -19 } },
+        { "archetype": "enemy-prototype-marcher", "position": { "x": -2, "y": 0, "z": -19 } },
+        { "archetype": "enemy-prototype-marcher", "position": { "x":  0, "y": 0, "z": -19 } },
+        { "archetype": "enemy-prototype-marcher", "position": { "x":  2, "y": 0, "z": -19 } },
+        { "archetype": "enemy-prototype-marcher", "position": { "x":  4, "y": 0, "z": -19 } },
+
+        "_doc 7 idlers at z=-22 to -26, scattered — wander idle near spawn (outside aggroRadius 8)",
+        { "archetype": "enemy-prototype", "position": { "x": -6, "y": 0, "z": -23 } },
+        { "archetype": "enemy-prototype", "position": { "x":  6, "y": 0, "z": -23 } },
+        { "archetype": "enemy-prototype", "position": { "x": -3, "y": 0, "z": -25 } },
+        { "archetype": "enemy-prototype", "position": { "x":  3, "y": 0, "z": -25 } },
+        { "archetype": "enemy-prototype", "position": { "x":  0, "y": 0, "z": -22 } },
+        { "archetype": "enemy-prototype", "position": { "x": -9, "y": 0, "z": -24 } },
+        { "archetype": "enemy-prototype", "position": { "x":  9, "y": 0, "z": -24 } },
+
+        "_doc 6 trees clustered ~10-14 tiles north of player for wood gathering",
+        { "archetype": "tree-prototype", "position": { "x": -3, "y": 0, "z": -10 } },
+        { "archetype": "tree-prototype", "position": { "x":  3, "y": 0, "z": -10 } },
+        { "archetype": "tree-prototype", "position": { "x": -7, "y": 0, "z": -12 } },
+        { "archetype": "tree-prototype", "position": { "x":  7, "y": 0, "z": -12 } },
+        { "archetype": "tree-prototype", "position": { "x":  0, "y": 0, "z": -14 } },
+        { "archetype": "tree-prototype", "position": { "x": -10, "y": 0, "z": -10 } }
+    ],
+
+    "spawners": {
+        "player": {
+            "cell": [15, 15],
+            "position": { "x": 0, "y": 0, "z": 0 }
+        }
+    },
+
+    "_spawnNote": "PrototypeStateMachine.entryActions of each state call EnemySystem.setConfig() with prototypeStates.json spawnConfigs. Pre-placed enemies above are counted toward maxAlive; spawner adds new ones once kills drop the count below the cap.",
+
+    "unlockZones": [
+        {
+            "_doc": "Wall ghost #1 — activated by State B entry (factory.activateGhost wall_ghost_1). Cost 10W+3E. Cell [11,14] = world (-2,-8), 8 tiles north of player.",
+            "cell": [11, 14],
+            "gridSpan": [1, 1],
+            "type": "build",
+            "cost": { "wood": 10, "essence": 3 },
+            "builds": "wall",
+            "tag": "wall_ghost_1",
+            "hidden": true
+        },
+        {
+            "_doc": "Wall ghost #2 — activated by State D entry. Cost 10W+3E. Cell [11,12] = world (-6,-8).",
+            "cell": [11, 12],
+            "gridSpan": [1, 1],
+            "type": "build",
+            "cost": { "wood": 10, "essence": 3 },
+            "builds": "wall",
+            "tag": "wall_ghost_2",
+            "hidden": true
+        },
+        {
+            "_doc": "Wall ghost #3 — reserved for Act 2 State E. Cell [11,16] = world (2,-8).",
+            "cell": [11, 16],
+            "gridSpan": [1, 1],
+            "type": "build",
+            "cost": { "wood": 10, "essence": 3 },
+            "builds": "wall",
+            "tag": "wall_ghost_3",
+            "hidden": true
+        },
+        {
+            "_doc": "Wall ghost #4 — reserved for Act 2 State E. Cell [11,18] = world (6,-8).",
+            "cell": [11, 18],
+            "gridSpan": [1, 1],
+            "type": "build",
+            "cost": { "wood": 10, "essence": 3 },
+            "builds": "wall",
+            "tag": "wall_ghost_4",
+            "hidden": true
+        },
+        {
+            "_doc": "Scout Pad — drains 8E to spawn 1 Scout. Activated in State C. Cell [16,11] = world (-8,2), 8 tiles west.",
+            "cell": [16, 11],
+            "gridSpan": [1, 1],
+            "type": "spawner",
+            "cost": { "essence": 8 },
+            "spawns": "scout",
+            "spawnCount": 1,
+            "tag": "scout_pad",
+            "hidden": true
+        },
+        {
+            "_doc": "Bruiser Pad — drains 15E to spawn 1 Bruiser. Activated in State C. Cell [16,19] = world (8,2), 8 tiles east.",
+            "cell": [16, 19],
+            "gridSpan": [1, 1],
+            "type": "spawner",
+            "cost": { "essence": 15 },
+            "spawns": "bruiser",
+            "spawnCount": 1,
+            "tag": "bruiser_pad",
+            "hidden": true
+        }
+    ],
+
+    "debug": { "showGrid": false }
+}

@@ -653,6 +653,23 @@ MeshPresets.register('unlock-zone', ({ color = 0x00aaff, size = 4.0 } = {}) => {
     return group;
 });
 
+MeshPresets.register('unlock-zone-flat', ({ color = 0x00aaff, size = 4.0 } = {}) => {
+    const group = new THREE.Group();
+
+    const baseGeo = new THREE.PlaneGeometry(size, size);
+    const baseMat = new THREE.MeshBasicMaterial({
+        color: 0x9aa6b0,
+        transparent: true,
+        opacity: 0.45
+    });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.rotation.x = -Math.PI / 2;
+    base.position.y = 0.005;
+    group.add(base);
+
+    return group;
+});
+
 MeshPresets.register('stall', ({ color = 0x8b6914, width = 2.5, depth = 1.5 } = {}) => {
     const group = new THREE.Group();
 

@@ -163,12 +163,14 @@ export const FEATURE_FLAGS = {
     USE_ESSENCE_DROPS: true
 };
 
-// Scene mode — toggles the parallel "Cardboard Diorama" world (4 distinct
-// corner biomes + landmarks + Hive). The legacy scene stays the default;
-// flip this OR pass `?diorama` in the URL to opt in. See
+// Scene mode — selects which world the game boots into.
+//   • 'legacy'    — original gameplay scene (default)
+//   • 'diorama'   — parallel "Cardboard Diorama" world (4 biomes + landmarks)
+//   • 'prototype' — 5-min playable-ad demo (newGameDesign/PROTOTYPE_PLAN.md)
+// Flip this OR pass `?diorama` / `?prototype` in the URL to opt in. See
 // `src/core/SceneMode.js` for the resolution helper.
 export const SCENE_CONFIG = {
-    mode: 'legacy' // 'legacy' | 'diorama'
+    mode: 'legacy' // 'legacy' | 'diorama' | 'prototype'
 };
 
 // Market Zone — selling-stall + customer economy tunables.

@@ -12,7 +12,12 @@ const ARCHETYPE_NAMES = [
     'unlock-turret', 'gate',
     'tree', 'rock',
     'gearworks-machine',
-    'market-stall', 'market-coin-tray', 'customer'
+    'market-stall', 'market-coin-tray', 'customer',
+    // ?prototype mode archetypes (newGameDesign/PROTOTYPE_PLAN.md).
+    // Most are extends-based overrides of the legacy archetype to keep
+    // legacy/diorama feel unchanged; scout + bruiser are full new units.
+    'player-prototype', 'enemy-prototype', 'enemy-prototype-marcher', 'tree-prototype',
+    'scout', 'bruiser', 'unlock-turret-prototype'
 ];
 
 /** @type {Map<string, object>} name → resolved archetype */

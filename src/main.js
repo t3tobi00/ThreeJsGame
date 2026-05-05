@@ -12,7 +12,7 @@ import SkillRegistry from './core/SkillRegistry.js';
 import StackConfigRegistry from './core/StackConfigRegistry.js';
 import { SceneLoader } from './core/SceneLoader.js';
 import { SceneLoaderDiorama } from './core/SceneLoaderDiorama.js';
-import { isDioramaMode } from './core/SceneMode.js';
+import { isDioramaMode, isPrototypeMode } from './core/SceneMode.js';
 import { Joystick } from './ui/Joystick.js';
 import { KeyboardInput } from './ui/KeyboardInput.js';
 import { HUD } from './ui/HUD.js';
@@ -21,6 +21,10 @@ import { GameOverUI } from './ui/GameOverUI.js';
 import { FloatingUI } from './ui/FloatingUI.js';
 import { WorldHealthBar } from './ui/WorldHealthBar.js';
 import { DamagePopupUI } from './ui/DamagePopupUI.js';
+import { PrototypeEndUI } from './ui/PrototypeEndUI.js';
+import { AudioManager } from './core/AudioManager.js';
+import { PrototypeStats } from './state/PrototypeStats.js';
+import { PrototypeStateMachine } from './systems/PrototypeStateMachine.js';
 
 // --- ECS Framework ---
 import { ECSManager } from './ecs/ECSManager.js';
@@ -88,20 +92,39 @@ class Game {
             : new Lighting(this.scene.instance);
 
         // 2. UI
-        // Manual player control DISABLED — drag-to-waypoint now drives the
-        // player (same gesture as the hero). To re-enable keyboard + joystick
-        // movement, uncomment the two `new` lines below and remove the null
-        // assignments. The MovementSystem + DragInputSystem both accept null
-        // here, so flipping this back on is a one-line change.
-        // this.joystick = new Joystick();
-        // this.keyboard = new KeyboardInput();
-        this.joystick = null;
+        // Joystick — re-enabled in ?prototype mode for fine player control;
+        // legacy/diorama keep it null (drag-to-waypoint drives the player there).
+        // In prototype: joystick handles short presses; drag-to-waypoint handles
+        // longer paths + commanding ally soldiers.
+        this.joystick = isPrototypeMode() ? new Joystick() : null;
         this.keyboard = null;
         this.floatingUI = new FloatingUI(this.camera.instance);
 
         // 3. ECS
         this.ecs = new ECSManager();
         this.factory = new EntityFactory(this.scene.instance, this.ecs);
+
+        // 3b. Prototype-mode singletons (audio + counters + state machine).
+        // Only instantiated under ?prototype to keep legacy/diorama identical.
+        // AudioManager subscribes to entity:damaged/died, zone:built, audio:cue,
+        // essence:fading, boss:killed, player:died. PrototypeStats aggregates
+        // end-of-run counters (zombiesKilled, peak essence/wood, time, etc.).
+        // PrototypeStateMachine + PrototypeEndUI are instantiated later in
+        // loadLevel() — they need the player entity ID and the level scene.
+        this._prototype = isPrototypeMode();
+        if (this._prototype) {
+            // body class enables CSS overrides — currently keeps the joystick
+            // visible on desktops (the legacy media query hides it otherwise).
+            document.body.classList.add('prototype-mode');
+            this.audio = new AudioManager(this.ecs);
+            this.prototypeStats = new PrototypeStats();
+            this.prototypeStats.setECS(this.ecs);
+        } else {
+            this.audio = null;
+            this.prototypeStats = null;
+        }
+        this.prototypeStateMachine = null;
+        this.prototypeEndUI = null;
 
         // 4. Shared pools
         this.projectilePool = new ObjectPool(() => new Projectile(), 50, 'ProjectilePool');
@@ -259,8 +282,15 @@ class Game {
             const p = playerSpawn?.position || { x: 0, y: 0, z: 0 };
             this.playerSpawnPos = new THREE.Vector3(p.x, p.y, p.z);
         }
-        this.playerId = this.factory.createPlayer(this.playerSpawnPos.clone());
+        // Use the prototype-tuned player (HP 100) under ?prototype; legacy
+        // and diorama keep the unmodified player.json (HP 10).
+        this.playerId = this._prototype
+            ? this.factory.create('player-prototype', this.playerSpawnPos.clone())
+            : this.factory.createPlayer(this.playerSpawnPos.clone());
         const playerTransform = this.ecs.getComponent(this.playerId, 'Transform');
+
+        // Prototype counters need the player ID for stack:changed filter.
+        if (this.prototypeStats) this.prototypeStats.setPlayer(this.playerId);
 
         // Systems that need player reference
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
@@ -311,6 +341,8 @@ class Game {
         // --- Entities from level JSON ---
         if (levelData.entities) {
             for (const def of levelData.entities) {
+                // Skip inline string docs (matches the diorama loader pattern).
+                if (typeof def === 'string') continue;
                 const pos = new THREE.Vector3(def.position.x, def.position.y, def.position.z);
                 this.factory.create(def.archetype, pos);
             }
@@ -380,7 +412,8 @@ class Game {
                     outputTarget = { tag: zoneDef.outputTag };
                 }
 
-                const zoneEntityId = this.factory.create('unlock-turret', pos, {
+                const zoneArchetype = this._prototype ? 'unlock-turret-prototype' : 'unlock-turret';
+                const zoneEntityId = this.factory.create(zoneArchetype, pos, {
                     UnlockZone: {
                         type: zoneDef.type,
                         cost: zoneDef.cost,
@@ -396,6 +429,22 @@ class Game {
                     }
                 });
 
+                // Optional: tag for state-machine-driven activation.
+                // PrototypeStateMachine action `factory.activateGhost <tag>`
+                // queries entities by Tag and toggles mesh.visible.
+                if (zoneDef.tag) {
+                    const tagComp = this.ecs.getComponent(zoneEntityId, 'Tag');
+                    if (tagComp) tagComp.tags.push(zoneDef.tag);
+                }
+
+                // Optional: pre-hide the zone (and its ghost mesh + UI).
+                // UnlockZoneSystem skips hidden zones in its per-frame loop,
+                // so they don't drain or render until the state machine
+                // toggles visible=true via factory.activateGhost.
+                if (zoneDef.hidden) {
+                    const transform = this.ecs.getComponent(zoneEntityId, 'Transform');
+                    if (transform?.mesh) transform.mesh.visible = false;
+                }
             }
         }
 
@@ -548,6 +597,26 @@ class Game {
             );
         }
 
+        // --- Prototype state machine (only in ?prototype mode) ---
+        // Loaded last so it can reference enemySystem, factory, and the
+        // already-created player. JSON config drives 15-state FSM per
+        // newGameDesign/PROTOTYPE_PLAN.md §4 (foundation stub: 2-state demo).
+        if (this._prototype) {
+            const cfgRes = await fetch('./src/config/prototypeStates.json');
+            const cfg = await cfgRes.json();
+            this.prototypeStateMachine = new PrototypeStateMachine({
+                ecs: this.ecs,
+                factory: this.factory,
+                enemySystem: this.enemySystem,
+                audio: this.audio,
+                scene: this.scene.instance,
+                camera: this.camera.instance,
+                playerId: this.playerId
+            }, cfg);
+            this.prototypeEndUI = new PrototypeEndUI(this.prototypeStats);
+            this.prototypeStateMachine.start();
+        }
+
         // --- Resource Wells (diorama basecamp testing) ---
         this._resourceWells = [];
         if (isDioramaMode()) {
@@ -607,6 +676,7 @@ class Game {
         this.particleSystem.update(deltaTime);
         this.skillEffectSystem.update(deltaTime);
         this.harvestNodeSystem.update(deltaTime);
+        if (this.prototypeStateMachine) this.prototypeStateMachine.update(deltaTime);
         for (const well of this._resourceWells) well.update(deltaTime, this.scene.instance);
         this.damagePopupUI.update(realDt);
         this.floatingUI.update();
@@ -625,6 +695,8 @@ class Game {
     }
 
     _updateDebugOverlay() {
+        // Hidden in ?prototype mode — would cover the joystick (both pinned to bottom-left).
+        if (this._prototype) return;
         if (!this._debugEl) {
             this._debugEl = document.createElement('div');
             this._debugEl.id = 'debug-overlay';
@@ -672,9 +744,11 @@ window.addEventListener('load', async () => {
     await SkillRegistry.load();
     await StackConfigRegistry.load();
     const game = new Game();
-    const levelPath = isDioramaMode()
-        ? './src/config/levels/level-1-diorama.json'
-        : './src/config/levels/level-1.json';
+    const levelPath = isPrototypeMode()
+        ? './src/config/levels/level-prototype.json'
+        : isDioramaMode()
+            ? './src/config/levels/level-1-diorama.json'
+            : './src/config/levels/level-1.json';
     await game.loadLevel(levelPath);
     game.animate();
 });
