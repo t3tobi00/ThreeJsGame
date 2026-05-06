@@ -134,6 +134,12 @@ export class AudioManager {
             const t0 = ctx.currentTime;
             this._noiseBurst(ctx, { dur: 0.18, filterFreq: 1200, filterSweepTo: 400, gain: 0.30 });
             this._tone(ctx, { freq: 180, dur: 0.10, gain: 0.18, type: 'square' }, t0);
+        },
+        impact_thud(ctx) {
+            // Short percussive hit — soldier melee impact
+            const t0 = ctx.currentTime;
+            this._noiseBurst(ctx, { dur: 0.10, filterFreq: 900, filterSweepTo: 250, gain: 0.32 });
+            this._tone(ctx, { freq: 220, dur: 0.08, gain: 0.22, type: 'square' }, t0);
         }
     };
 

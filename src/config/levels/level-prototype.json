@@ -47,7 +47,11 @@
         { "archetype": "tree-prototype", "position": { "x": -7, "y": 0, "z": -12 } },
         { "archetype": "tree-prototype", "position": { "x":  7, "y": 0, "z": -12 } },
         { "archetype": "tree-prototype", "position": { "x":  0, "y": 0, "z": -14 } },
-        { "archetype": "tree-prototype", "position": { "x": -10, "y": 0, "z": -10 } }
+        { "archetype": "tree-prototype", "position": { "x": -10, "y": 0, "z": -10 } },
+
+        "_doc TEST: 1 Scout + 1 Bruiser pre-spawned next to player so we can immediately watch their attack anims without draining essence into spawn pads. Remove once balancing is locked.",
+        { "archetype": "scout",   "position": { "x": -3, "y": 0, "z": -3 } },
+        { "archetype": "bruiser", "position": { "x":  3, "y": 0, "z": -3 } }
     ],
 
     "spawners": {

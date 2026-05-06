@@ -26,7 +26,7 @@ const PUFF_INTERVAL = 0.20;        // light particle accent
 const PUFFS_PER_TICK = 2;
 const VISUAL_RADIUS_MUL = 1.55;    // smoke spreads wider than damage radius
 const BLOBS_PER_CLOUD  = 7;        // scattered translucent puffs forming an irregular shape
-const BLOB_OPACITY     = 0.30;     // each blob — combined cluster reads as cloudy but see-through
+const BLOB_OPACITY     = 0.1;     // each blob — combined cluster reads as cloudy but see-through
 const FADE_OUT_FRAC    = 0.30;     // fade opacity to 0 across the final 30% of lifetime
 
 export class PoisonCloudSystem {

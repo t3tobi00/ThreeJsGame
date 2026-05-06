@@ -55,6 +55,8 @@ import { ParticleSystem } from './systems/ParticleSystem.js';
 import { LungeAnimSystem } from './systems/LungeAnimSystem.js';
 import { SpitterSystem } from './systems/SpitterSystem.js';
 import { PoisonCloudSystem } from './systems/PoisonCloudSystem.js';
+import { SeparationSystem } from './systems/SeparationSystem.js';
+import { CombatVFXSystem } from './systems/CombatVFXSystem.js';
 import { HealthSystem } from './systems/HealthSystem.js';
 import { UnlockZoneSystem } from './systems/UnlockZoneSystem.js';
 import { MachineSystem } from './systems/MachineSystem.js';
@@ -221,7 +223,9 @@ class Game {
 
         this.particleSystem = new ParticleSystem(this.scene.instance);
 
-        this.lungeAnimSystem = new LungeAnimSystem();
+        this.combatVFXSystem = new CombatVFXSystem(this.scene.instance);
+
+        this.lungeAnimSystem = new LungeAnimSystem(this.particleSystem, this.combatVFXSystem);
         this.lungeAnimSystem.setECS(this.ecs);
 
         this.spitterSystem = new SpitterSystem(this.scene.instance, this.particleSystem);
@@ -341,6 +345,13 @@ class Game {
         const enemyArchetype = getArchetype('enemy');
         if (enemyArchetype.spawn) this.enemySystem.setConfig(enemyArchetype.spawn);
         this.ecs.registerSystem(this.enemySystem, ['Transform', 'Movement', 'Health', 'EnemyAI']);
+
+        // Crowd separation — runs AFTER all AI movement so it nudges
+        // post-AI positions apart instead of fighting steering. Same-faction
+        // only; cross-faction spacing is handled separately at attack range.
+        this.separationSystem = new SeparationSystem();
+        this.ecs.registerSystem(this.separationSystem, ['Transform', 'Movement']);
+
         this.gateSystem.setPlayerTransform(playerTransform);
 
         // SafeZoneSystem — after enemies move, before collision resolution
@@ -370,7 +381,12 @@ class Game {
                 // Skip inline string docs (matches the diorama loader pattern).
                 if (typeof def === 'string') continue;
                 const pos = new THREE.Vector3(def.position.x, def.position.y, def.position.z);
-                this.factory.create(def.archetype, pos);
+                const id = this.factory.create(def.archetype, pos);
+                // If the entity has HeroAI, plant homePosition at the spawn
+                // pos so it guards from where it was placed (not the
+                // default (0,0,0) which would point everyone at the origin).
+                const heroAI = this.ecs.getComponent(id, 'HeroAI');
+                if (heroAI) heroAI.homePosition.copy(pos);
             }
         }
 
@@ -701,6 +717,7 @@ class Game {
         this.cameraSystem.update(realDt);
         this.particleSystem.update(deltaTime);
         this.lungeAnimSystem.update(deltaTime);
+        this.combatVFXSystem.update(deltaTime);
         this.poisonCloudSystem.update(deltaTime);
         this.skillEffectSystem.update(deltaTime);
         this.harvestNodeSystem.update(deltaTime);

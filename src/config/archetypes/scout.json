@@ -18,7 +18,7 @@
         "ZoneStatus": {},
         "Movement": { "speed": 5, "controller": "hero_ai", "faction": "ally" },
         "WalkAnim": { "bobHeight": 0.08, "bobFreq": 8, "tiltAngle": 0.06 },
-        "HeroAI": { "guardRadius": 8, "attackRange": 1.5, "returnSpeed": 2 },
+        "HeroAI": { "guardRadius": 8, "attackRange": 1.1, "returnSpeed": 2 },
         "ContactDamage": { "damage": 10, "cooldown": 0.5, "range": 1.5, "targetFactions": ["enemy", "rival"] },
         "Arms": {},
         "DragCommandable": {

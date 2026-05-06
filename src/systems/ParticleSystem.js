@@ -47,6 +47,42 @@ export class ParticleSystem {
     }
 
     /**
+     * Quick fan of bright sparks for a Scout slash hit (cyan default).
+     * Light, snappy — sideways spread, almost no Y velocity.
+     */
+    createSlashSpark(position, color = 0x44eeff, count = 8) {
+        this._spawnBurst(position, {
+            count,
+            color,
+            size: PARTICLE_CONFIG.size * 1.2,
+            duration: 0.30,
+            yOffset: 0.0,
+            velSpreadXZ: 6.0,
+            velUpMin: 0.2,
+            velUpRange: 1.2,
+            gravity: 0
+        });
+    }
+
+    /**
+     * Bigger impact burst for a Bruiser smash (red/orange default).
+     * Wider spread, heavier, lingers a bit longer.
+     */
+    createImpactBurst(position, color = 0xff5522, count = 16) {
+        this._spawnBurst(position, {
+            count,
+            color,
+            size: PARTICLE_CONFIG.size * 1.6,
+            duration: 0.45,
+            yOffset: 0.1,
+            velSpreadXZ: 7.5,
+            velUpMin: 0.4,
+            velUpRange: 2.4,
+            gravity: 0
+        });
+    }
+
+    /**
      * Drifting poison puff — large, low-opacity, no gravity. Spawned
      * continuously by PoisonCloudSystem to build up a spreading gas cloud
      * that the player can still see through.

@@ -200,21 +200,31 @@ export class EnemySystem {
             ? ecs.getComponent(this._playerId, 'ZoneStatus') : null;
 
         // --- Pass 3: Movement ---
-        for (const { transform, movement, pos, ai, aiComp, nearestTarget } of alive) {
+        // Stop-at-attack-range: when the enemy is within its melee reach,
+        // halt and just face the target so the LungeAnimSystem swing has
+        // visible space instead of overlapping the victim. Stop distance
+        // is `ContactDamage.range - STOP_BUFFER` so the zombie sits a hair
+        // inside its damage radius (the swing still lands).
+        const STOP_BUFFER = 0.4;
+        for (const { entityId, transform, movement, pos, ai, aiComp, nearestTarget } of alive) {
             if (ai.state === 'chase') {
-                // Safe-zone boundary redirect only applies when the enemy
-                // is chasing the player AND the player is inside the zone.
-                // Allies (heroes) are always targeted directly — they're
-                // fair game wherever they stand.
                 const target = (nearestTarget.isPlayer
                     && playerZoneStatus?.insideZone
                     && playerZoneStatus.zoneBoundsWorld)
                     ? this._nearestBoundaryPoint(pos, playerZoneStatus.zoneBoundsWorld)
                     : nearestTarget.pos;
                 const dir = new THREE.Vector3().subVectors(target, pos);
-                if (dir.length() > 0.5) {
+                const dist = dir.length();
+
+                const contact = ecs.getComponent(entityId, 'ContactDamage');
+                const stopDist = contact ? Math.max(0.5, contact.range - STOP_BUFFER) : 0.5;
+
+                if (dist > stopDist) {
                     dir.normalize();
                     pos.addScaledVector(dir, movement.speed * deltaTime);
+                    transform.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+                } else if (dist > 0.001) {
+                    // In attack range — face target, no positional drift.
                     transform.mesh.rotation.y = Math.atan2(dir.x, dir.z);
                 }
             } else {

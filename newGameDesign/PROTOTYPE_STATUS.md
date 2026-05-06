@@ -1,4 +1,4 @@
-# Prototype Build Status — 2026-05-05
+# Prototype Build Status — 2026-05-06
 
 > **The prototype is the project's full focus.** Everything else (V1 phases 1-6, legacy game, diorama) is on hold. This doc is the canonical source of truth for "where the prototype is right now."
 
@@ -58,16 +58,36 @@
 
 ## §2. What's not good yet (next-session priorities)
 
-### Visual polish — HIGH priority
-1. **Unlock zone flat UI: misaligned + no progress feedback.**
-   - **DELETE the 3D ghost building preview entirely** — remove `src/utils/GhostMeshFactory.js` and the `_ensureGhost`/`_destroyGhost`/`_ghostMap` block in `src/systems/UnlockZoneSystem.js`. The ghost mesh isn't wanted; the flat UI alone is the goal.
-   - **Fix orientation mismatch.** The corner brackets, the shaded rectangle, and the inner content (cost icons / numbers) currently face different directions. Pick ONE orientation and align everything to it (corners + shade + content match).
-   - **Lighten the shade.** Current shadow opacity is too dark — make it brighter / more white so the panel reads better.
-   - **Per-resource progress fill.** Currently the cost label is static (e.g. "10 wood + 3 essence"). Make it visibly fill up as the player drops resources: a small bar or dot row per resource type that grows from 0 → cost as drains land. Combined with the existing arc-pickup animation, this should feel like the zone is consuming the items in real time.
-   - Keep `UnlockZoneUI` (`src/ui/UnlockZoneUI.js`) — that's the flat UI we're improving. `FloatingUI` is the 3D-projected text helper.
-2. **Zombies aren't scary.** Currently they walk forward and contact-damage silently. Goal: scare juice — attack lunge animation, growl/snarl SFX, red-flash burst on hit, screen shake on player hit, blood splatter particles, optional limb tatters.
-3. **Soldiers don't animate.** Scout/Bruiser stand stiff while engaging. They use HeroAI for steering + ContactDamage for damage, no SkillSystem (no sword swing). Goal: arm-swing or melee-strike animation on each ContactDamage hit + impact SFX.
-4. **No "what to do next" feedback.** Player has to guess what to chop/build/spawn. Goal: 3D-parented finger-pointer or pulsing-glow ring on the next-step target (tree → ghost → spawn pad), cleared when sub-milestone is met.
+### Done since 2026-05-05 session
+1. ✓ **Unlock zone flat UI** — ghost preview deleted; orientation aligned (parallel preset `unlock-zone-flat` scoped to prototype only via `unlock-turret-prototype` archetype); shade lightened (`0x9aa6b0` @ 0.45); per-input mini-bars dropped in favour of a single **whole-zone water fill** (translucent emerald plane anchored at south edge, scales north as `total_progress / total_cost` rises).
+2. ✓ **Zombies are scary** — full pass shipped:
+   - **Player-hit reactions**: grunt + new `snarl` cue + halved camera shake (anti-stack throttle in CameraSystem) + red FlashAnim already wired.
+   - **Blood splatter** on every combatant hit (zombies, player, allies) — silent damage (poison) skips the splatter.
+   - **Rigged green zombie mesh** (`character-zombie` preset) with classic forward-reach idle, hunched torso, tilted head. WalkAnim `style: 'zombie'` drives a stiff-leg lurch + side sway in PlayerAnimSystem.
+   - **3-phase attack animation** in LungeAnimSystem — wind-up arms overhead, slam forward-down past rest, body lunge, head bite, scale pulse. Reads as horror movie zombie.
+   - **Ranged poison-spit attack** (new `Spitter` component + `SpitterSystem`): range 5u, 2.2s cooldown, head-recoil → thrust anim, glowing arcing projectile. Spit no longer direct-hits — lands as a lingering **poison cloud** at impact location.
+   - **Poison cloud** (new `PoisonCloudSystem`) — 7 scattered translucent green blobs (varied size, squashed Y, ground-hugging) form an irregular gas pocket, opacity 0.10, 10s lifetime, fade in last 30%, light particle drift accent. Damage: 2 HP/s in 1.6u radius. Multiple clouds stack (each ticks damage independently). Player tactic: keep moving.
+3. ✓ **Soldier attack animations + per-troop identity**:
+   - **Scout (green)** — fast 0.24s alternating right-then-left jab. Each jab peak spawns a **cyan slash arc** (partial torus, scales+fades) via new `CombatVFXSystem`.
+   - **Bruiser (red)** — heavy 0.50s two-arm overhead hammer-smash with deep pelvis dip + body lunge + 16% scale boost. Strike peak spawns a **red ground shockwave ring** (expands 0.5→2.8u over 0.40s).
+   - Both fire `impact_thud` audio cue.
+   - Routing in LungeAnimSystem reads Tag to pick scout/bruiser/soldier kind.
+4. ✓ **Combat readability fixes**:
+   - **SeparationSystem** — same-faction repulsion via spatial hash (uses `Collider.radius × 1.85` for desired centre-to-centre gap). Prevents 8 zombies from blobbing into one silhouette.
+   - **Stop-at-attack-range** — EnemySystem reads `ContactDamage.range - 0.4` as stop distance; soldiers' `HeroAI.attackRange` lowered `1.5 → 1.1` so they sit inside the damage zone with visible space.
+5. ✓ **Combat pacing rebalance**:
+   - Zombie HP `30 → 45`, speed `4 → 3`, melee dmg `5 → 2`, melee cooldown `1.0 → 1.5`, spit cooldown `1.5 → 2.2`.
+   - Player sword damage `8 → 6`, fireRate `0.35 → 0.45` (~2× TTK ≈ 3s/zombie).
+   - Camera shake amount `0.3 → 0.18` + anti-stack gate (only refresh if current decayed below 50% of incoming).
+6. ✓ **Pre-placed test soldiers** — 1 Scout at `(-3,0,-3)`, 1 Bruiser at `(3,0,-3)` in `level-prototype.json` so attack anims can be inspected without draining essence into spawn pads. Level loader sets `HeroAI.homePosition` from spawn pos so they guard their placement instead of `(0,0,0)`. **Remove the two test entries before final balancing is locked.**
+
+### Still open — next-session priorities
+
+1. **No "what to do next" feedback.** Player has to guess what to chop/build/spawn. Goal: 3D-parented finger-pointer or pulsing-glow ring on the next-step target (tree → ghost → spawn pad), cleared when sub-milestone is met.
+2. **Per-troop attack visual richness.** User flagged that Scout/Bruiser still feel "okay for now" but should later get richer per-class identity (different weapon arcs, hit reactions, finishers). VFX foundation (`CombatVFXSystem`) is in place — extend later.
+3. **`pulseTrees` action is still a stub.** Wire to actually pulse trees when wood is low (state machine action exists, system call is `console.log` placeholder).
+4. **Conflicts between joystick + drag-to-waypoint** — when both push the player, behavior is jittery. May need to clear waypoint on joystick input.
+5. **Wall ghost #2 reveal timing** — currently activates on State D entry. Player might still be fighting marchers from State C. Polish: maybe wait for clearance.
 
 ### Acts 2-5 — high-level work remaining
 - **Act 2** (Defense Build): 3 more walls + 1 gate ghost, state E + F. Largely existing systems (UnlockZone + BuildSystem).
@@ -89,32 +109,54 @@
 ### New files
 | Path | Purpose |
 |---|---|
-| `src/core/AudioManager.js` | Web Audio synth singleton |
+| `src/core/AudioManager.js` | Web Audio synth singleton (added cues: `snarl`, `spit_hiss`, `spit_splat`, `impact_thud`) |
 | `src/state/PrototypeStats.js` | End-of-run counters |
 | `src/systems/PrototypeStateMachine.js` | 15-state FSM engine |
-| `src/utils/GhostMeshFactory.js` | Translucent preview meshes |
+| `src/systems/SpitterSystem.js` | Ranged poison-spit projectile manager |
+| `src/systems/PoisonCloudSystem.js` | Lingering gas clouds (irregular blob clusters + drifting puffs) |
+| `src/systems/SeparationSystem.js` | Same-faction crowd repulsion |
+| `src/systems/LungeAnimSystem.js` | Per-faction/per-class attack animations (zombie slam, scout jab, bruiser smash, spit recoil) |
+| `src/systems/CombatVFXSystem.js` | Transient mesh effects (slash arc, ground shockwave) |
+| `src/ecs/components/Component_Spitter.js` | Ranged spit attack data |
 | `src/ui/PrototypeEndUI.js` | Victory/Defeat overlay |
 | `src/config/prototypeStates.json` | State machine config |
-| `src/config/levels/level-prototype.json` | Prototype level layout |
+| `src/config/levels/level-prototype.json` | Prototype level layout (now also contains 1 test scout + 1 test bruiser) |
 | `src/config/archetypes/player-prototype.json` | HP-bumped player |
-| `src/config/archetypes/enemy-prototype.json` | §4 zombie tuning |
+| `src/config/archetypes/enemy-prototype.json` | Prototype zombie (rigged + spitter) |
 | `src/config/archetypes/enemy-prototype-marcher.json` | permanentChase variant |
 | `src/config/archetypes/tree-prototype.json` | HP 5, 5W deterministic |
 | `src/config/archetypes/scout.json` | Fast/cheap ally soldier |
 | `src/config/archetypes/bruiser.json` | Slow/strong ally soldier |
+| `src/config/archetypes/unlock-turret-prototype.json` | Prototype-scoped variant — uses `unlock-zone-flat` mesh preset |
+
+### Deleted files
+| Path | Reason |
+|---|---|
+| `src/utils/GhostMeshFactory.js` | 3D translucent ghost preview was rejected; flat unlock-zone UI replaces it |
 
 ### Modified files
 | Path | Change |
 |---|---|
-| `src/main.js` | Boot wiring, mode flag, system registration, level path branch, body class for CSS |
+| `src/main.js` | Boot wiring (Spitter, PoisonCloud, Separation, CombatVFX, LungeAnim systems); blood-splatter listener with silent-poison skip; HeroAI homePosition seed for level-loaded heroes |
 | `src/core/SceneMode.js` | Add `isPrototypeMode()` |
-| `src/core/ArchetypeLoader.js` | Register new archetype names |
+| `src/core/ArchetypeLoader.js` | Register prototype + soldier archetypes |
+| `src/core/MeshPresets.js` | Add `character-zombie` (rigged green zombie reach pose) + `unlock-zone-flat` (no Y-twist + lighter shade); legacy `unlock-zone` kept untouched for diorama/legacy modes |
+| `src/core/AudioManager.js` | Snarl + camera shake on player hit; new cues (`snarl`, `spit_hiss`, `spit_splat`, `impact_thud`); silent-damage skip |
+| `src/core/EventBus.js` | (unchanged) |
 | `src/config/gameConfig.js` | SCENE_CONFIG.mode enum extended |
+| `src/config/skills/sword.json` | Player damage/fireRate retuned for ~3s TTK |
+| `src/systems/CameraSystem.js` | Anti-stack shake gating (only refresh if decayed below 50% of incoming) |
 | `src/systems/CollectorSystem.js` | Decay timer for essence disks |
-| `src/systems/UnlockZoneSystem.js` | Ghost mesh spawn + visibility check |
-| `src/systems/EnemySystem.js` | `setFrozen()` + `archetype` config + `permanentChase` honoring |
+| `src/systems/ContactDamageSystem.js` | Emits `entity:attacked` alongside `entity:damaged` so LungeAnimSystem can drive attack anims |
+| `src/systems/UnlockZoneSystem.js` | Ghost mesh layer removed; flat UI only |
+| `src/systems/EnemySystem.js` | `setFrozen()` + `archetype` config + `permanentChase` honoring + stop-at-attack-range chase |
 | `src/systems/BuildSystem.js` | Tags emitted in `zone:built` / `zone:spawned` events |
+| `src/systems/ParticleSystem.js` | New methods: `createBloodSplatter`, `createPoisonSplatter`, `createPoisonPuff`, `createSlashSpark`, `createImpactBurst`; per-burst `gravity` + `opacity` options |
+| `src/systems/PlayerAnimSystem.js` | `WalkAnim.style === 'zombie'` branch (locked-forward arms, stiff lurch, side sway) |
+| `src/ui/UnlockZoneUI.js` | Whole-zone water-fill plane (replaces per-input mini bars) |
 | `src/ecs/components/Component_EnemyAI.js` | `permanentChase` field |
+| `src/ecs/components/Component_WalkAnim.js` | `style: 'human' | 'zombie'` field |
+| `src/entities/EntityFactory.js` | Register `Spitter` component |
 | `styles/main.css` | `body.prototype-mode #joystick-container` override |
 
 ### State machine action vocabulary (current)
@@ -200,13 +242,12 @@ http://localhost:8000/                 # legacy
 
 ## §6. Implementation cadence
 
-Six PRs total. Foundation + Act 1 done. Acts 2-5 + visual polish remain.
-
 | PR | Status |
 |---|---|
 | PR #1: Foundation | ✓ shipped |
-| PR #2: Act 1 (skeleton) | ✓ shipped — milestone-based working |
-| PR #2.5: Act 1 polish | ⏳ next session — visual quality, scary zombies, soldier anim, finger pointer |
+| PR #2: Act 1 (skeleton) | ✓ shipped |
+| PR #2.5: Act 1 polish — unlock-zone fill, scary zombies, soldier anim+VFX, crowd separation, stop-at-range, combat pacing | ✓ shipped |
+| PR #2.6: Visual feedback for next-step targets (finger pointer / glow ring) + `pulseTrees` wiring | ⏳ next session |
 | PR #3: Act 2 | pending |
 | PR #4: Act 3 | pending |
 | PR #5: Act 4 | pending |
@@ -232,31 +273,23 @@ Read these in order before doing anything:
 Auto mode active — execute autonomously. Ask only on major design forks.
 
 Top priorities (in order):
-  1. Unlock zone flat UI improvement (NOT a 3D preview — keep flat).
-       a. DELETE src/utils/GhostMeshFactory.js and the
-          _ensureGhost / _destroyGhost / _ghostMap block in
-          src/systems/UnlockZoneSystem.js. The 3D ghost preview is
-          NOT wanted.
-       b. Fix orientation mismatch in UnlockZoneUI: corner brackets,
-          shaded rectangle, and inner content (cost icons/numbers)
-          currently face different directions. Align all to one
-          orientation.
-       c. Lighten the shade — current shadow opacity is too dark.
-          Make corners brighter / more white so the panel reads
-          cleaner.
-       d. Add per-resource progress fill — a small bar or dot row
-          per resource type (e.g. wood, essence) inside the panel
-          that fills 0→cost as drains land. Should feel like the
-          zone is visibly consuming items as the player drops them.
-  2. Make zombies SCARY — attack lunge animation + snarl SFX + red flash
-     burst + screen shake on player hit + blood-splatter particles.
-  3. Soldier attack animations — Scout/Bruiser arm-swing or melee-strike
-     animation on each ContactDamage hit + impact SFX.
-  4. Visual feedback for next step — 3D finger pointer / pulsing-glow ring
+  1. Visual feedback for next step — 3D finger pointer / pulsing-glow ring
      on the next-required target (tree, ghost, spawn pad), cleared when
      the sub-milestone is met.
-  5. Wire the stub `pulseTrees` action to actually pulse trees.
-  6. Acts 2-5 implementation (after polish).
+  2. Wire the stub `pulseTrees` action to actually pulse trees when wood
+     is low (currently a console.log placeholder in PrototypeStateMachine).
+  3. Acts 2-5 implementation (after polish).
+
+Already shipped in PR #2.5 (do NOT redo):
+  - Unlock zone flat UI (water fill, lightened shade, parallel preset).
+  - Scary zombies (snarl, shake, blood, rigged green mesh, lurch walk,
+    3-phase slam attack, ranged poison spit, lingering poison clouds).
+  - Soldier attack identity (scout fast jab + cyan slash arc, bruiser
+    heavy smash + red ground shockwave, impact_thud audio).
+  - Crowd separation (SeparationSystem) + stop-at-attack-range.
+  - Combat pacing rebalance (zombie HP 45, sword 6dmg/0.45fr, melee 2dmg).
+  - 1 test Scout + 1 test Bruiser pre-spawned in level-prototype.json
+    (REMOVE these two entries before final balancing is locked).
 
 Workflow constraints:
   - Stay in ?prototype mode. Don't touch legacy/diorama.
