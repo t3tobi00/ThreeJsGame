@@ -25,6 +25,7 @@ import { PrototypeEndUI } from './ui/PrototypeEndUI.js';
 import { AudioManager } from './core/AudioManager.js';
 import { PrototypeStats } from './state/PrototypeStats.js';
 import { PrototypeStateMachine } from './systems/PrototypeStateMachine.js';
+import { NextStepIndicator } from './systems/NextStepIndicator.js';
 
 // --- ECS Framework ---
 import { ECSManager } from './ecs/ECSManager.js';
@@ -124,9 +125,14 @@ class Game {
             this.audio = new AudioManager(this.ecs);
             this.prototypeStats = new PrototypeStats();
             this.prototypeStats.setECS(this.ecs);
+            // 3D-parented "go here next" pointer. Reads `hints` array from the
+            // active state and resolves a target each frame. Player + state
+            // machine refs are wired in loadLevel() once both exist.
+            this.nextStepIndicator = new NextStepIndicator(this.scene.instance, this.ecs);
         } else {
             this.audio = null;
             this.prototypeStats = null;
+            this.nextStepIndicator = null;
         }
         this.prototypeStateMachine = null;
         this.prototypeEndUI = null;
@@ -321,6 +327,7 @@ class Game {
 
         // Prototype counters need the player ID for stack:changed filter.
         if (this.prototypeStats) this.prototypeStats.setPlayer(this.playerId);
+        if (this.nextStepIndicator) this.nextStepIndicator.setPlayerId(this.playerId);
 
         // Systems that need player reference
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
@@ -653,9 +660,12 @@ class Game {
                 audio: this.audio,
                 scene: this.scene.instance,
                 camera: this.camera.instance,
-                playerId: this.playerId
+                playerId: this.playerId,
+                indicator: this.nextStepIndicator
             }, cfg);
             this.prototypeEndUI = new PrototypeEndUI(this.prototypeStats);
+            // Wire indicator BEFORE start() so it captures the first state:entered emit.
+            if (this.nextStepIndicator) this.nextStepIndicator.setStateMachine(this.prototypeStateMachine);
             this.prototypeStateMachine.start();
         }
 
@@ -722,6 +732,7 @@ class Game {
         this.skillEffectSystem.update(deltaTime);
         this.harvestNodeSystem.update(deltaTime);
         if (this.prototypeStateMachine) this.prototypeStateMachine.update(deltaTime);
+        if (this.nextStepIndicator) this.nextStepIndicator.update(deltaTime);
         for (const well of this._resourceWells) well.update(deltaTime, this.scene.instance);
         this.damagePopupUI.update(realDt);
         this.floatingUI.update();

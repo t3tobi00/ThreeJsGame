@@ -357,7 +357,10 @@ export class PrototypeStateMachine {
                     this._showAlert(String(arg ?? ''));
                     break;
                 case 'pulseTrees':
-                    console.log(`[PrototypeStateMachine] pulseTrees(${arg}) — stub (Act 1)`);
+                    // Toggles emissive pulse on every visible tree mesh. Wired
+                    // through the NextStepIndicator since it already iterates
+                    // tree-tagged entities for its 'nearestTag tree' targets.
+                    this.deps?.indicator?.setTreePulse?.(!!arg);
                     break;
                 default:
                     console.warn(`[PrototypeStateMachine] unknown action '${call}'`);

@@ -1,4 +1,4 @@
-# Prototype Build Status — 2026-05-06
+# Prototype Build Status — 2026-05-06 (PR #2.6 shipped)
 
 > **The prototype is the project's full focus.** Everything else (V1 phases 1-6, legacy game, diorama) is on hold. This doc is the canonical source of truth for "where the prototype is right now."
 
@@ -81,13 +81,16 @@
    - Camera shake amount `0.3 → 0.18` + anti-stack gate (only refresh if current decayed below 50% of incoming).
 6. ✓ **Pre-placed test soldiers** — 1 Scout at `(-3,0,-3)`, 1 Bruiser at `(3,0,-3)` in `level-prototype.json` so attack anims can be inspected without draining essence into spawn pads. Level loader sets `HeroAI.homePosition` from spawn pos so they guard their placement instead of `(0,0,0)`. **Remove the two test entries before final balancing is locked.**
 
+### Done since 2026-05-06 (PR #2.6)
+1. ✓ **Next-step visual feedback (3D pointer)** — new `NextStepIndicator` system renders an emerald pulsing ground-ring + bobbing diamond chevron above the next-required target. JSON-driven `hints` arrays per state (B/C/D in `prototypeStates.json`) reuse the stall-escalation condition vocabulary (`playerInventoryLt/Gte`, `zoneNotBuilt`, `zoneBuilt`). Target kinds: `tag` (named ghost/pad), `nearestTag` (closest tree), `nearestFaction` (closest enemy). Pointer auto-hides when no hint matches.
+2. ✓ **`pulseTrees` action wired** — replaces the `console.log` stub. State B entry triggers `indicator.setTreePulse(true)`; emissive on every visible tree mesh oscillates green; State C disables it; State D re-enables for the second wall; END turns it off. Originals restored on disable.
+
 ### Still open — next-session priorities
 
-1. **No "what to do next" feedback.** Player has to guess what to chop/build/spawn. Goal: 3D-parented finger-pointer or pulsing-glow ring on the next-step target (tree → ghost → spawn pad), cleared when sub-milestone is met.
-2. **Per-troop attack visual richness.** User flagged that Scout/Bruiser still feel "okay for now" but should later get richer per-class identity (different weapon arcs, hit reactions, finishers). VFX foundation (`CombatVFXSystem`) is in place — extend later.
-3. **`pulseTrees` action is still a stub.** Wire to actually pulse trees when wood is low (state machine action exists, system call is `console.log` placeholder).
-4. **Conflicts between joystick + drag-to-waypoint** — when both push the player, behavior is jittery. May need to clear waypoint on joystick input.
-5. **Wall ghost #2 reveal timing** — currently activates on State D entry. Player might still be fighting marchers from State C. Polish: maybe wait for clearance.
+1. **Per-troop attack visual richness.** User flagged that Scout/Bruiser still feel "okay for now" but should later get richer per-class identity (different weapon arcs, hit reactions, finishers). VFX foundation (`CombatVFXSystem`) is in place — extend later.
+2. **Conflicts between joystick + drag-to-waypoint** — when both push the player, behavior is jittery. May need to clear waypoint on joystick input.
+3. **Wall ghost #2 reveal timing** — currently activates on State D entry. Player might still be fighting marchers from State C. Polish: maybe wait for clearance.
+4. **Acts 2-5 implementation.** Foundation ready. PR #3 onward.
 
 ### Acts 2-5 — high-level work remaining
 - **Act 2** (Defense Build): 3 more walls + 1 gate ghost, state E + F. Largely existing systems (UnlockZone + BuildSystem).
@@ -117,6 +120,7 @@
 | `src/systems/SeparationSystem.js` | Same-faction crowd repulsion |
 | `src/systems/LungeAnimSystem.js` | Per-faction/per-class attack animations (zombie slam, scout jab, bruiser smash, spit recoil) |
 | `src/systems/CombatVFXSystem.js` | Transient mesh effects (slash arc, ground shockwave) |
+| `src/systems/NextStepIndicator.js` | 3D pointer (ground ring + chevron) on next-step target; drives off state `hints` array; also handles `pulseTrees` |
 | `src/ecs/components/Component_Spitter.js` | Ranged spit attack data |
 | `src/ui/PrototypeEndUI.js` | Victory/Defeat overlay |
 | `src/config/prototypeStates.json` | State machine config |
@@ -247,7 +251,7 @@ http://localhost:8000/                 # legacy
 | PR #1: Foundation | ✓ shipped |
 | PR #2: Act 1 (skeleton) | ✓ shipped |
 | PR #2.5: Act 1 polish — unlock-zone fill, scary zombies, soldier anim+VFX, crowd separation, stop-at-range, combat pacing | ✓ shipped |
-| PR #2.6: Visual feedback for next-step targets (finger pointer / glow ring) + `pulseTrees` wiring | ⏳ next session |
+| PR #2.6: Next-step 3D pointer + `pulseTrees` wiring | ✓ shipped |
 | PR #3: Act 2 | pending |
 | PR #4: Act 3 | pending |
 | PR #5: Act 4 | pending |

@@ -79,6 +79,18 @@
             "exitTriggers": [
                 { "event": "zone:built", "filter": { "archetype": "wall" }, "count": 1 }
             ],
+            "hints": [
+                {
+                    "_doc": "Wood < 10 — point at the nearest tree.",
+                    "condition": { "playerInventoryLt": { "wood": 10 } },
+                    "target": { "kind": "nearestTag", "tag": "tree" }
+                },
+                {
+                    "_doc": "Have wood — point at wall ghost #1.",
+                    "condition": { "playerInventoryGte": { "wood": 10 }, "zoneNotBuilt": "wall_ghost_1" },
+                    "target": { "kind": "tag", "tag": "wall_ghost_1" }
+                }
+            ],
             "stallEscalation": [
                 {
                     "_doc": "15s in, hasn't started chopping (wood < 5) — push wood pressure.",
@@ -122,12 +134,30 @@
             "entryActions": [
                 { "call": "factory.activateGhost", "arg": "scout_pad" },
                 { "call": "factory.activateGhost", "arg": "bruiser_pad" },
+                { "call": "pulseTrees",            "arg": false },
                 { "call": "audio.cue",             "arg": "chime_info" },
                 { "call": "enemy.setSpawnConfig",  "arg": "spawn_c_baseline" }
             ],
             "exitTriggers": [
                 { "event": "zone:spawned", "filter": { "archetype": "scout" },   "count": 1 },
                 { "event": "zone:spawned", "filter": { "archetype": "bruiser" }, "count": 1 }
+            ],
+            "hints": [
+                {
+                    "_doc": "Essence < 8 — kill more zombies for essence.",
+                    "condition": { "playerInventoryLt": { "essence": 8 } },
+                    "target": { "kind": "nearestFaction", "faction": "enemy" }
+                },
+                {
+                    "_doc": "Have 8E — drain into Scout Pad (cheaper of the two).",
+                    "condition": { "playerInventoryGte": { "essence": 8 }, "zoneNotBuilt": "scout_pad" },
+                    "target": { "kind": "tag", "tag": "scout_pad" }
+                },
+                {
+                    "_doc": "Scout already spawned but bruiser hasn't — point at Bruiser Pad.",
+                    "condition": { "playerInventoryGte": { "essence": 15 }, "zoneBuilt": "scout_pad", "zoneNotBuilt": "bruiser_pad" },
+                    "target": { "kind": "tag", "tag": "bruiser_pad" }
+                }
             ],
             "stallEscalation": [
                 {
@@ -167,11 +197,24 @@
             "_doc":  "Wall ghost #2 reveals. Player must build the second wall. Exit: 1 wall built (since D entry). Stall checks: hasn't gathered wood (15s)? has wood but not built (30s)?",
             "entryActions": [
                 { "call": "factory.activateGhost", "arg": "wall_ghost_2" },
+                { "call": "pulseTrees",            "arg": true },
                 { "call": "audio.cue",             "arg": "chime_info" },
                 { "call": "enemy.setSpawnConfig",  "arg": "spawn_d_baseline" }
             ],
             "exitTriggers": [
                 { "event": "zone:built", "filter": { "archetype": "wall" }, "count": 1 }
+            ],
+            "hints": [
+                {
+                    "_doc": "Wood < 10 — point at the nearest tree.",
+                    "condition": { "playerInventoryLt": { "wood": 10 } },
+                    "target": { "kind": "nearestTag", "tag": "tree" }
+                },
+                {
+                    "_doc": "Have wood — point at wall ghost #2.",
+                    "condition": { "playerInventoryGte": { "wood": 10 }, "zoneNotBuilt": "wall_ghost_2" },
+                    "target": { "kind": "tag", "tag": "wall_ghost_2" }
+                }
             ],
             "stallEscalation": [
                 {
@@ -214,7 +257,8 @@
             "_name": "End of run (Act 1 stub)",
             "_doc":  "Triggers PrototypeEndUI Victory. When Act 2 lands, change D.next to E and add States E/F here.",
             "entryActions": [
-                { "call": "audio.cue", "arg": "victory_chord" }
+                { "call": "pulseTrees", "arg": false },
+                { "call": "audio.cue",  "arg": "victory_chord" }
             ]
         }
     }
