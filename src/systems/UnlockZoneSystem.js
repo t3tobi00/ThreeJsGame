@@ -66,6 +66,15 @@ export class UnlockZoneSystem {
                 const carrierInventory = ecs.getComponent(carrierId, 'InventoryStack');
                 if (!carrierTransform || !carrierInventory) continue;
 
+                // Act 3 — skip Worker carriers (wood-worker / essence-collector
+                // / worker-builder). Wood + essence workers ferry to the pad's
+                // Stockpile, NOT to ghost zones. The Builder mutates zone
+                // progress directly. Without this skip, a worker walking past
+                // an active ghost zone would lose its inventory to the zone
+                // and never reach the pad.
+                const carrierTag = ecs.getComponent(carrierId, 'Tag');
+                if (carrierTag?.has?.('worker')) continue;
+
                 const dist = zoneTransform.mesh.position.distanceTo(carrierTransform.mesh.position);
                 if (dist > zone.range) continue;
 

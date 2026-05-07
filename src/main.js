@@ -65,6 +65,7 @@ import { MachineSystem } from './systems/MachineSystem.js';
 import { BuildSystem } from './systems/BuildSystem.js';
 import { OnSpawnSystem } from './systems/OnSpawnSystem.js';
 import { WorkerAISystem } from './systems/WorkerAISystem.js';
+import { RoleIconSystem } from './systems/RoleIconSystem.js';
 import { Pathfinder } from './utils/Pathfinder.js';
 import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
@@ -280,10 +281,16 @@ class Game {
         // the AI's main loop.
         this.pathfinder = new Pathfinder({ minX: -16, maxX: 16, minZ: -16, maxZ: 16, cell: 1 });
 
-        // WorkerAISystem — Act 3 automation FSM. PR #3.2 implements the
-        // wood role only; essence + builder roles are no-ops until PR #3.3.
-        this.workerAISystem = new WorkerAISystem(this.scene.instance, this.pathfinder);
+        // WorkerAISystem — Act 3 automation FSM (wood / essence / builder).
+        // Needs the CollectorSystem reference so the essence-collector can
+        // discover ground disks for its siphon-beam targeting.
+        this.workerAISystem = new WorkerAISystem(this.scene.instance, this.pathfinder, this.collectorSystem);
         this.ecs.registerSystem(this.workerAISystem, ['Transform', 'WorkerAI', 'InventoryStack']);
+
+        // RoleIconSystem — small floating icons above each worker for
+        // role-at-a-glance debug visibility (3 concurrent FSMs).
+        this.roleIconSystem = new RoleIconSystem(this.scene.instance);
+        this.ecs.registerSystem(this.roleIconSystem, ['Transform', 'WorkerAI']);
 
         this.gateSystem = new GateSystem();
         this.ecs.registerSystem(this.gateSystem, ['Transform', 'Gate']);

@@ -46,5 +46,14 @@ export class Component_WorkerAI {
         // of direct steering. Cleared once the final waypoint is reached.
         this.path = null;
         this.pathIdx = 0;
+        // Essence-Collector siphon state — set while a beam is active.
+        // siphon.disk: the disk mesh being pulled
+        // siphon.tether: the tether mesh (cylinder)
+        // siphon.t: progress 0→1 along the pull arc
+        // siphon.startPos: where the disk lifted off (cloned)
+        this.siphon = null;
+        // Builder runtime — small inventory ledger (avoids InventoryStack
+        // mesh juggling; deposit logic mutates zone.progress directly).
+        this.carrying = { wood: 0, essence: 0 };
     }
 }

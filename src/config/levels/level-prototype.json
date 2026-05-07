@@ -168,6 +168,14 @@
             "builds": "worker-pad-active",
             "tag": "worker_pad",
             "hidden": true
+        },
+        {
+            "_doc": "TEST PR #3.3: visible ghost zone for the Builder. Costs 5 wood + 3 essence — forces both other workers to feed the stockpile before the Builder can finish. Sits SW of the test worker pad and clear of the south fence row (z=8). Remove once Act 3 is shippable end-to-end.",
+            "position": { "x": -3, "y": 0, "z": 3 },
+            "type": "build",
+            "cost": { "wood": 5, "essence": 3 },
+            "builds": null,
+            "tag": "test_zone_pr33"
         }
     ],
 

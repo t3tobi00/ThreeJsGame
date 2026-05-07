@@ -49,6 +49,46 @@ export class CollectorSystem {
         });
     }
 
+    /**
+     * Find the nearest non-flying ground disk of a given type within maxDist
+     * of `pos`. Used by Act 3 essence-collector to plan its walk-to-cluster
+     * route. Returns the disk mesh (with userData.resourceType) or null.
+     */
+    findNearestDisk(pos, type, maxDist = 30) {
+        let best = null;
+        let bestDsq = maxDist * maxDist;
+        for (const disk of this._disks) {
+            if (disk.collected || disk.isFlying) continue;
+            const t = disk.userData?.resourceType;
+            if (t !== type) continue;
+            const dsq = disk.position.distanceToSquared(pos);
+            if (dsq < bestDsq) { bestDsq = dsq; best = disk; }
+        }
+        return best;
+    }
+
+    /**
+     * Hand the disk's lifecycle to an external system (e.g. SiphonBeam).
+     * We pull the mesh out of the magnet pool so the per-frame
+     * "if (isFlying) animate" branch doesn't run on a disk with a null
+     * curve. The mesh stays in the scene so the external system can
+     * keep manipulating its position.
+     */
+    claimDisk(disk) {
+        if (!disk) return;
+        const idx = this._disks.indexOf(disk);
+        if (idx >= 0) this._disks.splice(idx, 1);
+    }
+
+    /** Release the disk back into the pool when the siphon finishes pulling it. */
+    consumeDisk(disk) {
+        if (!disk) return;
+        disk.collected = true;
+        if (disk.parent) disk.parent.remove(disk);
+        else this.scene.remove(disk);
+        if (disk._pool) disk._pool.release(disk);
+    }
+
     _getPool(resourceType) {
         if (!this._pools[resourceType]) {
             this._pools[resourceType] = new ObjectPool(

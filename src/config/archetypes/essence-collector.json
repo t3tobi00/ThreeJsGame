@@ -1,5 +1,5 @@
 {
-    "_doc": "Essence Collector — Act 3 ally automation. Visual: cyan body + cone hood + glowing wisp jar. PR #3.1 visuals only; PR #3.3 adds AI. role 'disabled' so WorkerAISystem skips it. Stats: HP 25, speed 3, faction ally. Non-combatant — takes damage, permanent death.",
+    "_doc": "Essence Collector — Act 3 ally automation. Visual: cyan body + cone hood + glowing wisp jar. PR #3.3 ships full AI: walk to nearest essence drop, stop at safe ~6u distance, fire siphon beam from the jar, disks slide along the beam into the jar, walk to pad, deposit. Stats: HP 25, speed 3, faction ally. Non-combatant — takes damage, permanent death. Inventory caps at 10 essence.",
     "type": "EssenceCollector",
     "mesh": {
         "preset": "character-worker",
@@ -12,9 +12,15 @@
         "Animator": {},
         "SquashStretch": { "intensity": 0.12, "frequency": 5, "trigger": "move" },
         "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
-        "Collider": { "shape": "circle", "radius": 0.35, "isStatic": true },
+        "WalkAnim": { "bobHeight": 0.06, "bobFreq": 6, "tiltAngle": 0.04 },
+        "Collider": { "shape": "circle", "radius": 0.35, "isStatic": false },
         "Tag": { "tags": ["ally", "worker", "essence-collector"] },
+        "Movement": { "speed": 3, "controller": "none", "faction": "ally" },
         "InventoryStack": { "maxSlots": 1, "slotCapacity": 10, "acceptsTypes": ["essence"] },
-        "WorkerAI": { "role": "disabled" }
+        "WorkerAI": {
+            "role": "essence",
+            "scanRadius": 30,
+            "depositRange": 2.0
+        }
     }
 }
