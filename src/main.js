@@ -70,6 +70,7 @@ import { Pathfinder } from './utils/Pathfinder.js';
 import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ContactDamageSystem } from './systems/ContactDamageSystem.js';
+import { BurningSystem } from './systems/BurningSystem.js';
 import { CollisionSystem } from './systems/CollisionSystem.js';
 import { SafeZoneSystem } from './systems/SafeZoneSystem.js';
 import { Component_SafeZone } from './ecs/components/Component_SafeZone.js';
@@ -243,6 +244,12 @@ class Game {
 
         this.lungeAnimSystem = new LungeAnimSystem(this.particleSystem, this.combatVFXSystem);
         this.lungeAnimSystem.setECS(this.ecs);
+
+        // BurningSystem — Magma-breath fire DoT + emissive tint + body
+        // embers on burning entities. Listens to entity:ignited from
+        // ContactDamageSystem (when ContactDamage.applyBurning is set).
+        this.burningSystem = new BurningSystem(this.ecs, this.combatVFXSystem);
+        this.ecs.registerSystem(this.burningSystem, ['Transform', 'Burning']);
 
         this.spitterSystem = new SpitterSystem(this.scene.instance, this.particleSystem);
         this.spitterSystem.setECS(this.ecs);

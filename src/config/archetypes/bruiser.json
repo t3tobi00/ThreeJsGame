@@ -1,10 +1,9 @@
 {
-    "_doc": "Bruiser — slow/strong ally soldier. PROTOTYPE_PLAN §4: HP 80 (bumped 80→150 for prototype testing), 20 DMG, 1 atk-sec (cooldown 1.0), cost 15E (lowered to 8E in level JSON). Like Scout: HeroAI steering + ContactDamage melee, no SkillLoadout. Slower (speed 2 vs Scout's 5) but soaks 150 HP.",
+    "_doc": "Bruiser — slow/strong ally soldier. Magma-breath specialist (PR #5b 2026-05-08): no held weapon — body itself is the attack. ContactDamage uses coneAngle 60° to damage ALL enemies in a 5u-radius forward cone, fired alongside CombatVFX magma-breath VFX (orange flame cone from mouth). HP 150 (bumped from 80 for prototype testing), 20 DMG per hit, 1 atk-sec (cooldown 1.0), cost 15E (lowered to 8E in level JSON). HeroAI steering + ContactDamage cone-AOE.",
     "type": "Bruiser",
     "mesh": {
         "preset": "character-soldier",
-        "color": "0xcc4422",
-        "weapon": "sword"
+        "color": "0xcc4422"
     },
     "spawn": {
         "cost": { "essence": 15 }
@@ -19,8 +18,12 @@
         "ZoneStatus": {},
         "Movement": { "speed": 2, "controller": "hero_ai", "faction": "ally" },
         "WalkAnim": { "bobHeight": 0.1, "bobFreq": 6, "tiltAngle": 0.08 },
-        "HeroAI": { "guardRadius": 8, "attackRange": 1.1, "returnSpeed": 1.5 },
-        "ContactDamage": { "damage": 20, "cooldown": 1.0, "range": 1.5, "targetFactions": ["enemy", "rival"] },
+        "HeroAI": { "guardRadius": 8, "attackRange": 6.0, "returnSpeed": 1.5 },
+        "ContactDamage": {
+            "damage": 35, "cooldown": 1.0, "range": 6.0, "coneAngle": 60,
+            "targetFactions": ["enemy", "rival"],
+            "applyBurning": { "duration": 3.0, "dotPerSec": 4 }
+        },
         "Arms": {},
         "DragCommandable": {
             "enabled": true,

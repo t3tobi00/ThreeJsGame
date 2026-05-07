@@ -35,6 +35,40 @@ const _chainLinkMat = new THREE.MeshStandardMaterial({
 });
 const _LINK_AXIS = new THREE.Vector3(0, 0, 1);   // torus default axis
 
+// ── Magma-breath fire particles ───────────────────────────────────────
+// Soft glowing-orb sprite texture, lazy-created on first use. Shared
+// across every fire particle ever spawned.
+let _fireParticleTexture = null;
+function _getFireParticleTexture() {
+    if (_fireParticleTexture) return _fireParticleTexture;
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+    grad.addColorStop(0.0, 'rgba(255, 255, 255, 1)');
+    grad.addColorStop(0.30, 'rgba(255, 240, 180, 0.95)');
+    grad.addColorStop(0.70, 'rgba(255, 140,  60, 0.45)');
+    grad.addColorStop(1.00, 'rgba(255,  80,   0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 64);
+    _fireParticleTexture = new THREE.CanvasTexture(canvas);
+    _fireParticleTexture.colorSpace = THREE.SRGBColorSpace;
+    return _fireParticleTexture;
+}
+
+// Tuned for "intense dangerous flamethrower" feel: lots of particles,
+// long life so they linger far out, near-zero gravity for flat reach,
+// minimal drag so they keep moving, big size variation with chunky
+// fireballs in the mix.
+const FIRE_PARTICLE_COUNT     = 90;       // particles per breath
+const FIRE_PARTICLE_GRAVITY   = 0.4;      // m/s² downward (lower = flatter flight)
+const FIRE_PARTICLE_DRAG      = 0.98;     // velocity multiplier per frame (closer to 1 = less slowdown)
+const FIRE_LIFETIME_MIN       = 1.00;
+const FIRE_LIFETIME_MAX       = 1.50;
+const FIRE_PARTICLE_SIZE_MIN  = 0.50;
+const FIRE_PARTICLE_SIZE_MAX  = 1.30;
+
 export class CombatVFXSystem {
     constructor(scene) {
         this.scene = scene;
@@ -42,6 +76,9 @@ export class CombatVFXSystem {
         // Map<scoutId, { state }> — prevents two simultaneous throws on
         // the same scout. Cleared when a throw finishes.
         this._activeThrows = new Map();
+        // Pool of in-flight fire particles (sprites). Spawned in batches
+        // by spawnMagmaBreath; ticked in update().
+        this._fireParticles = [];
     }
 
     /**
@@ -263,6 +300,231 @@ export class CombatVFXSystem {
     }
 
     /**
+     * Magma breath for Bruiser — emits a burst of fire-particle sprites
+     * from the bruiser's mouth along the forward direction. Each particle
+     * has a randomized direction inside the cone, randomized speed, and
+     * its own color/scale/opacity timeline so the flame reads as chaotic
+     * dynamic fire (not a static cone). Particles are tracked in
+     * this._fireParticles and ticked each frame in update().
+     */
+    spawnMagmaBreath({ position, direction, length = 6, angleDeg = 60 }) {
+        const halfAngle = (angleDeg / 2) * Math.PI / 180;
+
+        // Build a local frame: forward + right + up axes.
+        const forward = direction.clone().setY(0);
+        if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
+        forward.normalize();
+        const worldUp = new THREE.Vector3(0, 1, 0);
+        const right = new THREE.Vector3().crossVectors(forward, worldUp).normalize();
+        if (right.lengthSq() < 1e-4) right.set(1, 0, 0);
+        const localUp = new THREE.Vector3().crossVectors(right, forward).normalize();
+
+        const tex = _getFireParticleTexture();
+        // Speed is roughly tuned so the average particle travels ~length
+        // units before fading. mean speed * mean lifetime ≈ length.
+        const speedMean = length / ((FIRE_LIFETIME_MIN + FIRE_LIFETIME_MAX) / 2);
+        const speedSpread = speedMean * 0.4;
+
+        for (let i = 0; i < FIRE_PARTICLE_COUNT; i++) {
+            // Random direction inside cone (uniform in solid angle)
+            const azimuth = Math.random() * Math.PI * 2;
+            const polar   = Math.random() * halfAngle;
+            const sinP = Math.sin(polar);
+            const cosP = Math.cos(polar);
+            const dirVec = new THREE.Vector3()
+                .addScaledVector(forward, cosP)
+                .addScaledVector(right,   sinP * Math.cos(azimuth))
+                .addScaledVector(localUp, sinP * Math.sin(azimuth));
+
+            const speed    = speedMean - speedSpread + Math.random() * (2 * speedSpread);
+            const velocity = dirVec.multiplyScalar(speed);
+            // Slight upward bias — fire rises naturally
+            velocity.y += 0.4 + Math.random() * 0.8;
+
+            const lifetime  = FIRE_LIFETIME_MIN + Math.random() * (FIRE_LIFETIME_MAX - FIRE_LIFETIME_MIN);
+            const peakSize  = FIRE_PARTICLE_SIZE_MIN
+                            + Math.random() * (FIRE_PARTICLE_SIZE_MAX - FIRE_PARTICLE_SIZE_MIN);
+
+            const mat = new THREE.SpriteMaterial({
+                map: tex,
+                color: 0xffffaa,
+                transparent: true,
+                opacity: 0.0,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const sprite = new THREE.Sprite(mat);
+            // Tiny random offset around the mouth so particles don't all
+            // spawn from the same point (looks more like a billowing source)
+            sprite.position.copy(position);
+            sprite.position.x += (Math.random() - 0.5) * 0.10;
+            sprite.position.y += (Math.random() - 0.5) * 0.10;
+            sprite.position.z += (Math.random() - 0.5) * 0.10;
+            sprite.scale.setScalar(peakSize * 0.55);
+            sprite.renderOrder = 7;
+            this.scene.add(sprite);
+
+            this._fireParticles.push({
+                sprite,
+                mat,
+                velocity,
+                age: 0,
+                lifetime,
+                peakSize
+            });
+        }
+
+        // Ground-fire patches — 3-5 burning ground decals inside the cone.
+        // Distance starts at 3u (skipping the bruiser's footprint) and
+        // extends to `length`.
+        const patchCount = 3 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < patchCount; i++) {
+            const azimuth = (Math.random() - 0.5) * 2 * halfAngle;
+            const dist    = 3 + Math.random() * Math.max(1, length - 3);
+            const cosA    = Math.cos(azimuth);
+            const sinA    = Math.sin(azimuth);
+            const patchPos = new THREE.Vector3()
+                .copy(position)
+                .addScaledVector(forward, cosA * dist)
+                .addScaledVector(right,   sinA * dist);
+            this.spawnGroundFire(patchPos, 0.65 + Math.random() * 0.45);
+        }
+    }
+
+    /**
+     * Spawn a single small fire ember at `position`. Used by BurningSystem
+     * to emit body-rising flames from burning entities. Same particle
+     * pool as the magma breath, so it ticks through the same _fireParticles
+     * loop with the same color/scale/opacity timeline.
+     */
+    spawnFireEmber(position) {
+        const tex = _getFireParticleTexture();
+        const lifetime = 0.55 + Math.random() * 0.30;
+        const peakSize = 0.20 + Math.random() * 0.20;   // smaller than breath particles
+
+        const mat = new THREE.SpriteMaterial({
+            map: tex,
+            color: 0xffffaa,
+            transparent: true,
+            opacity: 0.0,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+        const sprite = new THREE.Sprite(mat);
+        sprite.position.copy(position);
+        sprite.scale.setScalar(peakSize * 0.55);
+        sprite.renderOrder = 7;
+        this.scene.add(sprite);
+
+        // Mostly upward velocity with small lateral wobble
+        const velocity = new THREE.Vector3(
+            (Math.random() - 0.5) * 0.7,
+            1.2 + Math.random() * 1.4,
+            (Math.random() - 0.5) * 0.7
+        );
+
+        this._fireParticles.push({
+            sprite, mat, velocity,
+            age: 0, lifetime, peakSize
+        });
+    }
+
+    /**
+     * Spawn a flat ground-fire patch at `position` (y forced to ground
+     * level). Reads as scorched/burning ground where the magma breath
+     * landed. Lives ~1.8-2.6s, flickers, fades out.
+     */
+    spawnGroundFire(position, radius = 0.8) {
+        const geo = new THREE.RingGeometry(radius * 0.35, radius, 18);
+        const mat = new THREE.MeshBasicMaterial({
+            color: 0xff6622,
+            transparent: true,
+            opacity: 0.0,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(position.x, 0.05, position.z);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.renderOrder = 5;
+        this.scene.add(mesh);
+
+        const lifetime = 1.8 + Math.random() * 0.8;
+        this._fx.push({
+            kind: 'ground-fire',
+            mesh, geo, mat,
+            life: lifetime,
+            lifeMax: lifetime,
+            startScale: 0.55,
+            endScale:   1.20
+        });
+    }
+
+    _tickFireParticles(deltaTime) {
+        if (this._fireParticles.length === 0) return;
+        // Scale the per-frame drag to the current frame so framerate
+        // changes don't change the deceleration shape.
+        const dragPerSec = Math.pow(FIRE_PARTICLE_DRAG, 60);   // 60fps reference
+        const dragThisFrame = Math.pow(dragPerSec, deltaTime);
+
+        for (let i = this._fireParticles.length - 1; i >= 0; i--) {
+            const p = this._fireParticles[i];
+            p.age += deltaTime;
+            const t = p.age / p.lifetime;
+
+            if (t >= 1.0) {
+                this.scene.remove(p.sprite);
+                p.mat.dispose();
+                this._fireParticles.splice(i, 1);
+                continue;
+            }
+
+            // Velocity: gravity + drag, then integrate position
+            p.velocity.y -= FIRE_PARTICLE_GRAVITY * deltaTime;
+            p.velocity.multiplyScalar(dragThisFrame);
+            p.sprite.position.addScaledVector(p.velocity, deltaTime);
+
+            // Color phases: yellow-white → orange → dark red
+            let r, g, b;
+            if (t < 0.30) {
+                const u = t / 0.30;
+                // 0xffffaa (1.00, 1.00, 0.667) → 0xff8833 (1.00, 0.53, 0.20)
+                r = 1.00;
+                g = 1.00 + (0.53 - 1.00) * u;
+                b = 0.667 + (0.20 - 0.667) * u;
+            } else if (t < 0.70) {
+                const u = (t - 0.30) / 0.40;
+                // 0xff8833 (1.00, 0.53, 0.20) → 0x661100 (0.40, 0.07, 0.0)
+                r = 1.00 + (0.40 - 1.00) * u;
+                g = 0.53 + (0.07 - 0.53) * u;
+                b = 0.20 + (0.00 - 0.20) * u;
+            } else {
+                // 0x661100 → near-black at end
+                const u = (t - 0.70) / 0.30;
+                r = 0.40 + (0.10 - 0.40) * u;
+                g = 0.07 + (0.02 - 0.07) * u;
+                b = 0;
+            }
+            p.mat.color.setRGB(r, g, b);
+
+            // Opacity: ramp up fast (0..0.10), hold (0.10..0.65), fade out
+            let opacity;
+            if (t < 0.10)      opacity = t / 0.10;
+            else if (t < 0.65) opacity = 1.0;
+            else               opacity = 1.0 - (t - 0.65) / 0.35;
+            p.mat.opacity = opacity;
+
+            // Scale: grow fast (0..0.20), hold (0.20..0.55), shrink (0.55..1)
+            let scaleMul;
+            if (t < 0.20)      scaleMul = 0.55 + (1.00 - 0.55) * (t / 0.20);
+            else if (t < 0.55) scaleMul = 1.0;
+            else               scaleMul = 1.0 - 0.85 * ((t - 0.55) / 0.45);
+            p.sprite.scale.setScalar(p.peakSize * scaleMul);
+        }
+    }
+
+    /**
      * Spectral hawk silhouette for Bruiser — a translucent angular hawk
      * shape that flashes along the swing arc at the strike peak. Reads as
      * the "bird-of-prey" flourish on top of the sword cleave. Lives for
@@ -382,12 +644,33 @@ export class CombatVFXSystem {
             }
 
             const t = 1 - (f.life / f.lifeMax);   // 0 → 1 over lifetime
+
+            if (f.kind === 'ground-fire') {
+                // Ground patch: ramp in, hold with flicker, fade out.
+                const scale = f.startScale + (f.endScale - f.startScale) * t;
+                f.mesh.scale.setScalar(scale);
+                let opacity;
+                if (t < 0.12) {
+                    opacity = (t / 0.12) * 0.85;
+                } else if (t < 0.75) {
+                    // Flicker via sin oscillation, two slightly out-of-phase
+                    opacity = 0.55 + 0.25 * Math.sin(t * 28) + 0.10 * Math.sin(t * 11.5);
+                } else {
+                    opacity = 0.85 * (1 - (t - 0.75) / 0.25);
+                }
+                f.mat.opacity = Math.max(0, opacity);
+                continue;
+            }
+
             const scale = f.startScale + (f.endScale - f.startScale) * t;
             f.mesh.scale.setScalar(scale);
             // Slash arc + hawk: ease-out fade. Shockwave: linear fade.
             const fade = (f.kind === 'arc' || f.kind === 'hawk') ? (1 - t * t) : (1 - t);
             f.mat.opacity = f.startOpacity * fade;
         }
+
+        // Fire particles (magma breath) — separate per-particle simulation.
+        this._tickFireParticles(deltaTime);
     }
 }
 

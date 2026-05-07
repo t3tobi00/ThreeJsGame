@@ -43,6 +43,21 @@ export class ContactDamageSystem {
             // Query only nearby targets from the spatial hash
             const nearby = this._hash.query(attackerPos.x, attackerPos.z, contact.range);
 
+            // Cone-AOE setup (used by Bruiser magma breath). When coneAngle
+            // is set, the attack damages every enemy whose direction-from-
+            // attacker is within (coneAngle/2) of the attacker's forward.
+            let coneCos = -1;
+            let coneFx = 0;
+            let coneFz = 0;
+            if (contact.coneAngle) {
+                coneCos = Math.cos((contact.coneAngle / 2) * Math.PI / 180);
+                const yaw = attackerTransform.mesh.rotation.y;
+                coneFx = Math.sin(yaw);
+                coneFz = Math.cos(yaw);
+            }
+
+            let firstConeHit = null;
+
             for (const targetId of nearby) {
                 if (targetId === attackerId) continue;
 
@@ -63,13 +78,50 @@ export class ContactDamageSystem {
                 if (attackerStatus && targetStatus
                     && attackerStatus.insideZone !== targetStatus.insideZone) continue;
 
-                const dist = attackerPos.distanceTo(targetTransform.mesh.position);
+                const targetPos = targetTransform.mesh.position;
+                const dx   = targetPos.x - attackerPos.x;
+                const dz   = targetPos.z - attackerPos.z;
+                const dist = Math.hypot(dx, dz);
                 if (dist > contact.range) continue;
 
+                if (contact.coneAngle) {
+                    // Cone-AOE: damage every target whose direction is
+                    // within the half-angle of the attacker's forward.
+                    if (dist < 1e-3) continue;
+                    const dot = (dx * coneFx + dz * coneFz) / dist;
+                    if (dot < coneCos) continue;
+                    EventBus.emit('entity:damaged', { entityId: targetId, damage: contact.damage });
+                    if (contact.applyBurning) {
+                        EventBus.emit('entity:ignited', {
+                            entityId: targetId,
+                            duration:  contact.applyBurning.duration,
+                            dotPerSec: contact.applyBurning.dotPerSec
+                        });
+                    }
+                    if (firstConeHit == null) firstConeHit = targetId;
+                    // do NOT break — keep damaging
+                } else {
+                    // Default: first nearby target only
+                    contact.timeSinceLastHit = 0;
+                    EventBus.emit('entity:damaged',  { entityId: targetId, damage: contact.damage });
+                    if (contact.applyBurning) {
+                        EventBus.emit('entity:ignited', {
+                            entityId: targetId,
+                            duration:  contact.applyBurning.duration,
+                            dotPerSec: contact.applyBurning.dotPerSec
+                        });
+                    }
+                    EventBus.emit('entity:attacked', { attackerId, targetId });
+                    break;
+                }
+            }
+
+            // Cone-AOE: fire ONE entity:attacked per cycle (with first hit
+            // for VFX dispatch). Reset cooldown only if at least one target
+            // was found in the cone.
+            if (contact.coneAngle && firstConeHit != null) {
                 contact.timeSinceLastHit = 0;
-                EventBus.emit('entity:damaged',  { entityId: targetId, damage: contact.damage });
-                EventBus.emit('entity:attacked', { attackerId, targetId });
-                break; // one target per cooldown cycle
+                EventBus.emit('entity:attacked', { attackerId, targetId: firstConeHit });
             }
         }
     }

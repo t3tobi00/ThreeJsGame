@@ -49,25 +49,21 @@ const SOLDIER_SCALE_BOOST      = 0.10;
 // the target and returns on a cyan tether (siphon-beam visual idiom).
 // All scout combat visuals live in CombatVFXSystem now.
 
-// ── Bruiser diagonal two-hand sword cleave + spectral hawk flourish ───
-// Sword raised over right shoulder, torso twists back, then the cleave
-// snaps diagonally across the body — both arms grip the hilt (left arm
-// matches right arm rotation), torso untwists past center, pelvis pops.
-// At the strike peak: red shockwave (existing) + spectral hawk (new).
+// ── Bruiser magma-breath body animation (no held weapon) ──────────────
+// Body-only windup→exhale lean. No arm rotation, no held weapon. The
+// MAGMA BREATH VFX is the visual focus (fires at strike peak via
+// CombatVFXSystem.spawnMagmaBreath). Body lean reads as "inhale →
+// exhale fire."
 const BRUISER_DURATION         = 0.85;
 const BRUISER_WINDUP_END       = 0.35;
 const BRUISER_STRIKE_END       = 0.70;
-const BRUISER_ARM_WINDUP_OFF   = -1.65;
-const BRUISER_ARM_STRIKE_OFF   = +1.60;
-const BRUISER_TORSO_WINDUP_OFF = -0.20;
-const BRUISER_TORSO_STRIKE_OFF = +0.45;
-const BRUISER_TORSO_TWIST_WIND = +0.45;   // body rotates right (sword over R shoulder)
-const BRUISER_TORSO_TWIST_HIT  = -0.40;   // cleave untwists past center
-const BRUISER_PELVIS_DIP       = -0.20;
-const BRUISER_PELVIS_POP       = +0.10;
-const BRUISER_SCALE_BOOST      = 0.14;
-const BRUISER_IMPACT_COLOR     = 0xff5522;
-const BRUISER_HAWK_COLOR       = 0xff4444;
+const BRUISER_TORSO_WINDUP_OFF = -0.25;   // lean back, "inhale"
+const BRUISER_TORSO_STRIKE_OFF = +0.40;   // lean forward, "exhale fire"
+const BRUISER_PELVIS_DIP       = -0.15;
+const BRUISER_PELVIS_POP       = +0.05;
+const BRUISER_BREATH_LENGTH    = 6.0;
+const BRUISER_BREATH_ANGLE     = 60;
+const BRUISER_BREATH_COLOR     = 0xff6622;
 
 // ── Spit attack animation (head recoil → thrust) ──────────────────────
 // Drives the rigged head + torso pivots when SpitterSystem fires
@@ -106,34 +102,34 @@ export class LungeAnimSystem {
         EventBus.on('zombie:spit:windup', ({ attackerId }) => this._beginSpit(attackerId));
     }
 
-    _spawnVFX(root, kind) {
-        const rootPos = new THREE.Vector3();
-        root.getWorldPosition(rootPos);
-        const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(root.quaternion);
-        if (kind === 'bruiser' && this._combatVFX) {
-            // Red shockwave on the ground 1.0u in front of attacker.
-            const groundPos = rootPos.clone()
-                .add(fwd.clone().multiplyScalar(1.0))
-                .setY(0);
-            this._combatVFX.spawnShockwave({
-                position: groundPos,
-                color: BRUISER_IMPACT_COLOR
-            });
-            if (this._particleSystem) {
-                const burstPos = groundPos.clone().setY(0.4);
-                this._particleSystem.createImpactBurst(burstPos, BRUISER_IMPACT_COLOR, 14);
-            }
-            // Spectral hawk flourish — translucent red bird silhouette
-            // flashes along the swing arc at chest height.
-            const hawkPos = rootPos.clone()
-                .add(fwd.clone().multiplyScalar(1.1))
-                .setY(rootPos.y + 1.0);
-            this._combatVFX.spawnSpectralHawk({
-                position: hawkPos,
-                direction: fwd.clone(),
-                color: BRUISER_HAWK_COLOR
-            });
+    _spawnVFX(_root, _kind) {
+        // Currently unused — scout dispatches directly via spawnSpearThrow,
+        // bruiser via _spawnMagmaBreath. Kept as a no-op hook for future
+        // melee branches that may reuse the existing arc/shockwave VFX.
+    }
+
+    _spawnMagmaBreath(root) {
+        if (!this._combatVFX) return;
+        // Origin = bruiser's mouth (head world position, slight downward
+        // shift so flame issues from face level rather than crown).
+        const head = root.getObjectByName('head');
+        const origin = new THREE.Vector3();
+        if (head) {
+            head.getWorldPosition(origin);
+            origin.y -= 0.05;
+        } else {
+            root.getWorldPosition(origin);
+            origin.y += 1.5;
         }
+        // Forward direction from the bruiser's facing rotation.
+        const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(root.quaternion);
+        this._combatVFX.spawnMagmaBreath({
+            position: origin,
+            direction: fwd,
+            length: BRUISER_BREATH_LENGTH,
+            angleDeg: BRUISER_BREATH_ANGLE,
+            color: BRUISER_BREATH_COLOR
+        });
     }
 
     _beginSpit(attackerId) {
@@ -261,61 +257,36 @@ export class LungeAnimSystem {
             const ratio = Math.min(1, a.t / dur);
 
             if (a.kind === 'bruiser') {
-                // Diagonal two-hand sword cleave. Both arms grip the hilt
-                // (leftArm matches rightArm rotation). torso.x leans
-                // back-then-forward AND torso.y twists right-then-left so
-                // the cleave reads as a diagonal sweep across the body.
-                let armOff, torsoOff, torsoYOff, pelvisOff, scaleMul;
+                // Magma-breath body animation: body-only lean (no arm
+                // rotation, no held weapon). Wind-up = lean back ("inhale"),
+                // strike = lean forward ("exhale fire"), recovery = ease back.
+                // Magma breath VFX fires once at strike peak.
+                let torsoOff, pelvisOff;
 
                 if (ratio < BRUISER_WINDUP_END) {
                     const u = easeInQuad(ratio / BRUISER_WINDUP_END);
-                    armOff    = BRUISER_ARM_WINDUP_OFF    * u;
-                    torsoOff  = BRUISER_TORSO_WINDUP_OFF  * u;
-                    torsoYOff = BRUISER_TORSO_TWIST_WIND  * u;
-                    pelvisOff = BRUISER_PELVIS_DIP        * u;
-                    scaleMul  = 1.0;
+                    torsoOff  = BRUISER_TORSO_WINDUP_OFF * u;
+                    pelvisOff = BRUISER_PELVIS_DIP       * u;
                 } else if (ratio < BRUISER_STRIKE_END) {
                     const u = easeOutCubic((ratio - BRUISER_WINDUP_END) / (BRUISER_STRIKE_END - BRUISER_WINDUP_END));
-                    armOff    = BRUISER_ARM_WINDUP_OFF    + (BRUISER_ARM_STRIKE_OFF    - BRUISER_ARM_WINDUP_OFF)    * u;
-                    torsoOff  = BRUISER_TORSO_WINDUP_OFF  + (BRUISER_TORSO_STRIKE_OFF  - BRUISER_TORSO_WINDUP_OFF)  * u;
-                    torsoYOff = BRUISER_TORSO_TWIST_WIND  + (BRUISER_TORSO_TWIST_HIT   - BRUISER_TORSO_TWIST_WIND)  * u;
-                    pelvisOff = BRUISER_PELVIS_DIP        + (BRUISER_PELVIS_POP        - BRUISER_PELVIS_DIP)        * u;
-                    scaleMul  = 1 + BRUISER_SCALE_BOOST * Math.sin(u * Math.PI);
-                    if (!a.impactFired && u > 0.5) {
+                    torsoOff  = BRUISER_TORSO_WINDUP_OFF + (BRUISER_TORSO_STRIKE_OFF - BRUISER_TORSO_WINDUP_OFF) * u;
+                    pelvisOff = BRUISER_PELVIS_DIP       + (BRUISER_PELVIS_POP       - BRUISER_PELVIS_DIP)       * u;
+                    if (!a.impactFired && u > 0.30) {
                         a.impactFired = true;
-                        this._spawnVFX(a.root, 'bruiser');
+                        this._spawnMagmaBreath(a.root);
                     }
                 } else {
                     const u = easeOutCubic((ratio - BRUISER_STRIKE_END) / (1 - BRUISER_STRIKE_END));
-                    armOff    = BRUISER_ARM_STRIKE_OFF    * (1 - u);
-                    torsoOff  = BRUISER_TORSO_STRIKE_OFF  * (1 - u);
-                    torsoYOff = BRUISER_TORSO_TWIST_HIT   * (1 - u);
-                    pelvisOff = BRUISER_PELVIS_POP        * (1 - u);
-                    scaleMul  = 1.0;
+                    torsoOff  = BRUISER_TORSO_STRIKE_OFF * (1 - u);
+                    pelvisOff = BRUISER_PELVIS_POP       * (1 - u);
                 }
 
-                a.leftArm.rotation.x  = a.baseLeftX  + armOff;
-                a.rightArm.rotation.x = a.baseRightX + armOff;
-                if (a.torso) {
-                    a.torso.rotation.x = a.baseTorsoX + torsoOff;
-                    a.torso.rotation.y = a.baseTorsoY + torsoYOff;
-                }
+                if (a.torso)  a.torso.rotation.x  = a.baseTorsoX  + torsoOff;
                 if (a.pelvis) a.pelvis.position.y = a.basePelvisY + pelvisOff;
-                a.root.scale.set(
-                    a.baseScaleX * scaleMul,
-                    a.baseScaleY * scaleMul,
-                    a.baseScaleZ * scaleMul
-                );
 
                 if (ratio >= 1) {
-                    a.leftArm.rotation.x  = a.baseLeftX;
-                    a.rightArm.rotation.x = a.baseRightX;
-                    if (a.torso) {
-                        a.torso.rotation.x = a.baseTorsoX;
-                        a.torso.rotation.y = a.baseTorsoY;
-                    }
+                    if (a.torso)  a.torso.rotation.x  = a.baseTorsoX;
                     if (a.pelvis) a.pelvis.position.y = a.basePelvisY;
-                    a.root.scale.set(a.baseScaleX, a.baseScaleY, a.baseScaleZ);
                     this._active.delete(id);
                 }
                 continue;
