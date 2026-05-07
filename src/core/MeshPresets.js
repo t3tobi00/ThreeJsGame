@@ -642,6 +642,48 @@ MeshPresets.register('dead-tree', ({ color = 0x5d4037 } = {}) => {
     return tree;
 });
 
+// living-tree — leafy evergreen used by tree.json. Three stacked cones of
+// decreasing radius give a tidy "Christmas-tree" silhouette that reads as a
+// living tree (vs the bare-branch dead-tree silhouette). Foliage meshes are
+// flagged userData.isFoliage = true so NextStepIndicator can target only the
+// crown for the pulse hint, leaving the trunk untouched.
+MeshPresets.register('living-tree', ({
+    color = 0x5d4037,
+    foliageColor = 0x2e7d32
+} = {}) => {
+    if (typeof foliageColor === 'string') foliageColor = parseInt(foliageColor, 16);
+
+    const tree = new THREE.Group();
+
+    const trunkMat = new THREE.MeshStandardMaterial({ color, roughness: 1.0 });
+    const trunkGeo = new THREE.CylinderGeometry(0.16, 0.22, 0.9, 6);
+    const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.y = 0.45;
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
+    tree.add(trunk);
+
+    const foliageMat = new THREE.MeshStandardMaterial({ color: foliageColor, roughness: 0.85 });
+    const layers = [
+        { radius: 0.95, height: 1.20, y: 1.30 },
+        { radius: 0.78, height: 1.00, y: 2.00 },
+        { radius: 0.56, height: 0.85, y: 2.65 }
+    ];
+    for (const L of layers) {
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(L.radius, L.height, 8), foliageMat);
+        cone.position.y = L.y;
+        cone.rotation.y = Math.random() * Math.PI * 2;
+        cone.castShadow = true;
+        cone.receiveShadow = true;
+        cone.userData.isFoliage = true;
+        tree.add(cone);
+    }
+
+    tree.scale.setScalar(0.92 + Math.random() * 0.16);
+    tree.rotation.y = Math.random() * Math.PI * 2;
+    return tree;
+});
+
 MeshPresets.register('fence-log', ({ color = 0x8b4513 } = {}) => {
     const geo = new THREE.CylinderGeometry(0.08, 0.08, 0.5, 6);
     const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.9 });
@@ -1266,6 +1308,123 @@ function _makeWorkerTool(kind) {
     }
     return g;
 }
+
+// ─── Soldier weapons (PR #5 attack-anim polish) ───────────────────────
+//
+// Held weapons for Scout (spear) and Bruiser (sword), attached to the
+// rightElbow pivot the same way worker tools are. Local +Y points up
+// along the held weapon, so when the arm swings forward (rotation.x +)
+// the weapon thrusts/cleaves forward with it.
+//
+// Each weapon's root group is tagged userData.isWeapon = true so
+// LungeAnimSystem can look it up by traversal if it needs per-weapon
+// motion (e.g., sword-grip the left hand, lengthen the spear during
+// the strike).
+
+function _makeSoldierWeapon(kind) {
+    const g = new THREE.Group();
+    g.userData.isWeapon = true;
+    g.userData.weaponKind = kind;
+
+    if (kind === 'spear') {
+        // Long heavy shaft + wide tip — sized for legibility during flight
+        // (the projectile is the visual focus during the chained throw).
+        // Held vertical at rest; whole weapon thrusts forward when the
+        // arm rotates.
+        const shaftMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.8 });
+        const tipMat   = new THREE.MeshStandardMaterial({ color: 0xc8c8d0, roughness: 0.30, metalness: 0.75 });
+
+        const SHAFT_LEN    = 1.50;
+        const SHAFT_RADIUS = 0.060;
+        const TIP_LEN      = 0.30;
+        const TIP_RADIUS   = 0.12;
+        const SHAFT_Y      = 0.45;   // shaft center y; grip sits below
+
+        const shaft = new THREE.Mesh(
+            new THREE.CylinderGeometry(SHAFT_RADIUS, SHAFT_RADIUS * 1.2, SHAFT_LEN, 8),
+            shaftMat
+        );
+        shaft.position.y = SHAFT_Y;
+        shaft.castShadow = true;
+        g.add(shaft);
+
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(TIP_RADIUS, TIP_LEN, 8), tipMat);
+        tip.position.y = SHAFT_Y + SHAFT_LEN / 2 + TIP_LEN / 2;
+        tip.castShadow = true;
+        g.add(tip);
+
+        // Bronze haft-collar at the grip for visual punctuation
+        const collar = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.085, 0.085, 0.08, 8),
+            new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.5, metalness: 0.6 })
+        );
+        collar.position.y = SHAFT_Y - SHAFT_LEN / 2 - 0.04;
+        g.add(collar);
+    } else if (kind === 'sword') {
+        // Two-handed cleaver. Grip at bottom (in the right hand), broad
+        // crossguard, tapering blade going up. Bruiser anim grips the
+        // hilt with both hands by also rotating the left arm to match.
+        const gripMat   = new THREE.MeshStandardMaterial({ color: 0x3a2210, roughness: 0.85 });
+        const guardMat  = new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.45, metalness: 0.6 });
+        const bladeMat  = new THREE.MeshStandardMaterial({ color: 0xd0d0d8, roughness: 0.30, metalness: 0.75 });
+
+        const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.22, 8), gripMat);
+        grip.position.y = -0.12;
+        grip.castShadow = true;
+        g.add(grip);
+
+        const guard = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.05, 0.06), guardMat);
+        guard.position.y = 0.0;
+        guard.castShadow = true;
+        g.add(guard);
+
+        const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), guardMat);
+        pommel.position.y = -0.24;
+        g.add(pommel);
+
+        // Blade: a tapering box (wide near guard, narrow at tip)
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.75, 0.025), bladeMat);
+        blade.position.y = 0.40;
+        blade.castShadow = true;
+        // Tilt the blade slightly so it doesn't look like a flat slab
+        blade.rotation.z = 0.04;
+        g.add(blade);
+
+        // Pointed blade tip — small cone
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.15, 4), bladeMat);
+        tip.position.y = 0.85;
+        tip.castShadow = true;
+        g.add(tip);
+    }
+    return g;
+}
+
+// ─── character-soldier preset ─────────────────────────────────────────
+//
+// Wraps `character-player` so soldiers inherit the full animation rig
+// and pick up a held weapon on `rightElbow` (so it tracks the hand
+// when arms swing).
+//
+// Options:
+//   color  — body tint (passed through to character-player)
+//   weapon — 'spear' | 'sword' | null
+//
+// Used by scout.json / bruiser.json.
+
+MeshPresets.register('character-soldier', ({ color = 0xbbbbbb, weapon = null } = {}) => {
+    const root = MeshPresets.create('character-player', { color });
+
+    if (weapon) {
+        const rightElbow = root.getObjectByName('rightElbow');
+        const w = _makeSoldierWeapon(weapon);
+        // Sit the weapon roughly where the hand would be; slight forward
+        // offset so the shaft doesn't z-fight with the forearm capsule.
+        w.position.set(0.04, -0.30, 0.04);
+        if (rightElbow) rightElbow.add(w);
+    }
+
+    return root;
+});
 
 // ─── character-worker preset ──────────────────────────────────────────
 //

@@ -223,7 +223,12 @@ export class NextStepIndicator {
     }
 
     _tickTreePulse() {
-        const intensity = 0.4 + 0.5 * (0.5 + 0.5 * Math.sin(this._t * 3.5));
+        // Subtle breathing-glow on foliage only. Old pulse hit the bare-branch
+        // dead-tree preset with [0.4, 0.9] intensity at ~3.5 rad/s — read as a
+        // strobe on a silhouette. Living-tree leaves the trunk untouched and
+        // pulses only the leafy crown (userData.isFoliage) at [0, 0.35] / 1.8
+        // rad/s for a calm "harvest me" hint.
+        const intensity = 0.35 * (0.5 + 0.5 * Math.sin(this._t * 1.8));
         for (const id of this.ecs.queryEntities(['Transform', 'Tag'])) {
             const tagComp = this.ecs.getComponent(id, 'Tag');
             if (!tagComp?.has?.('tree')) continue;
@@ -231,6 +236,7 @@ export class NextStepIndicator {
             if (!tr?.mesh || tr.mesh.visible === false) continue;
             tr.mesh.traverse(obj => {
                 if (!obj.isMesh || !obj.material || !obj.material.emissive) return;
+                if (obj.userData?.isFoliage !== true) return;
                 const mat = obj.material;
                 if (!this._pulsedMaterials.has(mat)) {
                     this._pulsedMaterials.set(mat, {

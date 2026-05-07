@@ -2,8 +2,9 @@
   "type": "Tree",
   "emoji": "🌲",
   "mesh": {
-    "preset": "dead-tree",
-    "color": "0x5d4037"
+    "preset": "living-tree",
+    "color": "0x5d4037",
+    "foliageColor": "0x2e7d32"
   },
   "behaviors": ["harvestable"],
   "components": {

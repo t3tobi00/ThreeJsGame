@@ -42,27 +42,32 @@ const SOLDIER_PELVIS_DIP       = -0.12;
 const SOLDIER_PELVIS_POP       = +0.06;
 const SOLDIER_SCALE_BOOST      = 0.10;
 
-// ── Scout fast double-jab — alternating right then left arm thrust ────
-// Boxer-style two-punch. Each jab peaks mid-half; spark fires at peak.
-const SCOUT_DURATION   = 0.24;
-const SCOUT_JAB1_END   = 0.50;     // 0..0.50 → right jab; 0.50..1.0 → left jab
-const SCOUT_JAB_OFFSET = +1.40;    // arm thrust forward from rest
-const SCOUT_SPARK_COLOR = 0x44eeff;
+// ── Scout: spear-throw projectile (no arm animation) ──────────────────
+// Scout doesn't run an arm-thrust animation. On entity:attacked, _begin
+// dispatches to CombatVFXSystem.spawnSpearThrow which hides the held
+// spear, spawns a world-space projectile clone that flies straight to
+// the target and returns on a cyan tether (siphon-beam visual idiom).
+// All scout combat visuals live in CombatVFXSystem now.
 
-// ── Bruiser heavy two-arm overhead smash — slower, deeper, harder ─────
-// Bigger swing arc, deeper pelvis dip, longer recovery. Impact burst
-// fires at strike peak.
-const BRUISER_DURATION         = 0.50;
-const BRUISER_WINDUP_END       = 0.32;
-const BRUISER_STRIKE_END       = 0.62;
-const BRUISER_ARM_WINDUP_OFF   = -1.80;
-const BRUISER_ARM_STRIKE_OFF   = +1.55;
-const BRUISER_TORSO_WINDUP_OFF = -0.25;
-const BRUISER_TORSO_STRIKE_OFF = +0.50;
+// ── Bruiser diagonal two-hand sword cleave + spectral hawk flourish ───
+// Sword raised over right shoulder, torso twists back, then the cleave
+// snaps diagonally across the body — both arms grip the hilt (left arm
+// matches right arm rotation), torso untwists past center, pelvis pops.
+// At the strike peak: red shockwave (existing) + spectral hawk (new).
+const BRUISER_DURATION         = 0.85;
+const BRUISER_WINDUP_END       = 0.35;
+const BRUISER_STRIKE_END       = 0.70;
+const BRUISER_ARM_WINDUP_OFF   = -1.65;
+const BRUISER_ARM_STRIKE_OFF   = +1.60;
+const BRUISER_TORSO_WINDUP_OFF = -0.20;
+const BRUISER_TORSO_STRIKE_OFF = +0.45;
+const BRUISER_TORSO_TWIST_WIND = +0.45;   // body rotates right (sword over R shoulder)
+const BRUISER_TORSO_TWIST_HIT  = -0.40;   // cleave untwists past center
 const BRUISER_PELVIS_DIP       = -0.20;
 const BRUISER_PELVIS_POP       = +0.10;
-const BRUISER_SCALE_BOOST      = 0.16;
+const BRUISER_SCALE_BOOST      = 0.14;
 const BRUISER_IMPACT_COLOR     = 0xff5522;
+const BRUISER_HAWK_COLOR       = 0xff4444;
 
 // ── Spit attack animation (head recoil → thrust) ──────────────────────
 // Drives the rigged head + torso pivots when SpitterSystem fires
@@ -97,7 +102,7 @@ export class LungeAnimSystem {
         this._ecs = null;
         this._particleSystem = particleSystem;
         this._combatVFX = combatVFX;
-        EventBus.on('entity:attacked', ({ attackerId }) => this._begin(attackerId));
+        EventBus.on('entity:attacked', ({ attackerId, targetId }) => this._begin(attackerId, targetId));
         EventBus.on('zombie:spit:windup', ({ attackerId }) => this._beginSpit(attackerId));
     }
 
@@ -105,21 +110,7 @@ export class LungeAnimSystem {
         const rootPos = new THREE.Vector3();
         root.getWorldPosition(rootPos);
         const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(root.quaternion);
-        if (kind === 'scout' && this._combatVFX) {
-            // Cyan slash arc 1.0u forward at chest height (1.0u up).
-            const arcPos = rootPos.clone()
-                .add(fwd.clone().multiplyScalar(1.0))
-                .setY(rootPos.y + 1.0);
-            this._combatVFX.spawnSlashArc({
-                position: arcPos,
-                direction: fwd.clone(),
-                color: SCOUT_SPARK_COLOR
-            });
-            // Tiny extra particle accent for grit
-            if (this._particleSystem) {
-                this._particleSystem.createSlashSpark(arcPos, SCOUT_SPARK_COLOR, 6);
-            }
-        } else if (kind === 'bruiser' && this._combatVFX) {
+        if (kind === 'bruiser' && this._combatVFX) {
             // Red shockwave on the ground 1.0u in front of attacker.
             const groundPos = rootPos.clone()
                 .add(fwd.clone().multiplyScalar(1.0))
@@ -132,6 +123,16 @@ export class LungeAnimSystem {
                 const burstPos = groundPos.clone().setY(0.4);
                 this._particleSystem.createImpactBurst(burstPos, BRUISER_IMPACT_COLOR, 14);
             }
+            // Spectral hawk flourish — translucent red bird silhouette
+            // flashes along the swing arc at chest height.
+            const hawkPos = rootPos.clone()
+                .add(fwd.clone().multiplyScalar(1.1))
+                .setY(rootPos.y + 1.0);
+            this._combatVFX.spawnSpectralHawk({
+                position: hawkPos,
+                direction: fwd.clone(),
+                color: BRUISER_HAWK_COLOR
+            });
         }
     }
 
@@ -155,7 +156,7 @@ export class LungeAnimSystem {
 
     setECS(ecs) { this._ecs = ecs; }
 
-    _begin(attackerId) {
+    _begin(attackerId, targetId) {
         if (!this._ecs) return;
         if (this._active.has(attackerId)) return;
         const tr = this._ecs.getComponent(attackerId, 'Transform');
@@ -181,26 +182,39 @@ export class LungeAnimSystem {
                 const pelvis = root.getObjectByName('pelvis');
 
                 if (isScout) {
-                    this._active.set(attackerId, {
-                        kind: 'scout',
-                        root, leftArm, rightArm,
-                        baseLeftX:  leftArm.rotation.x,
-                        baseRightX: rightArm.rotation.x,
-                        spark1Fired: false,
-                        spark2Fired: false,
-                        t: 0
-                    });
+                    // Scout doesn't get an arm-thrust animation — instead,
+                    // dispatch to combatVFX which spawns a world-space
+                    // spear projectile + cyan tether (siphon-beam idiom).
+                    // Damage is already delivered by ContactDamage; this
+                    // is purely the visual.
+                    if (this._combatVFX && targetId != null) {
+                        const targetTr = this._ecs.getComponent(targetId, 'Transform');
+                        if (targetTr?.mesh) {
+                            const targetPos = new THREE.Vector3();
+                            targetTr.mesh.getWorldPosition(targetPos);
+                            // Aim at chest height so the spear doesn't dive
+                            // into the ground.
+                            targetPos.y += 0.6;
+                            this._combatVFX.spawnSpearThrow({
+                                scoutId: attackerId,
+                                scoutMesh: root,
+                                targetPos
+                            });
+                        }
+                    }
                     EventBus.emit('audio:cue', { name: 'impact_thud' });
                     return;
                 }
 
-                // Bruiser (or any other ally) → heavy two-arm overhead smash.
+                // Bruiser (or any other ally) → diagonal two-hand sword
+                // cleave (Bruiser) or fallback overhead smash (generic).
                 this._active.set(attackerId, {
                     kind: isBruiser ? 'bruiser' : 'soldier',
                     root, leftArm, rightArm, torso, pelvis,
                     baseLeftX:    leftArm.rotation.x,
                     baseRightX:   rightArm.rotation.x,
                     baseTorsoX:   torso  ? torso.rotation.x  : 0,
+                    baseTorsoY:   torso  ? torso.rotation.y  : 0,
                     basePelvisY:  pelvis ? pelvis.position.y : 0,
                     baseScaleX:   root.scale.x,
                     baseScaleY:   root.scale.y,
@@ -240,58 +254,32 @@ export class LungeAnimSystem {
     update(deltaTime) {
         for (const [id, a] of this._active) {
             const dur = a.kind === 'spit'    ? SPIT_DURATION
-                      : a.kind === 'scout'   ? SCOUT_DURATION
                       : a.kind === 'bruiser' ? BRUISER_DURATION
                       : a.kind === 'soldier' ? SOLDIER_DURATION
                       : DURATION;
             a.t += deltaTime;
             const ratio = Math.min(1, a.t / dur);
 
-            if (a.kind === 'scout') {
-                // Two-phase fast jab: right then left. Each jab a sin pulse
-                // peaking mid-half. Spark fires at each peak.
-                let leftOff = 0, rightOff = 0;
-                if (ratio < SCOUT_JAB1_END) {
-                    const u = Math.sin((ratio / SCOUT_JAB1_END) * Math.PI);
-                    rightOff = SCOUT_JAB_OFFSET * u;
-                    if (!a.spark1Fired && u > 0.6) {
-                        a.spark1Fired = true;
-                        this._spawnVFX(a.root, 'scout');
-                    }
-                } else {
-                    const u = Math.sin(((ratio - SCOUT_JAB1_END) / (1 - SCOUT_JAB1_END)) * Math.PI);
-                    leftOff = SCOUT_JAB_OFFSET * u;
-                    if (!a.spark2Fired && u > 0.6) {
-                        a.spark2Fired = true;
-                        this._spawnVFX(a.root, 'scout');
-                    }
-                }
-                a.leftArm.rotation.x  = a.baseLeftX  + leftOff;
-                a.rightArm.rotation.x = a.baseRightX + rightOff;
-
-                if (ratio >= 1) {
-                    a.leftArm.rotation.x  = a.baseLeftX;
-                    a.rightArm.rotation.x = a.baseRightX;
-                    this._active.delete(id);
-                }
-                continue;
-            }
-
             if (a.kind === 'bruiser') {
-                // Same three-phase shape as soldier, but slower and bigger.
-                let armOff, torsoOff, pelvisOff, scaleMul;
+                // Diagonal two-hand sword cleave. Both arms grip the hilt
+                // (leftArm matches rightArm rotation). torso.x leans
+                // back-then-forward AND torso.y twists right-then-left so
+                // the cleave reads as a diagonal sweep across the body.
+                let armOff, torsoOff, torsoYOff, pelvisOff, scaleMul;
 
                 if (ratio < BRUISER_WINDUP_END) {
                     const u = easeInQuad(ratio / BRUISER_WINDUP_END);
-                    armOff    = BRUISER_ARM_WINDUP_OFF   * u;
-                    torsoOff  = BRUISER_TORSO_WINDUP_OFF * u;
-                    pelvisOff = BRUISER_PELVIS_DIP       * u;
+                    armOff    = BRUISER_ARM_WINDUP_OFF    * u;
+                    torsoOff  = BRUISER_TORSO_WINDUP_OFF  * u;
+                    torsoYOff = BRUISER_TORSO_TWIST_WIND  * u;
+                    pelvisOff = BRUISER_PELVIS_DIP        * u;
                     scaleMul  = 1.0;
                 } else if (ratio < BRUISER_STRIKE_END) {
                     const u = easeOutCubic((ratio - BRUISER_WINDUP_END) / (BRUISER_STRIKE_END - BRUISER_WINDUP_END));
-                    armOff    = BRUISER_ARM_WINDUP_OFF   + (BRUISER_ARM_STRIKE_OFF   - BRUISER_ARM_WINDUP_OFF)   * u;
-                    torsoOff  = BRUISER_TORSO_WINDUP_OFF + (BRUISER_TORSO_STRIKE_OFF - BRUISER_TORSO_WINDUP_OFF) * u;
-                    pelvisOff = BRUISER_PELVIS_DIP       + (BRUISER_PELVIS_POP       - BRUISER_PELVIS_DIP)       * u;
+                    armOff    = BRUISER_ARM_WINDUP_OFF    + (BRUISER_ARM_STRIKE_OFF    - BRUISER_ARM_WINDUP_OFF)    * u;
+                    torsoOff  = BRUISER_TORSO_WINDUP_OFF  + (BRUISER_TORSO_STRIKE_OFF  - BRUISER_TORSO_WINDUP_OFF)  * u;
+                    torsoYOff = BRUISER_TORSO_TWIST_WIND  + (BRUISER_TORSO_TWIST_HIT   - BRUISER_TORSO_TWIST_WIND)  * u;
+                    pelvisOff = BRUISER_PELVIS_DIP        + (BRUISER_PELVIS_POP        - BRUISER_PELVIS_DIP)        * u;
                     scaleMul  = 1 + BRUISER_SCALE_BOOST * Math.sin(u * Math.PI);
                     if (!a.impactFired && u > 0.5) {
                         a.impactFired = true;
@@ -299,16 +287,20 @@ export class LungeAnimSystem {
                     }
                 } else {
                     const u = easeOutCubic((ratio - BRUISER_STRIKE_END) / (1 - BRUISER_STRIKE_END));
-                    armOff    = BRUISER_ARM_STRIKE_OFF   * (1 - u);
-                    torsoOff  = BRUISER_TORSO_STRIKE_OFF * (1 - u);
-                    pelvisOff = BRUISER_PELVIS_POP       * (1 - u);
+                    armOff    = BRUISER_ARM_STRIKE_OFF    * (1 - u);
+                    torsoOff  = BRUISER_TORSO_STRIKE_OFF  * (1 - u);
+                    torsoYOff = BRUISER_TORSO_TWIST_HIT   * (1 - u);
+                    pelvisOff = BRUISER_PELVIS_POP        * (1 - u);
                     scaleMul  = 1.0;
                 }
 
                 a.leftArm.rotation.x  = a.baseLeftX  + armOff;
                 a.rightArm.rotation.x = a.baseRightX + armOff;
-                if (a.torso)  a.torso.rotation.x   = a.baseTorsoX  + torsoOff;
-                if (a.pelvis) a.pelvis.position.y  = a.basePelvisY + pelvisOff;
+                if (a.torso) {
+                    a.torso.rotation.x = a.baseTorsoX + torsoOff;
+                    a.torso.rotation.y = a.baseTorsoY + torsoYOff;
+                }
+                if (a.pelvis) a.pelvis.position.y = a.basePelvisY + pelvisOff;
                 a.root.scale.set(
                     a.baseScaleX * scaleMul,
                     a.baseScaleY * scaleMul,
@@ -318,7 +310,10 @@ export class LungeAnimSystem {
                 if (ratio >= 1) {
                     a.leftArm.rotation.x  = a.baseLeftX;
                     a.rightArm.rotation.x = a.baseRightX;
-                    if (a.torso)  a.torso.rotation.x  = a.baseTorsoX;
+                    if (a.torso) {
+                        a.torso.rotation.x = a.baseTorsoX;
+                        a.torso.rotation.y = a.baseTorsoY;
+                    }
                     if (a.pelvis) a.pelvis.position.y = a.basePelvisY;
                     a.root.scale.set(a.baseScaleX, a.baseScaleY, a.baseScaleZ);
                     this._active.delete(id);

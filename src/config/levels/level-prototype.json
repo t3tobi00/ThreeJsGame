@@ -1,6 +1,6 @@
 {
     "name": "Prototype — Act 1 layout",
-    "_doc": "Act 1 layout per newGameDesign/PROTOTYPE_PLAN.md §4 typical playthrough. 12 zombies pre-placed across 3 ring distances. 4 wall ghosts (1 active in State B, 1 more activated in D, the remaining 2 reserved for Act 2's State E). 2 spawn pads (Scout + Bruiser) hidden until State C. 6 trees clustered ~10-14 tiles north for wood gathering.",
+    "_doc": "Act 1 layout per newGameDesign/PROTOTYPE_PLAN.md §4 typical playthrough. PR #4.5 South Logistics Belt redesign: north reserved for combat + chop + walls; south holds the worker infrastructure in two rows (storages at z=+5, worker/builder bases at z=+7). Military pads moved north of the player (z=-4) so spawned soldiers already face the zombie horde. 12 zombies pre-placed across 3 ring distances. 4 wall ghosts (1 active in State B, 1 more activated in D, the remaining 2 reserved for Act 2's State E). 2 spawn pads (Scout + Bruiser) hidden until State C.",
 
     "grid": {
         "origin": { "x": -30, "z": -30 },
@@ -49,9 +49,9 @@
         { "archetype": "tree-prototype", "position": { "x":  0, "y": 0, "z": -14 } },
         { "archetype": "tree-prototype", "position": { "x": -10, "y": 0, "z": -10 } },
 
-        "_doc 4 INSIDE-PERIMETER trees so the staged build (D/E/F) can finish without auto-sink. Move/remove these once auto-sink lets the player reach the outer trees again.",
-        { "archetype": "tree-prototype", "position": { "x": -6, "y": 0, "z":  5 } },
-        { "archetype": "tree-prototype", "position": { "x":  6, "y": 0, "z":  5 } },
+        "_doc 4 INSIDE-PERIMETER trees so the staged build (D/E/F) can finish without auto-sink. Move/remove these once auto-sink lets the player reach the outer trees again. South pair moved from z=+5 to z=+3 to make room for the south logistics belt at z=+5..+7.",
+        { "archetype": "tree-prototype", "position": { "x": -6, "y": 0, "z":  3 } },
+        { "archetype": "tree-prototype", "position": { "x":  6, "y": 0, "z":  3 } },
         { "archetype": "tree-prototype", "position": { "x": -6, "y": 0, "z": -5 } },
         { "archetype": "tree-prototype", "position": { "x":  6, "y": 0, "z": -5 } },
 
@@ -65,14 +65,16 @@
 
         "_doc PR #4.0 — Acts 1-3 architecture redesign (2026-05-07). Workers pre-placed at boot per the locked design pivot: 1 wood-worker, 1 essence-collector, 2 builders all on the map from frame 0. Storage props (wood + essence, cap 100) are visible at fixed positions; workers deposit there, builders withdraw. The old worker-pad-active test is gone.",
 
-        "_doc Storage props (PR #4.0) — sit west of the player. Wood at z=3, Essence at z=6, 3u apart so the visible stacks don't crowd.",
-        { "archetype": "wood-storage",    "position": { "x": -3, "y": 0, "z": 3 } },
-        { "archetype": "essence-storage", "position": { "x": -3, "y": 0, "z": 6 } },
+        "_doc PR #4.5 South Logistics Belt — all worker infrastructure on the southern third of the perimeter so the north stays clean for combat + tree-chop + wall-build action. Two rows: storages forward at z=+5 (visible stacks read at a glance), worker/builder bases tucked behind the south wall ghost at z=+7. Wood ops on the west side, essence ops on the east, builder centered for equal reach to all 4 wall ghosts.",
 
-        "_doc Worker bases (PR #4.2) — each base spawns its associated worker via OnSpawn (next-frame). Bases sit further west of the storages so workers walk a short trip back to deposit. Builder Base is east, near the inside-perimeter trees and the wall ghosts so builders have less travel during construction.",
-        { "archetype": "wood-worker-base",       "position": { "x": -7, "y": 0, "z": 3 } },
-        { "archetype": "essence-collector-base", "position": { "x": -7, "y": 0, "z": 6 } },
-        { "archetype": "builder-base",           "position": { "x":  6, "y": 0, "z": 7 } }
+        "_doc Storage row at z=+5 — visible stacks face the player.",
+        { "archetype": "wood-storage",    "position": { "x": -4, "y": 0, "z": 5 } },
+        { "archetype": "essence-storage", "position": { "x":  4, "y": 0, "z": 5 } },
+
+        "_doc Worker base row at z=+7 — wood-W west, essence-C east, builder centered. Each worker base sits ~3.6u from its storage (short deposit trip).",
+        { "archetype": "wood-worker-base",       "position": { "x": -8, "y": 0, "z": 7 } },
+        { "archetype": "essence-collector-base", "position": { "x":  8, "y": 0, "z": 7 } },
+        { "archetype": "builder-base",           "position": { "x":  0, "y": 0, "z": 7 } }
     ],
 
     "_fenceDoc": "20u × 20u palisade-log enclosure with staged build. Each side is hidden at boot; filling its unlock-zone fires `zone:built` with the side tag, which main.js maps to `fence:revealSide`, lazily showing logs + creating colliders. Order in Act 1: B → north, C (army), D → south. Act 2 adds east + west.",
@@ -150,8 +152,8 @@
             "hidden": true
         },
         {
-            "_doc": "Scout Pad — Green Military Base. Drains 4E to spawn 1 Scout. Activated in State C. PR #4.4: swapped to the military-base-green mesh + snappy auto-drop tuning (drainRate 0.05 = ~80ms per essence, range 2.5).",
-            "cell": [16, 11],
+            "_doc": "Scout Pad — Green Military Base. Drains 4E to spawn 1 Scout. Activated in State C. PR #4.4: swapped to the military-base-green mesh + snappy auto-drop tuning (drainRate 0.05 = ~80ms per essence, range 2.5). PR #4.5: moved north of player (cell [13,11] = world (-8,-4)) so spawned scouts are already in the combat zone facing zombies.",
+            "cell": [13, 11],
             "gridSpan": [1, 1],
             "type": "spawner",
             "cost": { "essence": 4 },
@@ -164,8 +166,8 @@
             "range": 3.0
         },
         {
-            "_doc": "Bruiser Pad — Red Military Base. Drains 8E to spawn 1 Bruiser. Activated in State C. Same auto-drop tuning as green.",
-            "cell": [16, 19],
+            "_doc": "Bruiser Pad — Red Military Base. Drains 8E to spawn 1 Bruiser. Activated in State C. Same auto-drop tuning as green. PR #4.5: moved north of player to mirror Scout Pad — east flank in the combat zone.",
+            "cell": [13, 19],
             "gridSpan": [1, 1],
             "type": "spawner",
             "cost": { "essence": 8 },
