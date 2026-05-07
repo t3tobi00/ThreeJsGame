@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import EventBus from '../core/EventBus.js';
+import ResourceRegistry from '../core/ResourceRegistry.js';
 
 /**
  * WorkerAISystem — Per-worker FSM driving the Act 3 automation loop.
@@ -70,6 +71,7 @@ export class WorkerAISystem {
                     case 'WITHDRAW':        this._builderWithdraw(id, ai, ecs); break;
                     case 'MOVE_TO_ZONE':    this._builderMoveToZone(id, ai, transform, deltaTime, ecs); break;
                     case 'DEPOSIT_ZONE':    this._builderDepositZone(id, ai, transform, ecs); break;
+                    case 'BUILDING':        this._builderBuilding(id, ai, deltaTime); break;
                     default:                ai.fsmState = 'IDLE';
                 }
             }
@@ -77,9 +79,14 @@ export class WorkerAISystem {
     }
 
     // ─── IDLE ───────────────────────────────────────────────────────
-    // If we already carry wood, head for the pad. Otherwise scan trees.
+    // PR #4.1: chop until full. Keep finding trees while there's room in
+    // the carry stack. Only walk to the storage pad once the inventory is
+    // capped (or no more trees are reachable but we still hold something).
     _idle(id, ai, transform, inventory, ecs) {
-        if (inventory.getCountByType('wood') > 0) {
+        const have = inventory.getCountByType('wood');
+        const cap = inventory.slotCapacity || 10;
+
+        if (have >= cap) {
             ai.fsmState = 'MOVE_TO_PAD';
             ai.stuckTimer = 0;
             ai.lastPos = transform.mesh.position.clone();
@@ -87,7 +94,15 @@ export class WorkerAISystem {
         }
 
         const treeId = this._findNearestUnclaimedTree(id, ai, transform.mesh.position, ecs);
-        if (treeId == null) return; // stay in IDLE; rescan next tick
+        if (treeId == null) {
+            if (have > 0) {
+                // No more trees in range — drop off what we have.
+                ai.fsmState = 'MOVE_TO_PAD';
+                ai.stuckTimer = 0;
+                ai.lastPos = transform.mesh.position.clone();
+            }
+            return;
+        }
 
         ai.currentTarget = treeId;
         ai.fsmState = 'MOVE_TO_TREE';
@@ -163,8 +178,11 @@ export class WorkerAISystem {
     }
 
     // ─── MOVE_TO_PAD ─────────────────────────────────────────────────
+    // PR #4.0: walk to the Storage that matches the worker's resource type
+    // (wood-worker → wood-storage, essence-collector → essence-storage).
     _moveToPad(id, ai, transform, deltaTime, ecs) {
-        const padId = this._findNearestPad(transform.mesh.position, ecs);
+        const resourceType = ai.role === 'essence' ? 'essence' : 'wood';
+        const padId = this._findNearestStorage(transform.mesh.position, ecs, resourceType);
         if (padId == null) { ai.fsmState = 'IDLE'; return; }
         ai.padId = padId;
 
@@ -174,36 +192,34 @@ export class WorkerAISystem {
         const dist = myPos.distanceTo(padPos);
 
         if (dist <= ai.depositRange) {
-            ai.fsmState = 'DEPOSIT';
+            ai.fsmState = ai.role === 'essence' ? 'DEPOSIT' : 'DEPOSIT';
             return;
         }
         this._stepToward(transform, padPos, this._speedFor(id, ecs) * deltaTime, ai);
         this._tickStuck(ai, myPos, deltaTime);
     }
 
-    // ─── DEPOSIT ─────────────────────────────────────────────────────
-    // PR #3.2 dumps the whole inventory at once. PR #3.3 will add a per-item
-    // drain visual (item flies from worker to pad over ~0.4s).
+    // ─── DEPOSIT (wood-worker) ──────────────────────────────────────
+    // Transfers each wood mesh from the worker's stack onto the storage's
+    // stack via the standard 'item:collected' path. StackSystem listens
+    // and re-parents/positions the mesh on the storage entity, so stacking
+    // looks identical to the player's stack (uniform shape + spring physics).
     _deposit(id, ai, transform, inventory, ecs) {
-        const padId = ai.padId ?? this._findNearestPad(transform.mesh.position, ecs);
+        const padId = ai.padId ?? this._findNearestStorage(transform.mesh.position, ecs, 'wood');
         if (padId == null) { ai.fsmState = 'IDLE'; return; }
-        const stockpile = ecs.getComponent(padId, 'Stockpile');
-        if (!stockpile) { ai.fsmState = 'IDLE'; return; }
+        const padInv = ecs.getComponent(padId, 'InventoryStack');
+        if (!padInv) { ai.fsmState = 'IDLE'; return; }
 
-        const woodCount = inventory.getCountByType('wood');
-        if (woodCount > 0) {
-            stockpile.increment('wood', woodCount);
-            // Drain the inventory slot
-            while (inventory.getCountByType('wood') > 0) {
-                const popped = inventory.popFromSlot('wood');
-                if (popped?.parent) popped.parent.remove(popped);
-                if (popped?._pool) popped._pool.release(popped);
-            }
-            EventBus.emit('stack:changed', {
-                entityId: id, type: 'wood',
-                count: 0, totalCount: inventory.getTotalCount()
-            });
+        while (inventory.getCountByType('wood') > 0 && padInv.canAccept('wood')) {
+            const mesh = inventory.popFromSlot('wood');
+            if (!mesh) break;
+            EventBus.emit('item:collected', { collectorId: padId, itemType: 'wood', mesh });
         }
+        EventBus.emit('stack:changed', {
+            entityId: id, type: 'wood',
+            count: inventory.getCountByType('wood'),
+            totalCount: inventory.getTotalCount()
+        });
         ai.fsmState = 'IDLE';
         ai.padId = null;
     }
@@ -232,15 +248,31 @@ export class WorkerAISystem {
         return bestId;
     }
 
-    _findNearestPad(pos, ecs) {
+    /**
+     * Find the nearest Storage entity matching a resource type. Storage
+     * entities are tagged 'storage' and have an InventoryStack whose
+     * acceptsTypes includes the requested type. PR #4.0 (revised) drops the
+     * old Component_Storage in favor of using the standard InventoryStack
+     * pipeline so visuals match the player's stack exactly.
+     */
+    _findNearestStorage(pos, ecs, type) {
         let bestId = null, bestDist = Infinity;
-        for (const padId of ecs.queryEntities(['Transform', 'Stockpile'])) {
-            const tr = ecs.getComponent(padId, 'Transform');
+        for (const id of ecs.queryEntities(['Transform', 'InventoryStack', 'Tag'])) {
+            const tag = ecs.getComponent(id, 'Tag');
+            if (!tag?.has?.('storage')) continue;
+            const inv = ecs.getComponent(id, 'InventoryStack');
+            if (!inv?.acceptsTypes?.includes?.(type)) continue;
+            const tr = ecs.getComponent(id, 'Transform');
             if (!tr?.mesh?.visible) continue;
             const d = tr.mesh.position.distanceTo(pos);
-            if (d < bestDist) { bestDist = d; bestId = padId; }
+            if (d < bestDist) { bestDist = d; bestId = id; }
         }
         return bestId;
+    }
+
+    /** Back-compat alias — wood-worker pad lookups now route to wood storage. */
+    _findNearestPad(pos, ecs, type = 'wood') {
+        return this._findNearestStorage(pos, ecs, type);
     }
 
     /**
@@ -306,16 +338,26 @@ export class WorkerAISystem {
 
     _tryRepath(ai, myPos) {
         if (!this.pathfinder || !this._ecs) return false;
-        // Determine the goal position based on current state.
         let goal = null;
         const ignore = [];
         if (ai.fsmState === 'MOVE_TO_TREE' && ai.currentTarget != null) {
             const tr = this._ecs.getComponent(ai.currentTarget, 'Transform');
             if (tr?.mesh) { goal = tr.mesh.position; ignore.push(ai.currentTarget); }
         } else if (ai.fsmState === 'MOVE_TO_PAD') {
-            const padId = this._findNearestPad(myPos, this._ecs);
+            // Builder caches its specific storage in ai.padId; wood/essence
+            // workers re-resolve by role.
+            let padId = ai.padId;
+            if (padId == null) {
+                const t = ai.role === 'essence' ? 'essence'
+                        : ai.role === 'wood'    ? 'wood'
+                        : null;
+                if (t) padId = this._findNearestStorage(myPos, this._ecs, t);
+            }
             const tr = padId != null ? this._ecs.getComponent(padId, 'Transform') : null;
             if (tr?.mesh) { goal = tr.mesh.position; if (padId != null) ignore.push(padId); }
+        } else if (ai.fsmState === 'MOVE_TO_ZONE' && ai.currentTarget != null) {
+            const tr = this._ecs.getComponent(ai.currentTarget, 'Transform');
+            if (tr?.mesh) { goal = tr.mesh.position; ignore.push(ai.currentTarget); }
         }
         if (!goal) return false;
         const path = this.pathfinder.findPath(this._ecs, myPos, goal, ignore);
@@ -425,25 +467,21 @@ export class WorkerAISystem {
     }
 
     _essenceDeposit(id, ai, transform, inventory, ecs) {
-        const padId = ai.padId ?? this._findNearestPad(transform.mesh.position, ecs);
+        const padId = ai.padId ?? this._findNearestStorage(transform.mesh.position, ecs, 'essence');
         if (padId == null) { ai.fsmState = 'IDLE'; return; }
-        const stockpile = ecs.getComponent(padId, 'Stockpile');
-        if (!stockpile) { ai.fsmState = 'IDLE'; return; }
+        const padInv = ecs.getComponent(padId, 'InventoryStack');
+        if (!padInv) { ai.fsmState = 'IDLE'; return; }
 
-        const n = inventory.getCountByType('essence');
-        if (n > 0) {
-            stockpile.increment('essence', n);
-            // Drain the worker's inventory ledger
-            for (let i = 0; i < n; i++) {
-                const popped = inventory.popFromSlot('essence');
-                if (popped?.parent) popped.parent.remove(popped);
-                if (popped?._pool) popped._pool.release(popped);
-            }
-            EventBus.emit('stack:changed', {
-                entityId: id, type: 'essence',
-                count: 0, totalCount: inventory.getTotalCount()
-            });
+        while (inventory.getCountByType('essence') > 0 && padInv.canAccept('essence')) {
+            const mesh = inventory.popFromSlot('essence');
+            if (!mesh) break;
+            EventBus.emit('item:collected', { collectorId: padId, itemType: 'essence', mesh });
         }
+        EventBus.emit('stack:changed', {
+            entityId: id, type: 'essence',
+            count: inventory.getCountByType('essence'),
+            totalCount: inventory.getTotalCount()
+        });
         ai.fsmState = 'IDLE';
         ai.padId = null;
     }
@@ -520,49 +558,48 @@ export class WorkerAISystem {
     }
 
     _creditInventory(inventory, type, n, ownerId) {
-        // Workers track essence count via lightweight Object3D placeholders.
-        // We don't render a jelly-stack on workers (no SpringStackAnim) so
-        // the placeholder mesh is purely a counter — popFromSlot() will
-        // detach it on deposit.
+        // Use real ResourceRegistry stacked meshes (same as the player's
+        // magnet pickup path) and route through the standard 'item:collected'
+        // event so StackSystem re-parents + positions them on the worker's
+        // back. PR #4.1 will land SpringStackAnim on workers; for now the
+        // mesh sits at the worker's anchor offset without spring physics,
+        // but it's the correct shape/scale.
         for (let i = 0; i < n; i++) {
-            const placeholder = new THREE.Object3D();
-            placeholder.userData.resourceType = type;
-            inventory.addToSlot(type, placeholder);
+            const mesh = ResourceRegistry.createMesh(type, 'stacked');
+            EventBus.emit('item:collected', { collectorId: ownerId, itemType: type, mesh });
         }
-        EventBus.emit('stack:changed', {
-            entityId: ownerId, type,
-            count: inventory.getCountByType(type),
-            totalCount: inventory.getTotalCount()
-        });
     }
 
     // ════════════════════════════════════════════════════════════════
     // BUILDER — Pulls from pad's stockpile, ferries to active ghost zones.
     // ════════════════════════════════════════════════════════════════
 
-    _BUILDER_RETRY_S = 1.0;     // throttle scans when nothing to do
+    _BUILDER_RETRY_S = 1.0;
 
+    // PR #4.0: Builder ferries one resource type per trip. The carrying ledger
+    // tracks what we picked up; ai._tripType records which storage we visit
+    // this trip ('wood' or 'essence'). Multiple trips per zone are normal.
     _builderIdle(id, ai, transform, ecs) {
-        const padId = this._findNearestPad(transform.mesh.position, ecs);
-        if (padId == null) return;
-        const stockpile = ecs.getComponent(padId, 'Stockpile');
-        if (!stockpile) return;
-
-        // Find an active ghost zone whose remaining cost we can partially fund
-        const target = this._findFundableZone(id, transform.mesh.position, stockpile, ecs);
+        const target = this._findFundableZone(id, transform.mesh.position, ecs);
         if (!target) return;
 
+        const tripType = (target.need.wood || 0) > 0 ? 'wood' : 'essence';
+        const storageId = this._findNearestStorage(transform.mesh.position, ecs, tripType);
+        if (storageId == null) return;
+        const inv = ecs.getComponent(storageId, 'InventoryStack');
+        if (!inv || inv.getCountByType(tripType) <= 0) return;
+
         ai.currentTarget = target.zoneId;
-        ai.padId = padId;
+        ai.padId = storageId;
+        ai._tripType = tripType;
         ai.fsmState = 'MOVE_TO_PAD';
         ai.lastPos = transform.mesh.position.clone();
         ai.stuckTimer = 0;
-        // Stash what we'll need to pick up at the pad
         ai.carrying = { wood: 0, essence: 0, _need: target.need };
     }
 
     _builderMoveToPad(id, ai, transform, deltaTime, ecs) {
-        const padId = ai.padId ?? this._findNearestPad(transform.mesh.position, ecs);
+        const padId = ai.padId;
         if (padId == null) { ai.fsmState = 'IDLE'; return; }
         const padTr = ecs.getComponent(padId, 'Transform');
         if (!padTr) { ai.fsmState = 'IDLE'; return; }
@@ -576,22 +613,24 @@ export class WorkerAISystem {
     }
 
     _builderWithdraw(id, ai, ecs) {
-        const padId = ai.padId;
-        if (padId == null) { ai.fsmState = 'IDLE'; return; }
-        const stockpile = ecs.getComponent(padId, 'Stockpile');
+        const inv = ai.padId != null ? ecs.getComponent(ai.padId, 'InventoryStack') : null;
         const need = ai.carrying?._need;
-        if (!stockpile || !need) { ai.fsmState = 'IDLE'; return; }
-        // Withdraw what's in the stockpile (capped at need)
-        for (const t of ['wood', 'essence']) {
-            const want = need[t] || 0;
-            const have = stockpile[t] || 0;
-            const take = Math.min(want, have);
-            if (take > 0) {
-                stockpile[t] -= take;
-                ai.carrying[t] += take;
-            }
+        const tripType = ai._tripType;
+        if (!inv || !need || !tripType) { ai.fsmState = 'IDLE'; return; }
+
+        // Pop one mesh per resource the builder intends to carry. Meshes
+        // are discarded — the builder represents the carry abstractly via
+        // ai.carrying counts. Visible "carrying" beyond this is PR #4.1.
+        const want = need[tripType] || 0;
+        let got = 0;
+        for (let i = 0; i < want; i++) {
+            const mesh = inv.popFromSlot(tripType);
+            if (!mesh) break;
+            if (mesh.parent) mesh.parent.remove(mesh);
+            got++;
         }
-        // Anything to deliver?
+        ai.carrying[tripType] += got;
+
         if ((ai.carrying.wood + ai.carrying.essence) <= 0) {
             ai.fsmState = 'IDLE';
             return;
@@ -630,7 +669,6 @@ export class WorkerAISystem {
         const zone = ecs.getComponent(zoneId, 'UnlockZone');
         if (!zone) { ai.fsmState = 'IDLE'; return; }
 
-        // Direct transfer ai.carrying → zone.progress, capped by remaining need
         for (const t of ['wood', 'essence']) {
             const need = (zone.cost?.[t] ?? 0) - (zone.progress?.[t] ?? 0);
             const give = Math.min(ai.carrying[t] || 0, Math.max(0, need));
@@ -639,32 +677,56 @@ export class WorkerAISystem {
                 ai.carrying[t] -= give;
             }
         }
-        // Funded? Trigger the build via the existing event path.
-        if (this._zoneIsFunded(zone)) {
+
+        // If this deposit completed the zone, fire zone:funded (BuildSystem
+        // turns this into zone:built which the level-side fence-reveal
+        // listener picks up and animates over 6s — see main.js). Builder
+        // stays at the site for the same duration, in BUILDING state, so
+        // the visual reads as "the worker is constructing the wall."
+        const fundedNow = this._zoneIsFunded(zone);
+        this._builderReturnLeftovers(ai, ecs);
+
+        if (fundedNow) {
             const tagComp = ecs.getComponent(zoneId, 'Tag');
             EventBus.emit('zone:funded', {
                 zoneId, carrierId: id, type: zone.type,
                 builds: zone.builds, spawns: zone.spawns,
                 spawnCount: zone.spawnCount, tags: tagComp?.tags
             });
+            ai.fsmState = 'BUILDING';
+            ai.buildTimer = 6.0;
+        } else {
+            ai.fsmState = 'IDLE';
         }
-        // Anything left → return to pad
-        this._builderReturnLeftovers(ai, ecs);
-        ai.fsmState = 'IDLE';
         ai.currentTarget = null;
     }
 
+    _builderBuilding(id, ai, deltaTime) {
+        ai.buildTimer -= deltaTime;
+        if (ai.buildTimer <= 0) {
+            ai.buildTimer = 0;
+            ai.fsmState = 'IDLE';
+        }
+    }
+
     _builderReturnLeftovers(ai, ecs) {
-        const padId = ai.padId ?? this._findNearestPad(new THREE.Vector3(), ecs);
-        if (padId == null) return;
-        const stockpile = ecs.getComponent(padId, 'Stockpile');
-        if (!stockpile) return;
-        stockpile.wood += ai.carrying.wood || 0;
-        stockpile.essence += ai.carrying.essence || 0;
+        for (const t of ['wood', 'essence']) {
+            const n = ai.carrying[t] || 0;
+            if (n <= 0) continue;
+            const sid = this._findNearestStorage(new THREE.Vector3(), ecs, t);
+            if (sid == null) continue;
+            // Push N fresh stacked meshes back into the storage via the
+            // standard collected-event path so they appear in the visible stack.
+            for (let i = 0; i < n; i++) {
+                const mesh = ResourceRegistry.createMesh(t, 'stacked');
+                EventBus.emit('item:collected', { collectorId: sid, itemType: t, mesh });
+            }
+            ai.carrying[t] = 0;
+        }
         ai.carrying = { wood: 0, essence: 0 };
     }
 
-    _findFundableZone(selfId, pos, stockpile, ecs) {
+    _findFundableZone(selfId, pos, ecs) {
         const claimed = new Set();
         for (const peerId of ecs.queryEntities(['WorkerAI'])) {
             if (peerId === selfId) continue;
@@ -673,6 +735,19 @@ export class WorkerAISystem {
                 claimed.add(peer.currentTarget);
             }
         }
+        const stockTotals = { wood: 0, essence: 0 };
+        for (const sid of ecs.queryEntities(['Transform', 'InventoryStack', 'Tag'])) {
+            const tag = ecs.getComponent(sid, 'Tag');
+            if (!tag?.has?.('storage')) continue;
+            const inv = ecs.getComponent(sid, 'InventoryStack');
+            if (!inv?.acceptsTypes) continue;
+            for (const t of inv.acceptsTypes) {
+                if (t === 'wood' || t === 'essence') {
+                    stockTotals[t] += inv.getCountByType(t);
+                }
+            }
+        }
+
         let best = null, bestDist = Infinity;
         for (const zoneId of ecs.queryEntities(['Transform', 'UnlockZone'])) {
             if (claimed.has(zoneId)) continue;
@@ -681,13 +756,12 @@ export class WorkerAISystem {
             if (!tr?.mesh?.visible) continue;
             if (this._zoneIsFunded(zone)) continue;
 
-            // What does this zone need that we have in the stockpile?
             const need = {};
             let canAny = false;
             for (const t of ['wood', 'essence']) {
                 const remaining = (zone.cost?.[t] ?? 0) - (zone.progress?.[t] ?? 0);
                 if (remaining <= 0) continue;
-                const have = stockpile[t] || 0;
+                const have = stockTotals[t] || 0;
                 if (have <= 0) continue;
                 need[t] = Math.min(remaining, have);
                 canAny = true;

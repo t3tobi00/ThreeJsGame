@@ -1,0 +1,9 @@
+{
+    "_doc": "Green Military Base — spawn structure for scouts. PR #4.4: replaces the generic unlock-turret look on the scout pad. Used as the meshArchetype for the scout_pad zone (level-prototype.json). UnlockZone is added on top by the level loader; this archetype just provides the mesh + tags + collider so the visual is a proper military building.",
+    "type": "GreenMilitaryBase",
+    "mesh": { "preset": "military-base-green" },
+    "components": {
+        "Tag": { "tags": ["unlock-zone", "military-base", "green-military-base", "structure", "static"] },
+        "Collider": { "shape": "box", "width": 2.0, "depth": 2.0, "isStatic": true }
+    }
+}

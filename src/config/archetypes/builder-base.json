@@ -1,0 +1,15 @@
+{
+    "_doc": "Builder Base — yellow construction shed where two builders spawn. PR #4.2. Per the locked design, there are TWO builders — both spawn from this single base on opposite sides so they don't overlap on first frame.",
+    "type": "BuilderBase",
+    "mesh": { "preset": "worker-base-builder" },
+    "components": {
+        "Tag": { "tags": ["worker-base", "builder-base", "structure", "static"] },
+        "Collider": { "shape": "box", "width": 1.6, "depth": 1.6, "isStatic": true },
+        "OnSpawn": {
+            "children": [
+                { "archetype": "worker-builder", "offset": [-1.0, 0, 1.4] },
+                { "archetype": "worker-builder", "offset": [1.0, 0, 1.4] }
+            ]
+        }
+    }
+}

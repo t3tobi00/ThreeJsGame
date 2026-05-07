@@ -1,0 +1,14 @@
+{
+    "_doc": "Wood Worker Base — small brown cabin where the wood-worker spawns. PR #4.2: replaces the single shared worker-pad-active. OnSpawn fires once on creation and emits one wood-worker just south of the cabin so it walks out 'from the door.'",
+    "type": "WoodWorkerBase",
+    "mesh": { "preset": "worker-base-wood" },
+    "components": {
+        "Tag": { "tags": ["worker-base", "wood-worker-base", "structure", "static"] },
+        "Collider": { "shape": "box", "width": 1.6, "depth": 1.6, "isStatic": true },
+        "OnSpawn": {
+            "children": [
+                { "archetype": "wood-worker", "offset": [0, 0, 1.4] }
+            ]
+        }
+    }
+}

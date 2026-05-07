@@ -21,7 +21,15 @@ const ARCHETYPE_NAMES = [
     // Act 3 (PR #3.0) — Worker Pad anchor + placeholder fallback.
     // PR #3.1 adds the real worker archetypes (visual-only; AI in PR #3.2/#3.3).
     'worker-pad-active', 'worker-placeholder',
-    'wood-worker', 'essence-collector', 'worker-builder'
+    'wood-worker', 'essence-collector', 'worker-builder',
+    // Act 3 (PR #4.0) — storage redesign. Replaces invisible Stockpile
+    // with two visible storage props that show their contents stacked
+    // on top.
+    'wood-storage', 'essence-storage',
+    // PR #4.2 — three worker-base buildings, each spawns its worker via OnSpawn.
+    'wood-worker-base', 'essence-collector-base', 'builder-base',
+    // PR #4.4 — military bases (mesh archetypes used by scout_pad / bruiser_pad).
+    'green-military-base', 'red-military-base'
 ];
 
 /** @type {Map<string, object>} name → resolved archetype */

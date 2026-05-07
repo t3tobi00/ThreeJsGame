@@ -1,0 +1,14 @@
+{
+    "_doc": "Essence Collector Base — cyan crystalline pillar where the essence-collector spawns. PR #4.2. OnSpawn emits one essence-collector just south of the pillar.",
+    "type": "EssenceCollectorBase",
+    "mesh": { "preset": "worker-base-essence" },
+    "components": {
+        "Tag": { "tags": ["worker-base", "essence-collector-base", "structure", "static"] },
+        "Collider": { "shape": "circle", "radius": 0.85, "isStatic": true },
+        "OnSpawn": {
+            "children": [
+                { "archetype": "essence-collector", "offset": [0, 0, 1.4] }
+            ]
+        }
+    }
+}

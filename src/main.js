@@ -292,6 +292,10 @@ class Game {
         this.roleIconSystem = new RoleIconSystem(this.scene.instance);
         this.ecs.registerSystem(this.roleIconSystem, ['Transform', 'WorkerAI']);
 
+        // Storage visuals — drop-in via the standard StackSystem (already
+        // registered for the player). Storage props get InventoryStack so
+        // their visible stack renders identically to the player's.
+
         this.gateSystem = new GateSystem();
         this.ecs.registerSystem(this.gateSystem, ['Transform', 'Gate']);
 
@@ -523,7 +527,12 @@ class Game {
                     outputTarget = { tag: zoneDef.outputTag };
                 }
 
-                const zoneArchetype = this._prototype ? 'unlock-turret-prototype' : 'unlock-turret';
+                // PR #4.4 — per-zone mesh override. Default = generic
+                // unlock-turret look; military bases (scout/bruiser pads)
+                // pass `meshArchetype` to swap in a proper building mesh
+                // while still using UnlockZoneSystem for the spawn drain.
+                const zoneArchetype = zoneDef.meshArchetype
+                    || (this._prototype ? 'unlock-turret-prototype' : 'unlock-turret');
                 const zoneEntityId = this.factory.create(zoneArchetype, pos, {
                     UnlockZone: {
                         type: zoneDef.type,
@@ -531,6 +540,10 @@ class Game {
                         builds: zoneDef.builds || null,
                         spawns: zoneDef.spawns || null,
                         spawnCount: zoneDef.count || zoneDef.spawnCount || 1,
+                        // Optional drain tuning per-zone (PR #4.4 military bases
+                        // override default 0.15 → 0.05 for snappy auto-drop feel).
+                        drainRate: zoneDef.drainRate,
+                        range: zoneDef.range,
                         output: zoneDef.output || null,
                         outputTag: zoneDef.outputTag || null,
                         outputTarget,
@@ -687,10 +700,20 @@ class Game {
             }
             if (this.palisadeGateSystem) this.palisadeGateSystem.setFenceSides(fenceSides);
 
+            // PR #4.3 — wall reveals are now animated. Logs start sunk
+            // 1.8u below ground and rise to y=0 over 6 seconds while the
+            // builder stands at the site (BUILDING state). Tweens are
+            // ticked from animate() via _tickWallRise.
+            this._risingWalls = new Map();   // side → { startMs, duration }
+            const SINK_DEPTH = 1.8;
+            const RISE_SECONDS = 6.0;
+
             const revealSide = (side) => {
                 const data = this._fenceSides?.[side];
                 if (!data || data.group.visible) return;
                 data.group.visible = true;
+                data.group.position.y = -SINK_DEPTH;
+                this._risingWalls.set(side, { startMs: performance.now(), duration: RISE_SECONDS });
                 const ids = makeEdgeColliders(data.edges || []);
                 this._fenceSideColliders.set(side, ids);
                 if (this.palisadeGateSystem) this.palisadeGateSystem.registerSide(side, ids);
@@ -830,6 +853,11 @@ class Game {
         // 1. ECS update (all registered systems) — paused during hitstop
         this.ecs.update(deltaTime);
 
+        // 1b. Wall rise animation — logs lerp from y=-1.8 to y=0 over 6s
+        // after their zone gets funded. Eased (cubic-out) so they settle
+        // smoothly into place rather than slamming up.
+        this._tickWallRise(deltaTime);
+
         // 2. Non-ECS visual systems — camera shake still runs (we want the
         // shake visible during freeze); particles/effects pause with gameplay.
         this.cameraSystem.update(realDt);
@@ -857,6 +885,23 @@ class Game {
 
         // 5. Debug overlay
         this._updateDebugOverlay();
+    }
+
+    _tickWallRise(_dt) {
+        if (!this._risingWalls || this._risingWalls.size === 0) return;
+        const now = performance.now();
+        for (const [side, info] of this._risingWalls) {
+            const data = this._fenceSides?.[side];
+            if (!data?.group) { this._risingWalls.delete(side); continue; }
+            const t = Math.min(1, (now - info.startMs) / (info.duration * 1000));
+            // Ease-out cubic for a satisfying settle
+            const eased = 1 - Math.pow(1 - t, 3);
+            data.group.position.y = -1.8 * (1 - eased);
+            if (t >= 1) {
+                data.group.position.y = 0;
+                this._risingWalls.delete(side);
+            }
+        }
     }
 
     _updateDebugOverlay() {

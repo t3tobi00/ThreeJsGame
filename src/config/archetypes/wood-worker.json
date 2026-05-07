@@ -17,7 +17,15 @@
         "Tag": { "tags": ["ally", "worker", "wood-worker"] },
         "Movement": { "speed": 3, "controller": "none", "faction": "ally" },
         "Collector": { "radius": 5, "resourceTypes": ["wood"], "pullForce": 1.0 },
-        "InventoryStack": { "maxSlots": 1, "slotCapacity": 10, "acceptsTypes": ["wood"] },
+        "InventoryStack": {
+            "maxSlots": 1,
+            "slotCapacity": 10,
+            "acceptsTypes": ["wood"],
+            "anchorOffset": { "x": 0, "y": 1.55, "z": -0.4 },
+            "slotSpacing": 0.5,
+            "style": "wobble"
+        },
+        "SpringStackAnim": { "wobble": 0.25, "squash": 0.12, "lag": 0.18 },
         "WorkerAI": {
             "role": "wood",
             "scanRadius": 15,

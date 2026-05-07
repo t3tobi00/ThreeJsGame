@@ -1,0 +1,19 @@
+{
+    "_doc": "Wood Storage — visible storage prop for the wood resource. PR #4.0 (revised 2026-05-07): now uses the same InventoryStack + StackSystem pipeline as the player so logs stack identically (uniform shape, spring physics, top-surface anchor). slotCapacity 30 caps the visible tower; 3 slots × 30 gives room for ~90 logs side-by-side once we want fuller capacity. anchorOffset.y = 0.55 sits the stack base just above the pad's top surface (pad mesh size.y = 0.4, mesh-centered).",
+    "type": "WoodStorage",
+    "mesh": {
+        "preset": "wall",
+        "color": "0x6b4123",
+        "size": { "x": 2.4, "y": 0.4, "z": 2.4 }
+    },
+    "components": {
+        "Tag": { "tags": ["storage", "wood-storage", "structure", "static"] },
+        "InventoryStack": {
+            "maxSlots": 1,
+            "slotCapacity": 30,
+            "acceptsTypes": ["wood"],
+            "anchorOffset": { "x": 0, "y": 0.55, "z": 0 },
+            "slotSpacing": 0.45
+        }
+    }
+}

@@ -23,6 +23,7 @@
     "Arms": {},
     "Animator": {},
     "Collector": {
+      "_doc": "PR #4.0 (2026-05-07): wood + essence were temporarily removed while we wired the worker pipeline. Re-enabled per user request — player carries on back again, but the workers also still race for the same drops, so player + workers compete (intended).",
       "radius": 5,
       "resourceTypes": [
         "coin",

@@ -1,0 +1,9 @@
+{
+    "_doc": "Red Military Base — spawn structure for bruisers. Matches green-military-base but red-tinted, taller, with corner battlements. Used as the meshArchetype for the bruiser_pad zone.",
+    "type": "RedMilitaryBase",
+    "mesh": { "preset": "military-base-red" },
+    "components": {
+        "Tag": { "tags": ["unlock-zone", "military-base", "red-military-base", "structure", "static"] },
+        "Collider": { "shape": "box", "width": 2.0, "depth": 2.0, "isStatic": true }
+    }
+}

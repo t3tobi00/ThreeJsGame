@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ResourceTransfer } from '../utils/ResourceTransfer.js';
 import { UnlockZoneUI } from '../ui/UnlockZoneUI.js';
+import { MilitaryBaseUI } from '../ui/MilitaryBaseUI.js';
 import EventBus from '../core/EventBus.js';
 
 /**
@@ -141,6 +142,15 @@ export class UnlockZoneSystem {
         if (this._uiMap.has(zoneId)) return this._uiMap.get(zoneId);
 
         const group = transform.mesh;
+
+        // PR #4.4 — military bases use a compact "[N] [essence-tube]" panel
+        // floating above the building instead of the ground-plane trade card.
+        const tag = this._ecs?.getComponent?.(zoneId, 'Tag');
+        if (tag?.has?.('military-base')) {
+            const ui = new MilitaryBaseUI(group, zone.cost);
+            this._uiMap.set(zoneId, ui);
+            return ui;
+        }
 
         // Gearworks machines have built-in 3D counters — use adapter instead of HTML UI
         if (group.userData && group.userData.inputCounters) {

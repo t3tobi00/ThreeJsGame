@@ -1300,4 +1300,198 @@ MeshPresets.register('character-worker', ({ color = 0xbbbbbb, hat = null, tool =
     return root;
 });
 
+// ─── Worker base buildings (Act 3, PR #4.2) ───────────────────────
+//
+// One small building per worker role, color-matched to the worker's tint.
+// Each base spawns its associated worker via the OnSpawn helper attached
+// in the archetype JSON.
+
+MeshPresets.register('worker-base-wood', () => {
+    // Brown log cabin: box body + simple slanted plank roof
+    const g = new THREE.Group();
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.85 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x5b3a1c, roughness: 0.8 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.2, 1.6), wallMat);
+    body.position.y = 0.6;
+    body.castShadow = true;
+    g.add(body);
+
+    // Slanted roof — a flattened, scaled box rotated to look like a peaked top
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(1.25, 0.7, 4), roofMat);
+    roof.position.y = 1.55;
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    g.add(roof);
+
+    // Door — small dark recess on the south face
+    const doorMat = new THREE.MeshStandardMaterial({ color: 0x3a2210, roughness: 0.9 });
+    const door = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.7), doorMat);
+    door.position.set(0, 0.45, 0.81);
+    g.add(door);
+
+    return g;
+});
+
+MeshPresets.register('worker-base-essence', () => {
+    // Cyan crystalline pillar: tall narrow body + glowing orb on top
+    const g = new THREE.Group();
+    const wallMat = new THREE.MeshStandardMaterial({
+        color: 0x224466, roughness: 0.45, metalness: 0.1
+    });
+    const orbMat = new THREE.MeshStandardMaterial({
+        color: 0x66ddff, emissive: 0x33aadd, emissiveIntensity: 0.9,
+        roughness: 0.3, metalness: 0.2
+    });
+
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.85, 1.8, 6), wallMat);
+    body.position.y = 0.9;
+    body.castShadow = true;
+    g.add(body);
+
+    const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), orbMat);
+    orb.position.y = 2.05;
+    orb.castShadow = true;
+    g.add(orb);
+
+    // Faint base ring
+    const ringMat = new THREE.MeshStandardMaterial({
+        color: 0x66ddff, emissive: 0x33aadd, emissiveIntensity: 0.4
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.05, 24), ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.02;
+    g.add(ring);
+
+    return g;
+});
+
+MeshPresets.register('worker-base-builder', () => {
+    // Yellow construction shed: box body + slanted scaffold beam + flag
+    const g = new THREE.Group();
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xddcc22, roughness: 0.6 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x886600, roughness: 0.7 });
+    const flagMat = new THREE.MeshStandardMaterial({ color: 0xff6633, roughness: 0.5 });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 1.6), wallMat);
+    body.position.y = 0.5;
+    body.castShadow = true;
+    g.add(body);
+
+    // Diagonal scaffold beam over the roof — tells the eye "construction"
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.7, 0.12), trimMat);
+    beam.position.set(0.5, 1.4, 0);
+    beam.rotation.z = Math.PI / 5;
+    beam.castShadow = true;
+    g.add(beam);
+
+    // Pole + flag on top
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.9, 8), trimMat);
+    pole.position.set(-0.5, 1.45, 0);
+    g.add(pole);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.28), flagMat);
+    flag.position.set(-0.27, 1.7, 0);
+    flag.rotation.y = Math.PI / 2;
+    g.add(flag);
+
+    return g;
+});
+
+// ─── Military base buildings (Act 3, PR #4.4) ─────────────────────
+//
+// Replace the generic unlock-turret look on the scout/bruiser spawn pads
+// with proper green/red military bunkers. Player walks within ~2u carrying
+// enough essence and the existing UnlockZoneSystem drain (tuned snappy)
+// auto-pays + spawns a troop from the base.
+
+MeshPresets.register('military-base-green', () => {
+    const g = new THREE.Group();
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x2c5e2c, roughness: 0.85 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x5a8a4d, roughness: 0.85 });
+
+    // King-fort body — bumped to 2.0 × 1.7 × 2.0 (was 1.6 × 1.4 × 1.6).
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.7, 2.0), wallMat);
+    body.position.y = 0.85;
+    body.castShadow = true;
+    g.add(body);
+
+    // Sandbag-look trim ring around the base
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.2, 2.3), trimMat);
+    trim.position.y = 0.10;
+    g.add(trim);
+
+    // Roof slab — flat platform extending slightly beyond the body footprint.
+    // PR #4.4 polish: gives a clear surface for the cost display + grounds
+    // the battlements above the body silhouette.
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x1f4a1f, roughness: 0.8 });
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.18, 2.4), roofMat);
+    roof.position.y = 1.78;
+    roof.castShadow = true;
+    g.add(roof);
+
+    // Corner battlements — four small forts on top of the roof slab
+    const battleMat = new THREE.MeshStandardMaterial({ color: 0x1a4a1a, roughness: 0.85 });
+    const battleGeo = new THREE.BoxGeometry(0.4, 0.42, 0.4);
+    for (const [x, z] of [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]]) {
+        const b = new THREE.Mesh(battleGeo, battleMat);
+        b.position.set(x, 2.08, z);
+        b.castShadow = true;
+        g.add(b);
+    }
+
+    // Door — dark recess on the south face
+    const door = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.55, 1.0),
+        new THREE.MeshStandardMaterial({ color: 0x1a2a1a, roughness: 0.95 })
+    );
+    door.position.set(0, 0.6, 1.01);
+    g.add(door);
+
+    return g;
+});
+
+MeshPresets.register('military-base-red', () => {
+    const g = new THREE.Group();
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x6a2222, roughness: 0.85 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x3a1010, roughness: 0.85 });
+
+    // Taller fortified bunker — bumped to 2.0 × 1.7 × 2.0.
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.7, 2.0), wallMat);
+    body.position.y = 0.85;
+    body.castShadow = true;
+    g.add(body);
+
+    // Trim ring (matches green base's silhouette)
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.2, 2.3), trimMat);
+    trim.position.y = 0.10;
+    g.add(trim);
+
+    // Roof slab — flat platform for the cost display + battlements
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x4a1010, roughness: 0.8 });
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.18, 2.4), roofMat);
+    roof.position.y = 1.78;
+    roof.castShadow = true;
+    g.add(roof);
+
+    // Corner battlements
+    const battleMat = new THREE.MeshStandardMaterial({ color: 0x4a1818, roughness: 0.85 });
+    const battleGeo = new THREE.BoxGeometry(0.4, 0.42, 0.4);
+    for (const [x, z] of [[-0.95, -0.95], [0.95, -0.95], [-0.95, 0.95], [0.95, 0.95]]) {
+        const b = new THREE.Mesh(battleGeo, battleMat);
+        b.position.set(x, 2.08, z);
+        b.castShadow = true;
+        g.add(b);
+    }
+
+    // Door
+    const door = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.55, 1.0),
+        new THREE.MeshStandardMaterial({ color: 0x2a0a0a, roughness: 0.95 })
+    );
+    door.position.set(0, 0.6, 1.01);
+    g.add(door);
+
+    return g;
+});
+
 export default MeshPresets;

@@ -55,12 +55,24 @@
         { "archetype": "tree-prototype", "position": { "x": -6, "y": 0, "z": -5 } },
         { "archetype": "tree-prototype", "position": { "x":  6, "y": 0, "z": -5 } },
 
-        "_doc TEST: 1 Scout + 1 Bruiser pre-spawned next to player so we can immediately watch their attack anims without draining essence into spawn pads. Remove once balancing is locked.",
+        "_doc TEST: 5 Scouts + 1 Bruiser pre-spawned in a skirmish line north of the player so we can immediately watch combat. Remove once balancing is locked.",
+        { "archetype": "scout",   "position": { "x": -5, "y": 0, "z": -3 } },
         { "archetype": "scout",   "position": { "x": -3, "y": 0, "z": -3 } },
-        { "archetype": "bruiser", "position": { "x":  3, "y": 0, "z": -3 } },
+        { "archetype": "scout",   "position": { "x": -1, "y": 0, "z": -4 } },
+        { "archetype": "scout",   "position": { "x":  1, "y": 0, "z": -4 } },
+        { "archetype": "scout",   "position": { "x":  3, "y": 0, "z": -3 } },
+        { "archetype": "bruiser", "position": { "x":  5, "y": 0, "z": -3 } },
 
-        "_doc TEST PR #3.2: pre-spawn an ACTIVE worker pad east of player. Its OnSpawn fires on the next frame and spawns wood-worker + essence-collector + worker-builder at offsets ±1.2u. Wood-worker has full AI in PR #3.2 (chops the nearest inside-perimeter tree at (6, 5), brings wood back to this pad). Essence/Builder visible but inert until PR #3.3. Remove once Act 3 is shippable end-to-end.",
-        { "archetype": "worker-pad-active", "position": { "x": 3, "y": 0, "z": 6 } }
+        "_doc PR #4.0 — Acts 1-3 architecture redesign (2026-05-07). Workers pre-placed at boot per the locked design pivot: 1 wood-worker, 1 essence-collector, 2 builders all on the map from frame 0. Storage props (wood + essence, cap 100) are visible at fixed positions; workers deposit there, builders withdraw. The old worker-pad-active test is gone.",
+
+        "_doc Storage props (PR #4.0) — sit west of the player. Wood at z=3, Essence at z=6, 3u apart so the visible stacks don't crowd.",
+        { "archetype": "wood-storage",    "position": { "x": -3, "y": 0, "z": 3 } },
+        { "archetype": "essence-storage", "position": { "x": -3, "y": 0, "z": 6 } },
+
+        "_doc Worker bases (PR #4.2) — each base spawns its associated worker via OnSpawn (next-frame). Bases sit further west of the storages so workers walk a short trip back to deposit. Builder Base is east, near the inside-perimeter trees and the wall ghosts so builders have less travel during construction.",
+        { "archetype": "wood-worker-base",       "position": { "x": -7, "y": 0, "z": 3 } },
+        { "archetype": "essence-collector-base", "position": { "x": -7, "y": 0, "z": 6 } },
+        { "archetype": "builder-base",           "position": { "x":  6, "y": 0, "z": 7 } }
     ],
 
     "_fenceDoc": "20u × 20u palisade-log enclosure with staged build. Each side is hidden at boot; filling its unlock-zone fires `zone:built` with the side tag, which main.js maps to `fence:revealSide`, lazily showing logs + creating colliders. Order in Act 1: B → north, C (army), D → south. Act 2 adds east + west.",
@@ -138,7 +150,7 @@
             "hidden": true
         },
         {
-            "_doc": "Scout Pad — drains 4E to spawn 1 Scout (was 8E; lowered for prototype testing while Act 3 is being built). Activated in State C. Cell [16,11] = world (-8,2), 8 tiles west.",
+            "_doc": "Scout Pad — Green Military Base. Drains 4E to spawn 1 Scout. Activated in State C. PR #4.4: swapped to the military-base-green mesh + snappy auto-drop tuning (drainRate 0.05 = ~80ms per essence, range 2.5).",
             "cell": [16, 11],
             "gridSpan": [1, 1],
             "type": "spawner",
@@ -146,10 +158,13 @@
             "spawns": "scout",
             "spawnCount": 1,
             "tag": "scout_pad",
-            "hidden": true
+            "hidden": true,
+            "meshArchetype": "green-military-base",
+            "drainRate": 0.05,
+            "range": 3.0
         },
         {
-            "_doc": "Bruiser Pad — drains 8E to spawn 1 Bruiser (was 15E; lowered for prototype testing). Activated in State C. Cell [16,19] = world (8,2), 8 tiles east.",
+            "_doc": "Bruiser Pad — Red Military Base. Drains 8E to spawn 1 Bruiser. Activated in State C. Same auto-drop tuning as green.",
             "cell": [16, 19],
             "gridSpan": [1, 1],
             "type": "spawner",
@@ -157,27 +172,14 @@
             "spawns": "bruiser",
             "spawnCount": 1,
             "tag": "bruiser_pad",
-            "hidden": true
-        },
-        {
-            "_doc": "Worker Pad — Act 3 state G. Drains 15E to build worker-pad-active, which (via OnSpawn) spawns 3 worker children at offsets ±1.2u. Cell [16,13] = world (-4, 2). West-central, inside perimeter, clear of trees/test soldiers/other pads.",
-            "cell": [16, 13],
-            "gridSpan": [1, 1],
-            "type": "build",
-            "cost": { "essence": 15 },
-            "builds": "worker-pad-active",
-            "tag": "worker_pad",
-            "hidden": true
-        },
-        {
-            "_doc": "TEST PR #3.3: visible ghost zone for the Builder. Costs 5 wood + 3 essence — forces both other workers to feed the stockpile before the Builder can finish. Sits SW of the test worker pad and clear of the south fence row (z=8). Remove once Act 3 is shippable end-to-end.",
-            "position": { "x": -3, "y": 0, "z": 3 },
-            "type": "build",
-            "cost": { "wood": 5, "essence": 3 },
-            "builds": null,
-            "tag": "test_zone_pr33"
+            "hidden": true,
+            "meshArchetype": "red-military-base",
+            "drainRate": 0.05,
+            "range": 3.0
         }
     ],
+
+    "_unlockZonesDoc": "PR #4.0 — Worker Pad ghost zone removed. Workers are now pre-placed at boot (see entities[]). Old test_zone_pr33 builder test also removed; the builder now targets the four real wall ghosts (B/D/E/F).",
 
     "debug": { "showGrid": false }
 }

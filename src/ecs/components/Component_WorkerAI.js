@@ -55,5 +55,8 @@ export class Component_WorkerAI {
         // Builder runtime — small inventory ledger (avoids InventoryStack
         // mesh juggling; deposit logic mutates zone.progress directly).
         this.carrying = { wood: 0, essence: 0 };
+        // PR #4.3 — set when the builder enters the BUILDING state. Counts
+        // down each frame; on reaching 0 the builder returns to IDLE.
+        this.buildTimer = 0;
     }
 }
