@@ -41,7 +41,7 @@
         { "archetype": "enemy-prototype", "position": { "x": -9, "y": 0, "z": -24 } },
         { "archetype": "enemy-prototype", "position": { "x":  9, "y": 0, "z": -24 } },
 
-        "_doc 6 trees clustered ~10-14 tiles north of player for wood gathering",
+        "_doc 6 trees clustered ~10-14 tiles north of player for wood gathering. Trees at z=-12 / -14 are outside the perimeter and become unreachable once the north fence is built — they'll be reachable again once the auto-sink-logs feature lands.",
         { "archetype": "tree-prototype", "position": { "x": -3, "y": 0, "z": -10 } },
         { "archetype": "tree-prototype", "position": { "x":  3, "y": 0, "z": -10 } },
         { "archetype": "tree-prototype", "position": { "x": -7, "y": 0, "z": -12 } },
@@ -49,10 +49,42 @@
         { "archetype": "tree-prototype", "position": { "x":  0, "y": 0, "z": -14 } },
         { "archetype": "tree-prototype", "position": { "x": -10, "y": 0, "z": -10 } },
 
+        "_doc 4 INSIDE-PERIMETER trees so the staged build (D/E/F) can finish without auto-sink. Move/remove these once auto-sink lets the player reach the outer trees again.",
+        { "archetype": "tree-prototype", "position": { "x": -6, "y": 0, "z":  5 } },
+        { "archetype": "tree-prototype", "position": { "x":  6, "y": 0, "z":  5 } },
+        { "archetype": "tree-prototype", "position": { "x": -6, "y": 0, "z": -5 } },
+        { "archetype": "tree-prototype", "position": { "x":  6, "y": 0, "z": -5 } },
+
         "_doc TEST: 1 Scout + 1 Bruiser pre-spawned next to player so we can immediately watch their attack anims without draining essence into spawn pads. Remove once balancing is locked.",
         { "archetype": "scout",   "position": { "x": -3, "y": 0, "z": -3 } },
         { "archetype": "bruiser", "position": { "x":  3, "y": 0, "z": -3 } }
     ],
+
+    "_fenceDoc": "20u × 20u palisade-log enclosure with staged build. Each side is hidden at boot; filling its unlock-zone fires `zone:built` with the side tag, which main.js maps to `fence:revealSide`, lazily showing logs + creating colliders. Order in Act 1: B → north, C (army), D → south. Act 2 adds east + west.",
+
+    "fence": {
+        "preset": "palisade-log",
+        "spacing": 0.30,
+        "edgeMode": "outer",
+        "sides": {
+            "north": [
+                [10, 10], [10, 11], [10, 12], [10, 13], [10, 14],
+                [10, 15], [10, 16], [10, 17], [10, 18], [10, 19]
+            ],
+            "south": [
+                [19, 10], [19, 11], [19, 12], [19, 13], [19, 14],
+                [19, 15], [19, 16], [19, 17], [19, 18], [19, 19]
+            ],
+            "west": [
+                [11, 10], [12, 10], [13, 10], [14, 10],
+                [15, 10], [16, 10], [17, 10], [18, 10]
+            ],
+            "east": [
+                [11, 19], [12, 19], [13, 19], [14, 19],
+                [15, 19], [16, 19], [17, 19], [18, 19]
+            ]
+        }
+    },
 
     "spawners": {
         "player": {
@@ -63,45 +95,43 @@
 
     "_spawnNote": "PrototypeStateMachine.entryActions of each state call EnemySystem.setConfig() with prototypeStates.json spawnConfigs. Pre-placed enemies above are counted toward maxAlive; spawner adds new ones once kills drop the count below the cap.",
 
+    "_wallZoneDoc": "4 fence-side build zones (one per cardinal direction). Each is a build-type drain pad with no archetype — on completion it emits zone:built with its tag, which main.js maps to fence:revealSide for that side. Pads sit ~7u inside the perimeter so the player drains from inside their base.",
+
     "unlockZones": [
         {
-            "_doc": "Wall ghost #1 — activated by State B entry (factory.activateGhost wall_ghost_1). Cost 10W+3E. Cell [11,14] = world (-2,-8), 8 tiles north of player.",
+            "_doc": "North wall zone — Act 1 state B. Drains 10W+3E to raise the north palisade.",
             "cell": [11, 14],
-            "gridSpan": [1, 1],
+            "gridSpan": [1, 2],
             "type": "build",
             "cost": { "wood": 10, "essence": 3 },
-            "builds": "wall",
-            "tag": "wall_ghost_1",
+            "tag": "north_wall_zone",
             "hidden": true
         },
         {
-            "_doc": "Wall ghost #2 — activated by State D entry. Cost 10W+3E. Cell [11,12] = world (-6,-8).",
-            "cell": [11, 12],
-            "gridSpan": [1, 1],
+            "_doc": "South wall zone — Act 1 state D.",
+            "cell": [18, 14],
+            "gridSpan": [1, 2],
             "type": "build",
             "cost": { "wood": 10, "essence": 3 },
-            "builds": "wall",
-            "tag": "wall_ghost_2",
+            "tag": "south_wall_zone",
             "hidden": true
         },
         {
-            "_doc": "Wall ghost #3 — reserved for Act 2 State E. Cell [11,16] = world (2,-8).",
-            "cell": [11, 16],
-            "gridSpan": [1, 1],
+            "_doc": "East wall zone — Act 1 state E (test extension).",
+            "cell": [14, 18],
+            "gridSpan": [2, 1],
             "type": "build",
             "cost": { "wood": 10, "essence": 3 },
-            "builds": "wall",
-            "tag": "wall_ghost_3",
+            "tag": "east_wall_zone",
             "hidden": true
         },
         {
-            "_doc": "Wall ghost #4 — reserved for Act 2 State E. Cell [11,18] = world (6,-8).",
-            "cell": [11, 18],
-            "gridSpan": [1, 1],
+            "_doc": "West wall zone — Act 1 state F (test extension).",
+            "cell": [14, 11],
+            "gridSpan": [2, 1],
             "type": "build",
             "cost": { "wood": 10, "essence": 3 },
-            "builds": "wall",
-            "tag": "wall_ghost_4",
+            "tag": "west_wall_zone",
             "hidden": true
         },
         {

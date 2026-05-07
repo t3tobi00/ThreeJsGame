@@ -26,6 +26,7 @@ import { AudioManager } from './core/AudioManager.js';
 import { PrototypeStats } from './state/PrototypeStats.js';
 import { PrototypeStateMachine } from './systems/PrototypeStateMachine.js';
 import { NextStepIndicator } from './systems/NextStepIndicator.js';
+import { PalisadeGateSystem } from './systems/PalisadeGateSystem.js';
 
 // --- ECS Framework ---
 import { ECSManager } from './ecs/ECSManager.js';
@@ -129,10 +130,15 @@ class Game {
             // active state and resolves a target each frame. Player + state
             // machine refs are wired in loadLevel() once both exist.
             this.nextStepIndicator = new NextStepIndicator(this.scene.instance, this.ecs);
+            // Auto-sink palisade logs when the player approaches a wall.
+            // FenceSides + player + per-side collider IDs are wired in
+            // loadLevel() (after the level is loaded and each side reveals).
+            this.palisadeGateSystem = new PalisadeGateSystem(this.ecs);
         } else {
             this.audio = null;
             this.prototypeStats = null;
             this.nextStepIndicator = null;
+            this.palisadeGateSystem = null;
         }
         this.prototypeStateMachine = null;
         this.prototypeEndUI = null;
@@ -282,7 +288,7 @@ class Game {
         // In diorama mode, use the wrapping loader so the dioramaWorld
         // block in the level JSON is built on top of the legacy ground.
         const Loader = isDioramaMode() ? SceneLoaderDiorama : SceneLoader;
-        const { grid, levelData, gridOverlay, fenceGroup, fenceEdges, propEntities, machines } =
+        const { grid, levelData, gridOverlay, fenceGroup, fenceEdges, fenceSides, propEntities, machines } =
             await Loader.load(path, this.scene.instance);
         this.grid = grid;
 
@@ -328,6 +334,7 @@ class Game {
         // Prototype counters need the player ID for stack:changed filter.
         if (this.prototypeStats) this.prototypeStats.setPlayer(this.playerId);
         if (this.nextStepIndicator) this.nextStepIndicator.setPlayerId(this.playerId);
+        if (this.palisadeGateSystem) this.palisadeGateSystem.setPlayer(this.playerId);
 
         // Systems that need player reference
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
@@ -388,7 +395,34 @@ class Game {
                 // Skip inline string docs (matches the diorama loader pattern).
                 if (typeof def === 'string') continue;
                 const pos = new THREE.Vector3(def.position.x, def.position.y, def.position.z);
-                const id = this.factory.create(def.archetype, pos);
+
+                // Optional rotationY (radians). When ~±π/2, swap the
+                // box collider's width/depth so the AABB still hugs the
+                // rotated mesh. Used by the prototype's W/E wall segments.
+                let overrides = {};
+                if (def.rotationY != null) {
+                    const quarter = Math.abs(Math.abs(def.rotationY) - Math.PI / 2) < 0.05;
+                    if (quarter) {
+                        const arch = getArchetype(def.archetype);
+                        const c = arch?.components?.Collider;
+                        if (c?.shape === 'box') {
+                            overrides.Collider = {
+                                shape: 'box',
+                                width: c.depth,
+                                depth: c.width,
+                                isStatic: c.isStatic
+                            };
+                        }
+                    }
+                }
+
+                const id = this.factory.create(def.archetype, pos, overrides);
+
+                if (def.rotationY != null) {
+                    const tr = this.ecs.getComponent(id, 'Transform');
+                    if (tr?.mesh) tr.mesh.rotation.y = def.rotationY;
+                }
+
                 // If the entity has HeroAI, plant homePosition at the spawn
                 // pos so it guards from where it was placed (not the
                 // default (0,0,0) which would point everyone at the origin).
@@ -589,16 +623,62 @@ class Game {
 
         // --- Fence collider entities (created here, not in SceneLoader) ---
         // SceneLoader returns plain edge data; main.js turns it into ECS entities.
+        // Two paths:
+        //   • Legacy fence (fence.cells) → bulk-create all colliders at boot.
+        //   • Staged fence (fence.sides with named sides) → hide all sides
+        //     at boot, defer collider creation until each side's
+        //     `fence:revealSide` event fires (driven by zone:built tags).
+        const sideNames = fenceSides ? Object.keys(fenceSides) : [];
+        const useStagedFence = sideNames.length > 0 && !sideNames.every(n => n === '_all');
+
         const fenceColliderIds = [];
-        for (const edge of fenceEdges) {
-            const obj = new THREE.Object3D();
-            obj.position.set(edge.x, 0, edge.z);
-            const id = this.ecs.createEntity();
-            this.ecs.addComponent(id, 'Transform', new Component_Transform(obj));
-            this.ecs.addComponent(id, 'Collider', new Component_Collider({
-                shape: 'box', width: edge.width, depth: edge.depth, isStatic: true
-            }));
-            fenceColliderIds.push(id);
+        const makeEdgeColliders = (edges) => {
+            const ids = [];
+            for (const edge of edges) {
+                const obj = new THREE.Object3D();
+                obj.position.set(edge.x, 0, edge.z);
+                const id = this.ecs.createEntity();
+                this.ecs.addComponent(id, 'Transform', new Component_Transform(obj));
+                this.ecs.addComponent(id, 'Collider', new Component_Collider({
+                    shape: 'box', width: edge.width, depth: edge.depth, isStatic: true
+                }));
+                ids.push(id);
+                fenceColliderIds.push(id);
+            }
+            return ids;
+        };
+
+        if (useStagedFence) {
+            // Hide every named side at boot. Each side's group + colliders
+            // are revealed lazily by 'fence:revealSide' (fired from
+            // zone:built tag listeners below).
+            this._fenceSideColliders = new Map(); // sideName → [colliderId, ...]
+            this._fenceSides = fenceSides;
+            for (const [name, data] of Object.entries(fenceSides)) {
+                if (data?.group) data.group.visible = false;
+            }
+            if (this.palisadeGateSystem) this.palisadeGateSystem.setFenceSides(fenceSides);
+
+            const revealSide = (side) => {
+                const data = this._fenceSides?.[side];
+                if (!data || data.group.visible) return;
+                data.group.visible = true;
+                const ids = makeEdgeColliders(data.edges || []);
+                this._fenceSideColliders.set(side, ids);
+                if (this.palisadeGateSystem) this.palisadeGateSystem.registerSide(side, ids);
+            };
+
+            EventBus.on('fence:revealSide', ({ side }) => revealSide(side));
+            EventBus.on('zone:built', ({ tags }) => {
+                if (!Array.isArray(tags)) return;
+                if (tags.includes('north_wall_zone')) revealSide('north');
+                if (tags.includes('south_wall_zone')) revealSide('south');
+                if (tags.includes('east_wall_zone'))  revealSide('east');
+                if (tags.includes('west_wall_zone'))  revealSide('west');
+            });
+        } else {
+            // Legacy path — all edges become colliders immediately.
+            makeEdgeColliders(fenceEdges);
         }
 
         // --- Safe Zone ---
@@ -733,6 +813,7 @@ class Game {
         this.harvestNodeSystem.update(deltaTime);
         if (this.prototypeStateMachine) this.prototypeStateMachine.update(deltaTime);
         if (this.nextStepIndicator) this.nextStepIndicator.update(deltaTime);
+        if (this.palisadeGateSystem) this.palisadeGateSystem.update(deltaTime);
         for (const well of this._resourceWells) well.update(deltaTime, this.scene.instance);
         this.damagePopupUI.update(realDt);
         this.floatingUI.update();

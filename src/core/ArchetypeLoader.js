@@ -17,7 +17,7 @@ const ARCHETYPE_NAMES = [
     // Most are extends-based overrides of the legacy archetype to keep
     // legacy/diorama feel unchanged; scout + bruiser are full new units.
     'player-prototype', 'enemy-prototype', 'enemy-prototype-marcher', 'tree-prototype',
-    'scout', 'bruiser', 'unlock-turret-prototype'
+    'scout', 'bruiser', 'unlock-turret-prototype', 'wall-segment'
 ];
 
 /** @type {Map<string, object>} name → resolved archetype */

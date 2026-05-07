@@ -1,4 +1,4 @@
-# Prototype Build Status — 2026-05-06 (PR #2.6 shipped)
+# Prototype Build Status — 2026-05-07 (PR #2.7 shipped)
 
 > **The prototype is the project's full focus.** Everything else (V1 phases 1-6, legacy game, diorama) is on hold. This doc is the canonical source of truth for "where the prototype is right now."
 
@@ -84,6 +84,25 @@
 ### Done since 2026-05-06 (PR #2.6)
 1. ✓ **Next-step visual feedback (3D pointer)** — new `NextStepIndicator` system renders an emerald pulsing ground-ring + bobbing diamond chevron above the next-required target. JSON-driven `hints` arrays per state (B/C/D in `prototypeStates.json`) reuse the stall-escalation condition vocabulary (`playerInventoryLt/Gte`, `zoneNotBuilt`, `zoneBuilt`). Target kinds: `tag` (named ghost/pad), `nearestTag` (closest tree), `nearestFaction` (closest enemy). Pointer auto-hides when no hint matches.
 2. ✓ **`pulseTrees` action wired** — replaces the `console.log` stub. State B entry triggers `indicator.setTreePulse(true)`; emissive on every visible tree mesh oscillates green; State C disables it; State D re-enables for the second wall; END turns it off. Originals restored on disable.
+
+### Done 2026-05-07 (PR #2.7) — Wall overhaul + auto-sink palisade gates
+1. ✓ **Palisade fence look** — replaced the old `wall` archetype block with `MeshPresets.create('palisade-log', ...)` rendered via `SceneLoader._buildFence`. Each log: 8-sided cylinder body (1.8u tall, 0.18u radius, warm wood) + pointed conical cap (darker), per-instance scale/lean/tint variation for a hand-built feel. Spacing 0.30u so the row reads as a continuous wall.
+2. ✓ **Per-side fence (staged build N→S→E→W)** — `SceneLoader._buildFence` extended to support `fence.sides: { north, south, east, west }` (legacy `fence.cells` still works). Each side renders into its own `THREE.Group` with its own edge metadata. `main.js` hides all sides at boot, lazily creates colliders + reveals each side on a `fence:revealSide` event (auto-fired from `zone:built` tag listeners). State machine extended with states E (east) and F (west) so Act 1 cycles the full perimeter.
+3. ✓ **`eventTag` filter** — new filter case in `PrototypeStateMachine._triggerMatches` that checks `ev.tags?.includes(expected)`, used by the new wall-zone exit triggers.
+4. ✓ **Auto-sink palisade gates** — new `PalisadeGateSystem` opens local logs as the player approaches a wall. Two-tier trigger: **close-range** (≤0.7u box-distance) opens for any movement direction; **mid-range** (0.7–1.1u) requires |velocity · outward-normal| > 0.30. Once open, a 1.0s **hold timer** keeps the gate latched even if the player stops or turns — fixes the twitchy "open/close racing with your speed" behavior. Logs sink 2.5u Y-down with smoothstep easing; edge collider disables at 45% openness (hysteresis prevents flicker).
+5. ✓ **Box-distance metric (debug fix)** — early version measured player-to-edge-midpoint, which left a "seam dead-zone" between adjacent edges. Fixed to measure perpendicular distance to the edge AABB, so straight-on approaches always trigger.
+6. ✓ **Local velocity derivation** — `Movement.velocity` isn't reliably populated by the prototype's joystick/waypoint paths. Gate system derives velocity from per-frame position deltas instead.
+
+### Files added / changed in PR #2.7
+- NEW `src/systems/PalisadeGateSystem.js` — auto-sink gate system.
+- NEW `src/config/archetypes/wall-segment.json` — chunky wall variant (kept around but unused by prototype now that the palisade fence carries the wall role).
+- `src/core/MeshPresets.js` — new `palisade-log` preset.
+- `src/core/SceneLoader.js` — `_buildFence` rewritten to support `fence.sides` + per-side groups + edges; back-compat with legacy `fence.cells`.
+- `src/main.js` — fenceSides plumbing, lazy collider creation, palisade gate wiring.
+- `src/config/levels/level-prototype.json` — palisade `fence.sides` block; 4 wall-zone unlock pads (N/S/E/W); +4 inside-perimeter trees so D/E/F can complete without leaving the base.
+- `src/config/prototypeStates.json` — states B/D retargeted to north/south; new states E (east) and F (west); all hints + stall escalations updated; `eventTag` filter usage.
+- `src/systems/PrototypeStateMachine.js` — `eventTag` filter case.
+- `src/core/ArchetypeLoader.js` — registered `wall-segment`.
 
 ### Still open — next-session priorities
 
@@ -252,6 +271,7 @@ http://localhost:8000/                 # legacy
 | PR #2: Act 1 (skeleton) | ✓ shipped |
 | PR #2.5: Act 1 polish — unlock-zone fill, scary zombies, soldier anim+VFX, crowd separation, stop-at-range, combat pacing | ✓ shipped |
 | PR #2.6: Next-step 3D pointer + `pulseTrees` wiring | ✓ shipped |
+| PR #2.7: Palisade fence + staged N/S/E/W build + auto-sink gates | ✓ shipped |
 | PR #3: Act 2 | pending |
 | PR #4: Act 3 | pending |
 | PR #5: Act 4 | pending |

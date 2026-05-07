@@ -242,6 +242,11 @@ export class PrototypeStateMachine {
                 case 'archetype':
                     if (ev?.archetype !== expected) return false;
                     break;
+                case 'eventTag':
+                    // Match against the `tags` array on the event itself
+                    // (e.g. zone:built fires with tags=['north_wall_zone']).
+                    if (!Array.isArray(ev?.tags) || !ev.tags.includes(expected)) return false;
+                    break;
                 default:
                     if (ev?.[key] !== expected) return false;
             }

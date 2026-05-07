@@ -1,0 +1,14 @@
+{
+    "_doc": "Prototype-mode wall segment. Extends wall.json so a built segment looks like a real defensive wall (~5u wide × 1.8u tall × 0.4u deep) instead of the legacy 1u brick. One ghost = one segment. Wood color matches the stick-man minimal aesthetic. HP scaled up to 200 since each segment now covers 5u of frontage (~3 zombies wide).",
+    "extends": "wall",
+    "mesh": {
+        "preset": "wall",
+        "color": "0x8b5a2b",
+        "size": { "x": 5, "y": 1.8, "z": 0.4 }
+    },
+    "components": {
+        "Health":   { "hp": 200, "maxHp": 200 },
+        "Tag":      { "tags": ["wall", "wall-segment", "structure", "static"] },
+        "Collider": { "shape": "box", "width": 5.0, "depth": 0.4, "isStatic": true }
+    }
+}

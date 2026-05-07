@@ -67,17 +67,17 @@
         },
 
         "B": {
-            "_name": "DEFENSE — wall up",
-            "_doc":  "Wall ghost #1 reveals. ALSO activates the 7 reserve idlers near spawn so they march south. Exit: 1 wall built. Stall checks: hasn't chopped wood (15s)? has wood but not built (30s)?",
+            "_name": "DEFENSE — north wall",
+            "_doc":  "North wall zone reveals. Also wakes the 7 idlers so they march south. Exit: north fence side built (zone:built tag north_wall_zone). Stall: no wood (15s) → has wood but not built (30s) → still nothing (45s).",
             "entryActions": [
                 { "call": "enemy.activateReserves", "arg": null },
-                { "call": "factory.activateGhost",  "arg": "wall_ghost_1" },
+                { "call": "factory.activateGhost",  "arg": "north_wall_zone" },
                 { "call": "pulseTrees",             "arg": true },
                 { "call": "audio.cue",              "arg": "chime_info" },
                 { "call": "enemy.setSpawnConfig",   "arg": "spawn_b_baseline" }
             ],
             "exitTriggers": [
-                { "event": "zone:built", "filter": { "archetype": "wall" }, "count": 1 }
+                { "event": "zone:built", "filter": { "eventTag": "north_wall_zone" }, "count": 1 }
             ],
             "hints": [
                 {
@@ -86,9 +86,9 @@
                     "target": { "kind": "nearestTag", "tag": "tree" }
                 },
                 {
-                    "_doc": "Have wood — point at wall ghost #1.",
-                    "condition": { "playerInventoryGte": { "wood": 10 }, "zoneNotBuilt": "wall_ghost_1" },
-                    "target": { "kind": "tag", "tag": "wall_ghost_1" }
+                    "_doc": "Have wood — point at north wall zone.",
+                    "condition": { "playerInventoryGte": { "wood": 10 }, "zoneNotBuilt": "north_wall_zone" },
+                    "target": { "kind": "tag", "tag": "north_wall_zone" }
                 }
             ],
             "stallEscalation": [
@@ -103,22 +103,22 @@
                     ]
                 },
                 {
-                    "_doc": "30s in, has wood but didn't build the wall — push build pressure.",
+                    "_doc": "30s in, has wood but didn't build — push build pressure.",
                     "afterSeconds": 30,
                     "stallCondition": {
                         "playerInventoryGte": { "wood": 10 },
-                        "zoneNotBuilt": "wall_ghost_1"
+                        "zoneNotBuilt": "north_wall_zone"
                     },
                     "actions": [
                         { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
                         { "call": "audio.cue",      "arg": "alert_high" },
-                        { "call": "hud.showAlert",  "arg": "Build the wall!" }
+                        { "call": "hud.showAlert",  "arg": "Build the north wall!" }
                     ]
                 },
                 {
-                    "_doc": "45s in, still no wall regardless of resources — heavy push.",
+                    "_doc": "45s in, still no north wall — heavy push.",
                     "afterSeconds": 45,
-                    "stallCondition": { "zoneNotBuilt": "wall_ghost_1" },
+                    "stallCondition": { "zoneNotBuilt": "north_wall_zone" },
                     "actions": [
                         { "call": "enemy.sendWave", "arg": { "count": 6, "archetype": "enemy-prototype-marcher" } },
                         { "call": "audio.cue",      "arg": "alert_high" }
@@ -193,16 +193,16 @@
         },
 
         "D": {
-            "_name": "MULTI-FRONT — second wall",
-            "_doc":  "Wall ghost #2 reveals. Player must build the second wall. Exit: 1 wall built (since D entry). Stall checks: hasn't gathered wood (15s)? has wood but not built (30s)?",
+            "_name": "MULTI-FRONT — south wall",
+            "_doc":  "South wall zone reveals. Exit: south fence side built. Stall: same wood/build cadence as B.",
             "entryActions": [
-                { "call": "factory.activateGhost", "arg": "wall_ghost_2" },
+                { "call": "factory.activateGhost", "arg": "south_wall_zone" },
                 { "call": "pulseTrees",            "arg": true },
                 { "call": "audio.cue",             "arg": "chime_info" },
                 { "call": "enemy.setSpawnConfig",  "arg": "spawn_d_baseline" }
             ],
             "exitTriggers": [
-                { "event": "zone:built", "filter": { "archetype": "wall" }, "count": 1 }
+                { "event": "zone:built", "filter": { "eventTag": "south_wall_zone" }, "count": 1 }
             ],
             "hints": [
                 {
@@ -211,9 +211,9 @@
                     "target": { "kind": "nearestTag", "tag": "tree" }
                 },
                 {
-                    "_doc": "Have wood — point at wall ghost #2.",
-                    "condition": { "playerInventoryGte": { "wood": 10 }, "zoneNotBuilt": "wall_ghost_2" },
-                    "target": { "kind": "tag", "tag": "wall_ghost_2" }
+                    "_doc": "Have wood — point at south wall zone.",
+                    "condition": { "playerInventoryGte": { "wood": 10 }, "zoneNotBuilt": "south_wall_zone" },
+                    "target": { "kind": "tag", "tag": "south_wall_zone" }
                 }
             ],
             "stallEscalation": [
@@ -228,25 +228,97 @@
                     ]
                 },
                 {
-                    "_doc": "30s in, has wood but no second wall — build pressure.",
+                    "_doc": "30s in, has wood but no south wall — build pressure.",
                     "afterSeconds": 30,
                     "stallCondition": {
                         "playerInventoryGte": { "wood": 10 },
-                        "zoneNotBuilt": "wall_ghost_2"
+                        "zoneNotBuilt": "south_wall_zone"
                     },
                     "actions": [
                         { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
                         { "call": "audio.cue",      "arg": "alert_high" },
-                        { "call": "hud.showAlert",  "arg": "Build the second wall!" }
+                        { "call": "hud.showAlert",  "arg": "Build the south wall!" }
                     ]
                 },
                 {
-                    "_doc": "45s in, no second wall regardless — heavy push.",
+                    "_doc": "45s in, no south wall regardless — heavy push.",
                     "afterSeconds": 45,
-                    "stallCondition": { "zoneNotBuilt": "wall_ghost_2" },
+                    "stallCondition": { "zoneNotBuilt": "south_wall_zone" },
                     "actions": [
                         { "call": "enemy.sendWave", "arg": { "count": 6, "archetype": "enemy-prototype-marcher" } },
                         { "call": "audio.cue",      "arg": "alert_high" }
+                    ]
+                }
+            ],
+            "next": "E"
+        },
+
+        "E": {
+            "_name": "EXTEND — east wall",
+            "_doc":  "East wall zone reveals. Player extends the perimeter east. Same wood/build cadence as B/D.",
+            "entryActions": [
+                { "call": "factory.activateGhost", "arg": "east_wall_zone" },
+                { "call": "pulseTrees",            "arg": true },
+                { "call": "audio.cue",             "arg": "chime_info" },
+                { "call": "enemy.setSpawnConfig",  "arg": "spawn_d_baseline" }
+            ],
+            "exitTriggers": [
+                { "event": "zone:built", "filter": { "eventTag": "east_wall_zone" }, "count": 1 }
+            ],
+            "hints": [
+                {
+                    "condition": { "playerInventoryLt": { "wood": 10 } },
+                    "target": { "kind": "nearestTag", "tag": "tree" }
+                },
+                {
+                    "condition": { "playerInventoryGte": { "wood": 10 }, "zoneNotBuilt": "east_wall_zone" },
+                    "target": { "kind": "tag", "tag": "east_wall_zone" }
+                }
+            ],
+            "stallEscalation": [
+                {
+                    "afterSeconds": 30,
+                    "stallCondition": { "zoneNotBuilt": "east_wall_zone" },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "alert_high" },
+                        { "call": "hud.showAlert",  "arg": "Build the east wall!" }
+                    ]
+                }
+            ],
+            "next": "F"
+        },
+
+        "F": {
+            "_name": "EXTEND — west wall",
+            "_doc":  "West wall zone reveals. Final side of the perimeter.",
+            "entryActions": [
+                { "call": "factory.activateGhost", "arg": "west_wall_zone" },
+                { "call": "pulseTrees",            "arg": true },
+                { "call": "audio.cue",             "arg": "chime_info" },
+                { "call": "enemy.setSpawnConfig",  "arg": "spawn_d_baseline" }
+            ],
+            "exitTriggers": [
+                { "event": "zone:built", "filter": { "eventTag": "west_wall_zone" }, "count": 1 }
+            ],
+            "hints": [
+                {
+                    "condition": { "playerInventoryLt": { "wood": 10 } },
+                    "target": { "kind": "nearestTag", "tag": "tree" }
+                },
+                {
+                    "condition": { "playerInventoryGte": { "wood": 10 }, "zoneNotBuilt": "west_wall_zone" },
+                    "target": { "kind": "tag", "tag": "west_wall_zone" }
+                }
+            ],
+            "stallEscalation": [
+                {
+                    "afterSeconds": 30,
+                    "stallCondition": { "zoneNotBuilt": "west_wall_zone" },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "alert_high" },
+                        { "call": "hud.showAlert",  "arg": "Build the west wall!" }
                     ]
                 }
             ],
@@ -254,8 +326,8 @@
         },
 
         "END": {
-            "_name": "End of run (Act 1 stub)",
-            "_doc":  "Triggers PrototypeEndUI Victory. When Act 2 lands, change D.next to E and add States E/F here.",
+            "_name": "End of run (perimeter sealed)",
+            "_doc":  "All 4 sides built. Triggers PrototypeEndUI Victory.",
             "entryActions": [
                 { "call": "pulseTrees", "arg": false },
                 { "call": "audio.cue",  "arg": "victory_chord" }

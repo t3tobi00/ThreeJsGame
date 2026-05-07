@@ -655,6 +655,55 @@ MeshPresets.register('fence-log', ({ color = 0x8b4513 } = {}) => {
     return log;
 });
 
+// Tall palisade log — chest-high cylinder + pointed cone cap. Used by the
+// prototype perimeter to read as a defensive wall while keeping the rustic
+// hand-built feel of the level-1 fence. Per-instance scale/lean/tint
+// variation gives the row a "wonky cute" silhouette instead of a sterile bar.
+MeshPresets.register('palisade-log', ({
+    color = 0x8d6239,
+    capColor = 0x6e4520,
+    height = 1.8,
+    radius = 0.18,
+    capHeight = 0.30
+} = {}) => {
+    const group = new THREE.Group();
+
+    // Subtle per-log tint so the row doesn't look stamped from one mold.
+    const tintHsl = { h: 0, s: 0, l: 0 };
+    const tintColor = new THREE.Color(color);
+    tintColor.getHSL(tintHsl);
+    tintHsl.l += (Math.random() - 0.5) * 0.10;
+    tintHsl.h += (Math.random() - 0.5) * 0.02;
+    const bodyColor = new THREE.Color().setHSL(
+        Math.max(0, Math.min(1, tintHsl.h)),
+        tintHsl.s,
+        Math.max(0, Math.min(1, tintHsl.l))
+    );
+
+    const bodyGeo = new THREE.CylinderGeometry(radius, radius * 1.05, height, 8);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.92, metalness: 0 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = height / 2;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    const capGeo = new THREE.ConeGeometry(radius * 1.10, capHeight, 8);
+    const capMat = new THREE.MeshStandardMaterial({ color: capColor, roughness: 0.95, metalness: 0 });
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = height + capHeight / 2;
+    cap.castShadow = true;
+    group.add(cap);
+
+    // Wonky-cute variation: random height (±8%), slight lean, random spin.
+    group.scale.y = 0.92 + Math.random() * 0.16;
+    group.rotation.y = Math.random() * Math.PI * 2;
+    group.rotation.x = (Math.random() - 0.5) * 0.08;
+    group.rotation.z = (Math.random() - 0.5) * 0.08;
+
+    return group;
+});
+
 MeshPresets.register('wall', ({ color = 0x888888, size = { x: 2, y: 1.5, z: 0.8 } } = {}) => {
     const group = new THREE.Group();
 
