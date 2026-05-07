@@ -1,4 +1,28 @@
-# Prototype Build Status — 2026-05-07 (PR #2.7 shipped)
+# Prototype Build Status — 2026-05-08 (post-combat-anim-overhaul)
+
+## §0. Headline (2026-05-08 session)
+
+Shipped this session, all user-validated:
+- **#9 trees blinking fix** — new `living-tree` MeshPreset with leafy crown + foliage-only pulse
+- **#1 map layout (south logistics belt)** — 5 worker buildings rearranged into 2 south rows; mil pads moved north of player
+- **#5 attack animations BOTH halves** — scout chained spear-throw + bruiser magma-breath cone-AOE with burning zombies + ground patches
+
+**Remaining backlog (in user's priority order for next session):**
+1. PHASE 1: Quick bug fixes
+   - HeroAI: soldiers only attack what's directly in front (target locks until death)
+   - Wood-worker stuck on spawn (was working before this session)
+2. PHASE 2: #6 Long-range Sharpshooter (third soldier class — needs design brainstorm)
+3. PHASE 3: #4 Combat AI Intelligence (poison-cloud avoidance, defend workers/king/walls, group cohesion)
+4. PHASE 4: #3 Builder construction phase (pre-pay + hammer animation)
+5. PHASE 5: #2 Wood-chop animation
+6. PHASE 6: #8 UnlockZoneUI essence icon + overall icon designs
+7. PHASE 7: #7 Storage prop colors
+
+See `~/.claude/projects/.../memory/project_next_session_priorities_2026_05_08.md` for the full work order.
+
+---
+
+# (Historical) Prototype Build Status — 2026-05-07 (PR #2.7 shipped)
 
 > **The prototype is the project's full focus.** Everything else (V1 phases 1-6, legacy game, diorama) is on hold. This doc is the canonical source of truth for "where the prototype is right now."
 
