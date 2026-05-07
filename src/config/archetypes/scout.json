@@ -1,5 +1,5 @@
 {
-    "_doc": "Scout — fast/cheap ally soldier. PROTOTYPE_PLAN §4 numbers: HP 30, 10 DMG, 2 atk-sec (cooldown 0.5), cost 8E at Spawn Pad. Uses HeroAI for steering (auto-aggro within guardRadius 8) + ContactDamage for passive melee, no SkillLoadout (Scout doesn't need sword swing — keeps prototype simple). DragCommandable + Waypoints for player drag-override.",
+    "_doc": "Scout — fast/cheap ally soldier. PROTOTYPE_PLAN §4 numbers: HP 30 (bumped 30→60 for prototype testing), 10 DMG, 2 atk-sec (cooldown 0.5), cost 8E at Spawn Pad (lowered to 4E in level JSON). Uses HeroAI for steering (auto-aggro within guardRadius 8) + ContactDamage for passive melee, no SkillLoadout (Scout doesn't need sword swing — keeps prototype simple). DragCommandable + Waypoints for player drag-override.",
     "type": "Scout",
     "mesh": {
         "preset": "character-player",
@@ -9,7 +9,7 @@
         "cost": { "essence": 8 }
     },
     "components": {
-        "Health": { "hp": 30, "maxHp": 30, "armor": 0 },
+        "Health": { "hp": 60, "maxHp": 60, "armor": 0 },
         "Animator": {},
         "SquashStretch": { "intensity": 0.15, "frequency": 6, "trigger": "move" },
         "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },

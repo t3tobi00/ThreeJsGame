@@ -1,0 +1,20 @@
+{
+    "_doc": "Builder — Act 3 ally automation. Visual: yellow body + hard-hat + wrench. Per the redefined Builder role (see PROTOTYPE_STATUS.md §4 spec divergence note 2026-05-07): pulls from the pad's stockpile (NOT the player's stack) and runs to active ghost zones. PR #3.1 visuals only; PR #3.3 adds AI. role 'disabled' so WorkerAISystem skips it.",
+    "type": "WorkerBuilder",
+    "mesh": {
+        "preset": "character-worker",
+        "color": "0xddcc22",
+        "hat": "hardhat",
+        "tool": "wrench"
+    },
+    "components": {
+        "Health": { "hp": 25, "maxHp": 25, "armor": 0 },
+        "Animator": {},
+        "SquashStretch": { "intensity": 0.12, "frequency": 5, "trigger": "move" },
+        "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
+        "Collider": { "shape": "circle", "radius": 0.35, "isStatic": true },
+        "Tag": { "tags": ["ally", "worker", "worker-builder"] },
+        "InventoryStack": { "maxSlots": 1, "slotCapacity": 10, "acceptsTypes": ["wood", "essence"] },
+        "WorkerAI": { "role": "disabled" }
+    }
+}

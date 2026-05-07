@@ -63,6 +63,9 @@ import { HealthSystem } from './systems/HealthSystem.js';
 import { UnlockZoneSystem } from './systems/UnlockZoneSystem.js';
 import { MachineSystem } from './systems/MachineSystem.js';
 import { BuildSystem } from './systems/BuildSystem.js';
+import { OnSpawnSystem } from './systems/OnSpawnSystem.js';
+import { WorkerAISystem } from './systems/WorkerAISystem.js';
+import { Pathfinder } from './utils/Pathfinder.js';
 import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ContactDamageSystem } from './systems/ContactDamageSystem.js';
@@ -263,6 +266,24 @@ class Game {
         this.buildSystem = new BuildSystem(this.scene.instance, this.factory, this.particleSystem);
         this.buildSystem.setECS(this.ecs);
         this.ecs.registerSystem(this.buildSystem, ['Transform', 'Tag']);
+
+        // OnSpawn — one-shot helper that lets a freshly-built anchor entity
+        // (e.g. worker-pad-active) spawn N child entities at offsets and then
+        // detach itself. Cheap when no entity has the component, so registered
+        // globally rather than gated on prototype mode.
+        this.onSpawnSystem = new OnSpawnSystem(this.factory);
+        this.ecs.registerSystem(this.onSpawnSystem, ['Transform', 'OnSpawn']);
+
+        // Pathfinder — A* utility reserved for stuck-fallback in WorkerAISystem.
+        // PR #3.2 keeps direct steering as the primary path; the pathfinder
+        // is wired up so a future PR can flip the switch without touching
+        // the AI's main loop.
+        this.pathfinder = new Pathfinder({ minX: -16, maxX: 16, minZ: -16, maxZ: 16, cell: 1 });
+
+        // WorkerAISystem — Act 3 automation FSM. PR #3.2 implements the
+        // wood role only; essence + builder roles are no-ops until PR #3.3.
+        this.workerAISystem = new WorkerAISystem(this.scene.instance, this.pathfinder);
+        this.ecs.registerSystem(this.workerAISystem, ['Transform', 'WorkerAI', 'InventoryStack']);
 
         this.gateSystem = new GateSystem();
         this.ecs.registerSystem(this.gateSystem, ['Transform', 'Gate']);

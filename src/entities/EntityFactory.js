@@ -38,6 +38,9 @@ import { Component_RoadPath } from '../ecs/components/Component_RoadPath.js';
 import { Component_DragCommandable } from '../ecs/components/Component_DragCommandable.js';
 import { Component_Waypoints } from '../ecs/components/Component_Waypoints.js';
 import { Component_BehaviorState } from '../ecs/components/Component_BehaviorState.js';
+import { Component_OnSpawn } from '../ecs/components/Component_OnSpawn.js';
+import { Component_Stockpile } from '../ecs/components/Component_Stockpile.js';
+import { Component_WorkerAI } from '../ecs/components/Component_WorkerAI.js';
 import MeshPresets from '../core/MeshPresets.js';
 import EventBus from '../core/EventBus.js';
 
@@ -79,6 +82,9 @@ const COMPONENT_MAP = {
     DragCommandable: (d) => new Component_DragCommandable(d),
     Waypoints:       (d) => new Component_Waypoints(d),
     BehaviorState:   (d) => new Component_BehaviorState(d),
+    OnSpawn:         (d) => new Component_OnSpawn(d),
+    Stockpile:       (d) => new Component_Stockpile(d),
+    WorkerAI:        (d) => new Component_WorkerAI(d),
 };
 
 

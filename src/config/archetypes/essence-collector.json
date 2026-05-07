@@ -1,0 +1,20 @@
+{
+    "_doc": "Essence Collector — Act 3 ally automation. Visual: cyan body + cone hood + glowing wisp jar. PR #3.1 visuals only; PR #3.3 adds AI. role 'disabled' so WorkerAISystem skips it. Stats: HP 25, speed 3, faction ally. Non-combatant — takes damage, permanent death.",
+    "type": "EssenceCollector",
+    "mesh": {
+        "preset": "character-worker",
+        "color": "0x33aadd",
+        "hat": "hood",
+        "tool": "jar"
+    },
+    "components": {
+        "Health": { "hp": 25, "maxHp": 25, "armor": 0 },
+        "Animator": {},
+        "SquashStretch": { "intensity": 0.12, "frequency": 5, "trigger": "move" },
+        "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
+        "Collider": { "shape": "circle", "radius": 0.35, "isStatic": true },
+        "Tag": { "tags": ["ally", "worker", "essence-collector"] },
+        "InventoryStack": { "maxSlots": 1, "slotCapacity": 10, "acceptsTypes": ["essence"] },
+        "WorkerAI": { "role": "disabled" }
+    }
+}

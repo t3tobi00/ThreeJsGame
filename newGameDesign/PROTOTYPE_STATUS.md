@@ -106,10 +106,23 @@
 
 ### Still open — next-session priorities
 
-1. **Per-troop attack visual richness.** User flagged that Scout/Bruiser still feel "okay for now" but should later get richer per-class identity (different weapon arcs, hit reactions, finishers). VFX foundation (`CombatVFXSystem`) is in place — extend later.
-2. **Conflicts between joystick + drag-to-waypoint** — when both push the player, behavior is jittery. May need to clear waypoint on joystick input.
-3. **Wall ghost #2 reveal timing** — currently activates on State D entry. Player might still be fighting marchers from State C. Polish: maybe wait for clearance.
-4. **Acts 2-5 implementation.** Foundation ready. PR #3 onward.
+**Headline next move: Acts 2 polish (optional gate ceremony) → Act 3 (worker automation) → Act 4 (rival twist) → Act 5 (king kill).**
+
+State machine today covers A–F (Acts 1 + perimeter walls). What remains:
+
+1. **Act 2 — gate ceremony (DESIGN FORK).** Spec calls for a "build the gate" state after the 4 walls. With auto-sink palisade gates already covering player movement through any wall, a dedicated gate building is redundant. Two options:
+   - **A.** Skip the gate ceremony — current 4-wall flow IS Act 2. Move straight to Act 3.
+   - **B.** Add a gate ceremony anyway — a single ornamental archway at the south wall that costs 20W+5E and reads as "the front door" (cosmetic, since auto-sink already opens the wall).
+   Brainstorm with user before coding.
+2. **Act 3 — automation (the major novel work).** 3 worker archetypes (Wood Worker, Essence Collector, Builder/Runner), Worker Pad (drains 15E for 3 workers), WorkerAI state machine, role icons, auto-pathing to trees / disks / ghosts. Per `PROTOTYPE_PLAN.md` §4 Act 3 and V1 `PHASE_4_SYSTEMS.md`.
+3. **Act 4 — rival twist.** Rival faction (soldier + king + base entity), RivalAI (one-shot raid), base-reveal opacity tween + dust burst, audio sting, chaos wave (20 zombies). Per `PROTOTYPE_PLAN.md` §4 Act 4 and `PHASE_5_AI.md`.
+4. **Act 5 — king kill.** Attack-Ready zone reveal, RallyZoneSystem (player steps on → troops auto-rally + follow), King fight, T3 finisher (hitstop + shake + red puff + victory chord), stats routing. Per `PROTOTYPE_PLAN.md` §4 Act 5 and `PHASE_6_POLISH.md`.
+
+### Still-open polish (lower priority, can defer)
+
+- **Per-troop attack richness.** Scout/Bruiser feel "okay for now" but should get richer per-class identity (different weapon arcs, hit reactions, finishers). VFX foundation (`CombatVFXSystem`) is in place — extend later.
+- **Joystick × drag-waypoint conflict.** When both push the player, behavior is jittery. May need to clear waypoint on joystick input.
+- **Wall-zone reveal timing.** Currently each wall zone reveals on state entry; player might still be fighting prior wave. Polish: maybe wait for clearance.
 
 ### Acts 2-5 — high-level work remaining
 - **Act 2** (Defense Build): 3 more walls + 1 gate ghost, state E + F. Largely existing systems (UnlockZone + BuildSystem).
@@ -220,6 +233,7 @@ ALL listed conditions must hold for the escalation to fire (AND semantics). Esca
 
 ## §4. Known issues / open questions
 
+- **[2026-05-07] Act 3 Builder role REDEFINED — supersedes `PROTOTYPE_PLAN.md` §10.4 / `~/.claude/plans/yes-binary-bentley.md` §10.3-10.4.** The locked spec had Builder pulling resources from the player's jelly-stack and running them to active ghost zones. For the prototype build we instead give the Worker Pad a `Component_Stockpile {wood, essence}` (no cap): Wood-Worker and Essence-Collector deposit at the pad's stockpile, Builder withdraws from the stockpile and drains into active ghost zones. Reason: cleaner mental model, removes the "worker pickpockets the player" mechanic, and decouples worker loops from player position. Worker count stays 3 (cost still 15E). All other §10.x details (FSM shape, scanRadius 15, HP 25, speed 3, peer-skip on `deliveryTarget`, 2s stuck-detect → re-SCAN) remain in force.
 - **Scout/Bruiser don't visibly attack.** They navigate to enemies via HeroAI but ContactDamage is silent (no anim). Address in next session.
 - **Zombies don't visibly attack.** Same — they walk into the player and silently apply ContactDamage. Address in next session.
 - **Unlock zones visually flat.** Address in next session.
@@ -272,64 +286,106 @@ http://localhost:8000/                 # legacy
 | PR #2.5: Act 1 polish — unlock-zone fill, scary zombies, soldier anim+VFX, crowd separation, stop-at-range, combat pacing | ✓ shipped |
 | PR #2.6: Next-step 3D pointer + `pulseTrees` wiring | ✓ shipped |
 | PR #2.7: Palisade fence + staged N/S/E/W build + auto-sink gates | ✓ shipped |
-| PR #3: Act 2 | pending |
-| PR #4: Act 3 | pending |
-| PR #5: Act 4 | pending |
-| PR #6: Act 5 | pending |
+| PR #2.8: Act 2 — optional gate ceremony (design fork — may skip) | pending |
+| PR #3:   Act 3 — worker automation (Wood / Essence / Builder workers + WorkerAI + Worker Pad) | pending |
+| PR #4:   Act 4 — rival twist (RivalAI + base reveal + chaos wave + audio sting) | pending |
+| PR #5:   Act 5 — king kill (Attack-Ready zone + RallyZoneSystem + T3 finisher + stats routing) | pending |
 
 ---
 
 ## §7. Session-start prompt for the next conversation
 
-Paste this at the start of a new Claude Code session to resume work:
+Paste this at the start of a new Claude Code session to resume work on **Acts 2–5**:
 
 ```
 I'm continuing work on the Base Defense Tycoon prototype. The whole project's
-focus is now on the ?prototype mode — V1 phase docs are reference only, and
+focus is on the ?prototype mode — V1 phase docs are reference only, and
 legacy/diorama modes are not to be touched.
 
 Read these in order before doing anything:
-  1. newGameDesign/PROTOTYPE_STATUS.md     (current state, this snapshot)
+  1. newGameDesign/PROTOTYPE_STATUS.md     (current state — start here)
   2. newGameDesign/PROTOTYPE_PLAN.md       (locked spec, 25 decisions)
-  3. ~/.claude/plans/yes-binary-bentley.md (full implementation plan)
+  3. ~/.claude/plans/yes-binary-bentley.md (implementation plan)
   4. CLAUDE.md (root) and newGameDesign/CLAUDE.md
 
-Auto mode active — execute autonomously. Ask only on major design forks.
+Auto mode: brainstorm BEFORE coding for novel design (especially Act 3
+worker AI). Ask first on major design forks.
 
-Top priorities (in order):
-  1. Visual feedback for next step — 3D finger pointer / pulsing-glow ring
-     on the next-required target (tree, ghost, spawn pad), cleared when
-     the sub-milestone is met.
-  2. Wire the stub `pulseTrees` action to actually pulse trees when wood
-     is low (currently a console.log placeholder in PrototypeStateMachine).
-  3. Acts 2-5 implementation (after polish).
+Top priority: Acts 2–5 implementation.
 
-Already shipped in PR #2.5 (do NOT redo):
-  - Unlock zone flat UI (water fill, lightened shade, parallel preset).
-  - Scary zombies (snarl, shake, blood, rigged green mesh, lurch walk,
-    3-phase slam attack, ranged poison spit, lingering poison clouds).
-  - Soldier attack identity (scout fast jab + cyan slash arc, bruiser
-    heavy smash + red ground shockwave, impact_thud audio).
-  - Crowd separation (SeparationSystem) + stop-at-attack-range.
-  - Combat pacing rebalance (zombie HP 45, sword 6dmg/0.45fr, melee 2dmg).
-  - 1 test Scout + 1 test Bruiser pre-spawned in level-prototype.json
-    (REMOVE these two entries before final balancing is locked).
+Already shipped through PR #2.7 (do NOT redo — see PROTOTYPE_STATUS §1–§3
+for the full inventory):
+  - Acts 1 ✓ — A blood, B north wall, C spawn pads, D south wall.
+  - Act 2 partial ✓ — E east wall, F west wall (added during palisade
+    testing). Open design fork: optional gate ceremony — PROTOTYPE_PLAN §4
+    Act 2 spec calls for it, but auto-sink gates already cover wall
+    crossing. Brainstorm first: skip OR add a cosmetic archway.
+  - Foundation: palisade fence (rustic wood-log style + per-instance
+    variation), auto-sink palisade gates (close-range + mid-range trigger,
+    1.0s latch, hysteresis collider toggle), staged N/S/E/W build flow,
+    next-step pointer, pulseTrees, scary zombies (snarl/shake/blood/rigged
+    mesh/3-phase slam/ranged poison spit/lingering clouds), soldier attack
+    VFX (scout slash arc, bruiser shockwave), crowd separation,
+    stop-at-attack-range, combat pacing rebalance, eventTag filter on the
+    state machine, 4 inside-perimeter trees so D/E/F can complete.
+
+Acts 2–5 work remaining (priority order):
+
+  1. Act 2 polish — gate ceremony (design fork). DECIDE FIRST:
+     A. Skip (current 4-wall flow IS Act 2; advance straight to Act 3).
+     B. Add cosmetic gate at south wall (20W+5E build, no functional
+        purpose since auto-sink already opens any wall span).
+     Brainstorm with user.
+
+  2. Act 3 — automation (THE major novel work).
+     Per PROTOTYPE_PLAN §4 Act 3 + V1 PHASE_4_SYSTEMS.md:
+       - 3 worker archetypes: wood-worker, essence-collector, builder-runner.
+       - Worker Pad (drains 15E for 3 workers, OnSpawn helper for multi-spawn).
+       - WorkerAI state machine per role (find target → walk → harvest/pickup/
+         deliver → return → repeat). Reuse jelly-stack + magnetic-harvest +
+         drain-and-build patterns from existing systems.
+       - Role icon above each worker (3D-parented, like NextStepIndicator).
+       - State G (PAD REVEAL) + State H (AUTO ACTIVE) in prototypeStates.json.
+     Brainstorm BEFORE coding — needs design choices: pathing (A* vs direct),
+     target selection (nearest vs round-robin), per-worker vs shared inventory,
+     visual differentiation (color/hat/tool).
+
+  3. Act 4 — rival twist.
+     Per PROTOTYPE_PLAN §4 Act 4 + V1 PHASE_5_AI.md:
+       - Rival faction: 5 soldiers + 1 King, all with HP per §4 numbers table.
+       - RivalBase entity at edge of map, hidden until Act 4 reveal.
+       - RivalAI: spawn at base, march to player perimeter, fight, retreat
+         after losses (single one-shot raid).
+       - State I (REVEAL) — audio sting + base opacity tween + dust burst +
+         red arrow billboard pinned to rival group.
+       - State J (DEFENSE) — 20-zombie chaos wave joins the rivals.
+       - State K (RECOVERY) — rivals retreat, ~10s calm.
+
+  4. Act 5 — king kill.
+     Per PROTOTYPE_PLAN §4 Act 5 + V1 PHASE_6_POLISH.md:
+       - State L (REBUILD) — Attack-Ready zone reveals, glowing.
+       - State M (MARCH) — RallyZoneSystem: player steps on Attack-Ready zone
+         → all alive troops auto-rally + follow waypoint to rival base.
+       - State N (KING FIGHT) — combat with Rival King (HP 200 / DMG 30).
+       - On king death: T3 finisher (hitstop ~0.15s + screen shake + red
+         puff via CombatVFXSystem + victory_chord audio).
+       - END routing: PrototypeEndUI Victory + Stats screen.
 
 Workflow constraints:
   - Stay in ?prototype mode. Don't touch legacy/diorama.
-  - Non-destructive: extends-based archetypes, separate level JSON,
-    parallel mode pattern.
-  - Progression-based, not time-based — milestone exits + stall escalation
-    with sub-milestone checks (playerInventoryLt/Gte, zoneNotBuilt, zoneBuilt).
-  - 3D-parented UI for in-world prompts; HTML overlay only for one-shot UI.
-  - JSON-configurable first.
+  - Non-destructive: extends-based archetypes, parallel mode pattern,
+    separate level JSON, JSON-first config.
+  - Progression-based — milestone exits + stall escalation
+    (playerInventoryLt/Gte, zoneNotBuilt, zoneBuilt, eventTag).
+  - 3D-parented UI for in-world prompts; HTML overlay only for one-shot.
+  - Brainstorm then code. Especially for Act 3 worker design.
 
 Boot for testing:
   cd /Users/bibektandon/Desktop/code/ThesisGame2
   python3 -m http.server 8000
   http://localhost:8000/?prototype
 
-Start by reading the priority files, then propose a concrete action plan
-for priority #1 (unlock zone visual upgrade) in 2-3 short bullets, then
-execute autonomously.
+Start by reading PROTOTYPE_STATUS.md fully, then propose a 2-3 bullet plan
+for the Act 2 gate-ceremony design fork (skip vs cosmetic). After user
+confirms, move into Act 3 brainstorm (worker design choices) before coding.
 ```

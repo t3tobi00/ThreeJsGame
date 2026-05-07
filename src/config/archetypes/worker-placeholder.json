@@ -1,0 +1,14 @@
+{
+    "_doc": "PR #3.0 placeholder for the 3 worker children spawned by worker-pad-active. Replaced by wood-worker.json / essence-collector.json / worker-builder.json in PR #3.1 — the archetype name is the only thing that changes (worker-pad-active.json's OnSpawn list will switch to the proper three). Stand-in mesh is just character-player tinted grey so the build/visual flow can be verified end-to-end before AI lands.",
+    "type": "WorkerPlaceholder",
+    "mesh": {
+        "preset": "character-player",
+        "color": "0xbbbbbb"
+    },
+    "components": {
+        "Health": { "hp": 25, "maxHp": 25, "armor": 0 },
+        "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
+        "Collider": { "shape": "circle", "radius": 0.4, "isStatic": true },
+        "Tag": { "tags": ["ally", "worker", "placeholder"] }
+    }
+}

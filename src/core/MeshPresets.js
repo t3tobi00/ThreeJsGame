@@ -1157,4 +1157,147 @@ MeshPresets.register('essence-candy-lollipop', () => {
     return group;
 });
 
+// ─── Worker hat / tool helpers (Act 3, PR #3.1) ──────────────────────
+//
+// Workers reuse the `character-player` rig but get a tinted body + a hat on
+// the head + a tool in the right hand. Each helper returns a small group
+// with all geometry inside; the caller positions it on the rig.
+
+function _makeWorkerHat(kind) {
+    const g = new THREE.Group();
+    if (kind === 'cap') {
+        // Wood worker — flat cap (low cylinder + flat brim disc)
+        const crown = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.21, 0.22, 0.1, 12),
+            new THREE.MeshStandardMaterial({ color: 0x6b4123, roughness: 0.85 })
+        );
+        crown.position.y = 0.18;
+        g.add(crown);
+        const brim = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.30, 0.30, 0.025, 16),
+            new THREE.MeshStandardMaterial({ color: 0x4d2e18, roughness: 0.85 })
+        );
+        brim.position.set(0, 0.13, 0.06);
+        g.add(brim);
+    } else if (kind === 'hood') {
+        // Essence collector — pointed hood / cone over the head
+        const cone = new THREE.Mesh(
+            new THREE.ConeGeometry(0.27, 0.42, 14),
+            new THREE.MeshStandardMaterial({ color: 0x1d4a6b, roughness: 0.9 })
+        );
+        cone.position.y = 0.24;
+        g.add(cone);
+        // Tiny tip dot for personality
+        const tip = new THREE.Mesh(
+            new THREE.SphereGeometry(0.04, 8, 6),
+            new THREE.MeshStandardMaterial({ color: 0x66ddff, emissive: 0x33aadd, emissiveIntensity: 0.6 })
+        );
+        tip.position.y = 0.46;
+        g.add(tip);
+    } else if (kind === 'hardhat') {
+        // Builder — half-sphere dome + flat brim
+        const dome = new THREE.Mesh(
+            new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+            new THREE.MeshStandardMaterial({ color: 0xeebb22, roughness: 0.5 })
+        );
+        dome.position.y = 0.16;
+        g.add(dome);
+        const brim = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.30, 0.30, 0.04, 18),
+            new THREE.MeshStandardMaterial({ color: 0xeebb22, roughness: 0.5 })
+        );
+        brim.position.set(0, 0.16, 0.07);
+        g.add(brim);
+    }
+    return g;
+}
+
+function _makeWorkerTool(kind) {
+    const g = new THREE.Group();
+    if (kind === 'axe') {
+        // Wood worker — handle (vertical) + wedge head near the top
+        const handle = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.025, 0.025, 0.5, 8),
+            new THREE.MeshStandardMaterial({ color: 0x6b4123, roughness: 0.85 })
+        );
+        handle.position.y = -0.10;
+        g.add(handle);
+        const head = new THREE.Mesh(
+            new THREE.BoxGeometry(0.18, 0.10, 0.04),
+            new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 0.4, metalness: 0.6 })
+        );
+        head.position.set(0.10, 0.10, 0);
+        g.add(head);
+    } else if (kind === 'jar') {
+        // Essence collector — small handle + glowing wisp jar on top
+        const handle = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.02, 0.02, 0.30, 8),
+            new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.7 })
+        );
+        handle.position.y = -0.08;
+        g.add(handle);
+        const jar = new THREE.Mesh(
+            new THREE.SphereGeometry(0.08, 12, 10),
+            new THREE.MeshStandardMaterial({
+                color: 0x66ddff, emissive: 0x33aadd, emissiveIntensity: 0.9,
+                roughness: 0.3, metalness: 0.1
+            })
+        );
+        jar.position.y = 0.08;
+        g.add(jar);
+    } else if (kind === 'wrench') {
+        // Builder — handle (vertical) + open-end (two prongs at the top)
+        const handle = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.025, 0.025, 0.42, 8),
+            new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.4, metalness: 0.7 })
+        );
+        handle.position.y = -0.10;
+        g.add(handle);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.7 });
+        const prongL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.10, 0.08), headMat);
+        prongL.position.set(-0.05, 0.16, 0);
+        g.add(prongL);
+        const prongR = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.10, 0.08), headMat);
+        prongR.position.set(0.05, 0.16, 0);
+        g.add(prongR);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.04, 0.08), headMat);
+        back.position.set(0, 0.13, 0);
+        g.add(back);
+    }
+    return g;
+}
+
+// ─── character-worker preset ──────────────────────────────────────────
+//
+// Wraps `character-player` so workers inherit the full animation rig
+// (named bones: head, leftArm, rightArm, leftLeg, etc.) and pick up a
+// hat on `head` + a tool on `rightElbow` (so the tool tracks the hand
+// when arms swing).
+//
+// Options:
+//   color       — body tint, passed through to character-player
+//   hat         — 'cap' | 'hood' | 'hardhat' | null
+//   tool        — 'axe' | 'jar' | 'wrench' | null
+//
+// Used by wood-worker.json / essence-collector.json / worker-builder.json.
+
+MeshPresets.register('character-worker', ({ color = 0xbbbbbb, hat = null, tool = null } = {}) => {
+    const root = MeshPresets.create('character-player', { color });
+
+    if (hat) {
+        const head = root.getObjectByName('head');
+        if (head) head.add(_makeWorkerHat(hat));
+    }
+    if (tool) {
+        const rightElbow = root.getObjectByName('rightElbow');
+        // Tool dangles from the hand. Slight forward + outward offset so it
+        // doesn't z-fight with the forearm capsule.
+        const t = _makeWorkerTool(tool);
+        t.position.set(0.04, -0.30, 0.04);
+        if (rightElbow) rightElbow.add(t);
+    }
+
+    return root;
+});
+
 export default MeshPresets;

@@ -31,6 +31,13 @@
             "mode": "trickle", "interval": 1.5, "maxAlive": 10,
             "countMin": 1, "countMax": 2,
             "point": { "x": 0, "z": -22 }, "jitter": 4, "despawnDistance": 50
+        },
+        "spawn_g_baseline": {
+            "_doc": "State G (PAD REVEAL): heavier trickle as Act 3 starts. Workers will eventually handle some load — for now this just keeps pressure up while the player drains 15E into the Worker Pad.",
+            "archetype": "enemy-prototype",
+            "mode": "trickle", "interval": 1.3, "maxAlive": 12,
+            "countMin": 1, "countMax": 2,
+            "point": { "x": 0, "z": -22 }, "jitter": 4, "despawnDistance": 50
         }
     },
 
@@ -130,7 +137,7 @@
 
         "C": {
             "_name": "ARMY — spawn pads",
-            "_doc":  "Scout + Bruiser pads reveal. Exit: any soldier spawned. Stall checks: hasn't collected essence (15s)? has 8E but not spawned (30s)?",
+            "_doc":  "Scout + Bruiser pads reveal. Exit: any soldier spawned. Stall checks: hasn't collected essence (15s)? has 4E but not spawned (30s)? Costs lowered to 4E (Scout) / 8E (Bruiser) while Act 3 is in development.",
             "entryActions": [
                 { "call": "factory.activateGhost", "arg": "scout_pad" },
                 { "call": "factory.activateGhost", "arg": "bruiser_pad" },
@@ -144,26 +151,26 @@
             ],
             "hints": [
                 {
-                    "_doc": "Essence < 8 — kill more zombies for essence.",
-                    "condition": { "playerInventoryLt": { "essence": 8 } },
+                    "_doc": "Essence < 4 — kill more zombies for essence.",
+                    "condition": { "playerInventoryLt": { "essence": 4 } },
                     "target": { "kind": "nearestFaction", "faction": "enemy" }
                 },
                 {
-                    "_doc": "Have 8E — drain into Scout Pad (cheaper of the two).",
-                    "condition": { "playerInventoryGte": { "essence": 8 }, "zoneNotBuilt": "scout_pad" },
+                    "_doc": "Have 4E — drain into Scout Pad (cheaper of the two).",
+                    "condition": { "playerInventoryGte": { "essence": 4 }, "zoneNotBuilt": "scout_pad" },
                     "target": { "kind": "tag", "tag": "scout_pad" }
                 },
                 {
                     "_doc": "Scout already spawned but bruiser hasn't — point at Bruiser Pad.",
-                    "condition": { "playerInventoryGte": { "essence": 15 }, "zoneBuilt": "scout_pad", "zoneNotBuilt": "bruiser_pad" },
+                    "condition": { "playerInventoryGte": { "essence": 8 }, "zoneBuilt": "scout_pad", "zoneNotBuilt": "bruiser_pad" },
                     "target": { "kind": "tag", "tag": "bruiser_pad" }
                 }
             ],
             "stallEscalation": [
                 {
-                    "_doc": "15s in, hasn't enough essence (need 8 for scout) — push for more kills.",
+                    "_doc": "15s in, hasn't enough essence (need 4 for scout) — push for more kills.",
                     "afterSeconds": 15,
-                    "stallCondition": { "playerInventoryLt": { "essence": 8 } },
+                    "stallCondition": { "playerInventoryLt": { "essence": 4 } },
                     "actions": [
                         { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
                         { "call": "audio.cue",      "arg": "chime_info" },
@@ -171,9 +178,9 @@
                     ]
                 },
                 {
-                    "_doc": "30s in, has 8E but didn't spawn a soldier — push for spawn.",
+                    "_doc": "30s in, has 4E but didn't spawn a soldier — push for spawn.",
                     "afterSeconds": 30,
-                    "stallCondition": { "playerInventoryGte": { "essence": 8 } },
+                    "stallCondition": { "playerInventoryGte": { "essence": 4 } },
                     "actions": [
                         { "call": "enemy.sendWave", "arg": { "count": 4, "archetype": "enemy-prototype-marcher" } },
                         { "call": "audio.cue",      "arg": "alert_high" },
@@ -321,6 +328,61 @@
                         { "call": "hud.showAlert",  "arg": "Build the west wall!" }
                     ]
                 }
+            ],
+            "next": "G"
+        },
+
+        "G": {
+            "_name": "PAD REVEAL — Act 3 automation kickoff",
+            "_doc":  "Perimeter sealed. Worker Pad ghost reveals (drains 15E for 3 workers). +15 zombies escalation on entry to keep heat up while the player gathers essence. Exit: pad built. PR #3.0 routes G→END (placeholder); PR #3.4 inserts H AUTO_ACTIVE between them.",
+            "entryActions": [
+                { "call": "factory.activateGhost", "arg": "worker_pad" },
+                { "call": "pulseTrees",            "arg": false },
+                { "call": "audio.cue",             "arg": "chime_info" },
+                { "call": "enemy.setSpawnConfig",  "arg": "spawn_g_baseline" },
+                { "call": "enemy.sendWave",        "arg": { "count": 8, "archetype": "enemy-prototype-marcher" } },
+                { "call": "hud.showAlert",         "arg": "Build the Worker Pad!" }
+            ],
+            "exitTriggers": [
+                { "event": "zone:built", "filter": { "eventTag": "worker_pad" }, "count": 1 }
+            ],
+            "hints": [
+                {
+                    "_doc": "Essence < 15 — kill zombies for essence.",
+                    "condition": { "playerInventoryLt": { "essence": 15 } },
+                    "target": { "kind": "nearestFaction", "faction": "enemy" }
+                },
+                {
+                    "_doc": "Have 15E — drain into Worker Pad.",
+                    "condition": { "playerInventoryGte": { "essence": 15 }, "zoneNotBuilt": "worker_pad" },
+                    "target": { "kind": "tag", "tag": "worker_pad" }
+                }
+            ],
+            "stallEscalation": [
+                {
+                    "_doc": "30s in, no Worker Pad built — push pressure.",
+                    "afterSeconds": 30,
+                    "stallCondition": { "zoneNotBuilt": "worker_pad" },
+                    "actions": [
+                        { "call": "enemy.sendWave", "arg": { "count": 5, "archetype": "enemy-prototype-marcher" } },
+                        { "call": "audio.cue",      "arg": "alert_high" },
+                        { "call": "hud.showAlert",  "arg": "Build the Worker Pad!" }
+                    ]
+                }
+            ],
+            "next": "H"
+        },
+
+        "H": {
+            "_name": "AUTO ACTIVE — placeholder before END",
+            "_doc":  "PR #3.0 stub of the eventual H AUTO_ACTIVE state. Real version (PR #3.4) will gate on the 3-min Act-3 timer + worker activity. For now: hold long enough that the player can SEE the 3 placeholder workers around the pad, then exit on a small kill milestone (5 zombies) → END / Victory. Keeps the state machine milestone-driven (no time-based auto-advance).",
+            "entryActions": [
+                { "call": "audio.cue",            "arg": "chime_info" },
+                { "call": "hud.showAlert",        "arg": "Workers spawned! Kill 5 zombies to win." },
+                { "call": "enemy.setSpawnConfig", "arg": "spawn_g_baseline" }
+            ],
+            "exitTriggers": [
+                { "event": "entity:died", "filter": { "faction": "enemy" }, "count": 5 }
             ],
             "next": "END"
         },

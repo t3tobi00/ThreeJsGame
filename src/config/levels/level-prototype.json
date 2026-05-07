@@ -57,7 +57,10 @@
 
         "_doc TEST: 1 Scout + 1 Bruiser pre-spawned next to player so we can immediately watch their attack anims without draining essence into spawn pads. Remove once balancing is locked.",
         { "archetype": "scout",   "position": { "x": -3, "y": 0, "z": -3 } },
-        { "archetype": "bruiser", "position": { "x":  3, "y": 0, "z": -3 } }
+        { "archetype": "bruiser", "position": { "x":  3, "y": 0, "z": -3 } },
+
+        "_doc TEST PR #3.2: pre-spawn an ACTIVE worker pad east of player. Its OnSpawn fires on the next frame and spawns wood-worker + essence-collector + worker-builder at offsets ±1.2u. Wood-worker has full AI in PR #3.2 (chops the nearest inside-perimeter tree at (6, 5), brings wood back to this pad). Essence/Builder visible but inert until PR #3.3. Remove once Act 3 is shippable end-to-end.",
+        { "archetype": "worker-pad-active", "position": { "x": 3, "y": 0, "z": 6 } }
     ],
 
     "_fenceDoc": "20u × 20u palisade-log enclosure with staged build. Each side is hidden at boot; filling its unlock-zone fires `zone:built` with the side tag, which main.js maps to `fence:revealSide`, lazily showing logs + creating colliders. Order in Act 1: B → north, C (army), D → south. Act 2 adds east + west.",
@@ -135,25 +138,35 @@
             "hidden": true
         },
         {
-            "_doc": "Scout Pad — drains 8E to spawn 1 Scout. Activated in State C. Cell [16,11] = world (-8,2), 8 tiles west.",
+            "_doc": "Scout Pad — drains 4E to spawn 1 Scout (was 8E; lowered for prototype testing while Act 3 is being built). Activated in State C. Cell [16,11] = world (-8,2), 8 tiles west.",
             "cell": [16, 11],
             "gridSpan": [1, 1],
             "type": "spawner",
-            "cost": { "essence": 8 },
+            "cost": { "essence": 4 },
             "spawns": "scout",
             "spawnCount": 1,
             "tag": "scout_pad",
             "hidden": true
         },
         {
-            "_doc": "Bruiser Pad — drains 15E to spawn 1 Bruiser. Activated in State C. Cell [16,19] = world (8,2), 8 tiles east.",
+            "_doc": "Bruiser Pad — drains 8E to spawn 1 Bruiser (was 15E; lowered for prototype testing). Activated in State C. Cell [16,19] = world (8,2), 8 tiles east.",
             "cell": [16, 19],
             "gridSpan": [1, 1],
             "type": "spawner",
-            "cost": { "essence": 15 },
+            "cost": { "essence": 8 },
             "spawns": "bruiser",
             "spawnCount": 1,
             "tag": "bruiser_pad",
+            "hidden": true
+        },
+        {
+            "_doc": "Worker Pad — Act 3 state G. Drains 15E to build worker-pad-active, which (via OnSpawn) spawns 3 worker children at offsets ±1.2u. Cell [16,13] = world (-4, 2). West-central, inside perimeter, clear of trees/test soldiers/other pads.",
+            "cell": [16, 13],
+            "gridSpan": [1, 1],
+            "type": "build",
+            "cost": { "essence": 15 },
+            "builds": "worker-pad-active",
+            "tag": "worker_pad",
             "hidden": true
         }
     ],

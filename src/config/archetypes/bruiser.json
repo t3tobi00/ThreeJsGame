@@ -1,5 +1,5 @@
 {
-    "_doc": "Bruiser — slow/strong ally soldier. PROTOTYPE_PLAN §4: HP 80, 20 DMG, 1 atk-sec (cooldown 1.0), cost 15E at Spawn Pad. Like Scout: HeroAI steering + ContactDamage melee, no SkillLoadout. Slower (speed 2 vs Scout's 5) but soaks 80 HP.",
+    "_doc": "Bruiser — slow/strong ally soldier. PROTOTYPE_PLAN §4: HP 80 (bumped 80→150 for prototype testing), 20 DMG, 1 atk-sec (cooldown 1.0), cost 15E (lowered to 8E in level JSON). Like Scout: HeroAI steering + ContactDamage melee, no SkillLoadout. Slower (speed 2 vs Scout's 5) but soaks 150 HP.",
     "type": "Bruiser",
     "mesh": {
         "preset": "character-player",
@@ -9,7 +9,7 @@
         "cost": { "essence": 15 }
     },
     "components": {
-        "Health": { "hp": 80, "maxHp": 80, "armor": 0 },
+        "Health": { "hp": 150, "maxHp": 150, "armor": 0 },
         "Animator": {},
         "SquashStretch": { "intensity": 0.18, "frequency": 5, "trigger": "move" },
         "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
