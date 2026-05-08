@@ -340,6 +340,7 @@ export class PrototypeStateMachine {
                     if (!ecs) break;
                     const candidates = ecs.queryEntities(['Transform', 'Tag']);
                     let activated = 0;
+                    let reEnabledColliders = 0;
                     for (const id of candidates) {
                         const tag = ecs.getComponent(id, 'Tag');
                         if (!tag?.has?.(arg)) continue;
@@ -348,6 +349,18 @@ export class PrototypeStateMachine {
                             t.mesh.visible = true;
                             activated++;
                         }
+                        // Mirror of the boot-time hide in main.js loadLevel:
+                        // re-enable the collider that was disabled while hidden.
+                        const collider = ecs.getComponent(id, 'Collider');
+                        if (collider && collider.disabled) {
+                            collider.disabled = false;
+                            reEnabledColliders++;
+                        }
+                    }
+                    // Force a static-cache rebuild so the now-active colliders
+                    // get re-inserted into the spatial hash.
+                    if (reEnabledColliders > 0) {
+                        this.deps?.collisionSystem?.invalidateStatics?.();
                     }
                     if (activated === 0) {
                         console.warn(`[PrototypeStateMachine] activateGhost('${arg}'): no entities matched`);

@@ -582,6 +582,12 @@ class Game {
                 if (zoneDef.hidden) {
                     const transform = this.ecs.getComponent(zoneEntityId, 'Transform');
                     if (transform?.mesh) transform.mesh.visible = false;
+                    // Disable the collider too — otherwise workers bump
+                    // into the invisible bbox of the (still-hidden) mesh.
+                    // Paired with the reveal in PrototypeStateMachine
+                    // factory.activateGhost.
+                    const collider = this.ecs.getComponent(zoneEntityId, 'Collider');
+                    if (collider) collider.disabled = true;
                 }
             }
         }
@@ -806,7 +812,8 @@ class Game {
                 scene: this.scene.instance,
                 camera: this.camera.instance,
                 playerId: this.playerId,
-                indicator: this.nextStepIndicator
+                indicator: this.nextStepIndicator,
+                collisionSystem: this.collisionSystem
             }, cfg);
             this.prototypeEndUI = new PrototypeEndUI(this.prototypeStats);
             // Wire indicator BEFORE start() so it captures the first state:entered emit.
