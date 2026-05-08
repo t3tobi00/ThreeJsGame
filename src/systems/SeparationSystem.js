@@ -48,6 +48,17 @@ export class SeparationSystem {
             const myFaction = m.faction;
             if (!myFaction) continue;
 
+            // Combat-engaged units ignore inbound personal-space push so
+            // slow archetypes (e.g., bruiser at speed 2 ≈ 0.033u/frame at
+            // 60fps) can traverse ally clusters to reach their target.
+            // Without this, separation force (~0.05u/frame typical, capped
+            // 0.45u/frame) overpowers the slow pursue, pinning the unit
+            // in place while the walk animation still cycles ("hanging").
+            // Other entities still push themselves AWAY from this one in
+            // their own loop iterations — only the inbound push is skipped.
+            const myBs = ecs.getComponent(id, 'BehaviorState');
+            if (myBs && myBs.tag === 'combat') continue;
+
             const myPos = t.mesh.position;
             const myCol = ecs.getComponent(id, 'Collider');
             const myR = myCol?.radius ?? DEFAULT_PERSONAL_RADIUS;

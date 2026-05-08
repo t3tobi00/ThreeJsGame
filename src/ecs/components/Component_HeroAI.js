@@ -1,17 +1,26 @@
 import * as THREE from 'three';
 
 /**
- * Component_HeroAI — Per-hero guard + pursuit state.
+ * Component_HeroAI — Per-soldier guard / pursuit / defend state.
  *
- * The hero idles at `homePosition`. Any enemy whose position enters
- * `guardRadius` of home becomes a candidate target. The HeroAISystem
- * moves the hero toward the chosen target; the SkillSystem (via the
- * equipped melee skill) handles the actual attacking once the hero is
- * within weapon range.
+ * The soldier idles at `homePosition`. Each frame, HeroAISystem evaluates
+ * a small set of behaviors (avoid-poison, defend-worker, defend-wall,
+ * defend-king [stub], group-cohesion [stub], aggro-nearest) and picks
+ * the highest-utility behavior. The chosen behavior may set `target`
+ * to an enemy entity id and pursue it at Movement.speed; HeroAISystem
+ * stops the soldier at `attackRange` so the ContactDamage / SkillSystem
+ * auto-swing can land.
  *
- * `homePosition` is populated on spawn by HeroBar (player's initial
- * spawn point). The tunable fields come from hero.json (editable via
- * the Hero Editor).
+ * `homePosition` is populated on spawn (legacy hero spawner; in the
+ * prototype this is the soldier's spawn-pad location).
+ *
+ * Runtime fields written by HeroAISystem each frame:
+ *   - target            : entity id of the enemy currently being pursued
+ *   - state             : legacy display string ('idle' | 'pursue' | 'flee')
+ *   - behavior          : winning behavior key from the score loop
+ *                         ('idle' | 'aggro' | 'defend-worker' | 'defend-wall'
+ *                          | 'defend-king' | 'avoid-poison' | 'cohesion' | 'yield')
+ *   - graceTimer        : counts down each frame; while > 0 acquisition is suppressed
  */
 export class Component_HeroAI {
     constructor({
@@ -27,11 +36,8 @@ export class Component_HeroAI {
         this.homePosition = new THREE.Vector3();
         this.target = null;
         this.state = 'idle';
+        this.behavior = 'idle';
 
-        // Time remaining before the hero is allowed to acquire a target.
-        // Counts down in HeroAISystem. Prevents the "runs at the player on
-        // spawn" behavior caused by an enemy already being in range on the
-        // first frame after spawn.
         this.graceTimer = spawnGrace;
     }
 }
