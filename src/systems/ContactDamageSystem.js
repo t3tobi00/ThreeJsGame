@@ -56,7 +56,21 @@ export class ContactDamageSystem {
                 coneFz = Math.cos(yaw);
             }
 
+            // Line-pierce setup (used by Sharpshooter piercing arrow). When
+            // lineWidth + pierce are set, the attack damages every enemy
+            // whose perpendicular distance to a forward ray is ≤ lineWidth
+            // and whose forward projection is within [0, range].
+            let lineFx = 0;
+            let lineFz = 0;
+            const isLinePierce = contact.lineWidth != null && contact.pierce;
+            if (isLinePierce) {
+                const yaw = attackerTransform.mesh.rotation.y;
+                lineFx = Math.sin(yaw);
+                lineFz = Math.cos(yaw);
+            }
+
             let firstConeHit = null;
+            let firstLineHit = null;
 
             for (const targetId of nearby) {
                 if (targetId === attackerId) continue;
@@ -84,7 +98,27 @@ export class ContactDamageSystem {
                 const dist = Math.hypot(dx, dz);
                 if (dist > contact.range) continue;
 
-                if (contact.coneAngle) {
+                if (isLinePierce) {
+                    // Line-pierce: project onto forward; require positive
+                    // projection ≤ range and perpendicular distance ≤
+                    // lineWidth. Damages every enemy on the line.
+                    const proj = dx * lineFx + dz * lineFz;
+                    if (proj <= 0 || proj > contact.range) continue;
+                    const perpX = dx - lineFx * proj;
+                    const perpZ = dz - lineFz * proj;
+                    const perp  = Math.hypot(perpX, perpZ);
+                    if (perp > contact.lineWidth) continue;
+                    EventBus.emit('entity:damaged', { entityId: targetId, damage: contact.damage });
+                    if (contact.applyBleeding) {
+                        EventBus.emit('entity:bled', {
+                            entityId: targetId,
+                            duration:  contact.applyBleeding.duration,
+                            dotPerSec: contact.applyBleeding.dotPerSec
+                        });
+                    }
+                    if (firstLineHit == null) firstLineHit = targetId;
+                    // do NOT break — keep damaging along the line
+                } else if (contact.coneAngle) {
                     // Cone-AOE: damage every target whose direction is
                     // within the half-angle of the attacker's forward.
                     if (dist < 1e-3) continue;
@@ -122,6 +156,15 @@ export class ContactDamageSystem {
             if (contact.coneAngle && firstConeHit != null) {
                 contact.timeSinceLastHit = 0;
                 EventBus.emit('entity:attacked', { attackerId, targetId: firstConeHit });
+            }
+            // Line-pierce: same pattern — one entity:attacked per cycle for
+            // the VFX dispatcher (which spawns the gold arrow + decal). The
+            // first hit is a representative "aim point" so the arrow flies
+            // toward an actual target rather than into empty space, even
+            // though damage already touched every enemy in the line.
+            if (isLinePierce && firstLineHit != null) {
+                contact.timeSinceLastHit = 0;
+                EventBus.emit('entity:attacked', { attackerId, targetId: firstLineHit });
             }
         }
     }

@@ -1,5 +1,5 @@
 {
-    "_doc": "Wood Worker Base — small brown cabin where the wood-worker spawns. PR #4.2: replaces the single shared worker-pad-active. OnSpawn fires once on creation and emits one wood-worker just south of the cabin so it walks out 'from the door.'",
+    "_doc": "Wood Worker Base — small brown cabin where the wood-worker spawns. PR #4.2: replaces the single shared worker-pad-active. OnSpawn fires once on creation and emits one wood-worker just south-east of the cabin so it walks out with a clear path to the trees. Offset [2, 0, 2] puts the worker at the corner (~0.4u clear of the 1.6u half-extent collider in both axes) so direct steering toward south-side trees doesn't graze the cabin's bbox.",
     "type": "WoodWorkerBase",
     "mesh": { "preset": "worker-base-wood" },
     "components": {
@@ -7,7 +7,7 @@
         "Collider": { "shape": "box", "width": 1.6, "depth": 1.6, "isStatic": true },
         "OnSpawn": {
             "children": [
-                { "archetype": "wood-worker", "offset": [0, 0, 1.4] }
+                { "archetype": "wood-worker", "offset": [2, 0, 2] }
             ]
         }
     }

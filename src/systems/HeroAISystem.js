@@ -25,6 +25,10 @@ const LEASH_MULT = 1.5;
 // Wider than a single collision nudge so that being bumped by a passing
 // player/villager doesn't re-trigger the "return home" drift every frame.
 const ARRIVE_EPSILON = 0.4;
+// Re-target hysteresis: a new candidate must be at least this much closer
+// (in units, measured from the hero) than the current target before we
+// switch. Prevents thrash when two enemies are at near-identical distance.
+const RETARGET_HYSTERESIS = 1.5;
 
 // Defensive list — any entity whose Movement.faction is in this set or
 // whose Tag includes any of these names is NEVER a valid hero target, no
@@ -98,6 +102,32 @@ export class HeroAISystem {
                     }
                 }
                 if (bestId != null) ai.target = bestId;
+            }
+
+            // Re-evaluate target every frame: if a closer enemy appeared,
+            // switch (with hysteresis to prevent thrash). Distance-from-hero
+            // is what matters here — a zombie 2u from the hero's face should
+            // win over a sticky target far across the leash. Leash is still
+            // enforced via guardRadius * LEASH_MULT so we don't pull onto an
+            // enemy that's about to wander out of range anyway.
+            if (ai.target != null && ai.graceTimer <= 0) {
+                const curT = ecs.getComponent(ai.target, 'Transform');
+                let bestId = ai.target;
+                let bestDist = curT.mesh.position.distanceTo(pos);
+                for (const eId of enemies) {
+                    if (eId === ai.target) continue;
+                    if (!isValidEnemy(eId, ecs)) continue;
+                    const eTransform = ecs.getComponent(eId, 'Transform');
+                    if (!eTransform) continue;
+                    const distFromHome = eTransform.mesh.position.distanceTo(ai.homePosition);
+                    if (distFromHome > ai.guardRadius * LEASH_MULT) continue;
+                    const distFromHero = eTransform.mesh.position.distanceTo(pos);
+                    if (distFromHero + RETARGET_HYSTERESIS < bestDist) {
+                        bestDist = distFromHero;
+                        bestId = eId;
+                    }
+                }
+                if (bestId !== ai.target) ai.target = bestId;
             }
 
             const bs = ecs.getComponent(id, 'BehaviorState');

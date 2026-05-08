@@ -71,6 +71,7 @@ import { GateSystem } from './systems/GateSystem.js';
 import { DepositorSystem } from './systems/DepositorSystem.js';
 import { ContactDamageSystem } from './systems/ContactDamageSystem.js';
 import { BurningSystem } from './systems/BurningSystem.js';
+import { BleedingSystem } from './systems/BleedingSystem.js';
 import { CollisionSystem } from './systems/CollisionSystem.js';
 import { SafeZoneSystem } from './systems/SafeZoneSystem.js';
 import { Component_SafeZone } from './ecs/components/Component_SafeZone.js';
@@ -250,6 +251,12 @@ class Game {
         // ContactDamageSystem (when ContactDamage.applyBurning is set).
         this.burningSystem = new BurningSystem(this.ecs, this.combatVFXSystem);
         this.ecs.registerSystem(this.burningSystem, ['Transform', 'Burning']);
+
+        // BleedingSystem — Sharpshooter pierce DoT + crimson emissive
+        // tint. Listens to entity:bled from ContactDamageSystem (when
+        // ContactDamage.applyBleeding is set on a pierce attack).
+        this.bleedingSystem = new BleedingSystem(this.ecs);
+        this.ecs.registerSystem(this.bleedingSystem, ['Transform', 'Bleeding']);
 
         this.spitterSystem = new SpitterSystem(this.scene.instance, this.particleSystem);
         this.spitterSystem.setECS(this.ecs);

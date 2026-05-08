@@ -35,6 +35,28 @@ const _chainLinkMat = new THREE.MeshStandardMaterial({
 });
 const _LINK_AXIS = new THREE.Vector3(0, 0, 1);   // torus default axis
 
+// ── Pierce-arrow (Sharpshooter) timings ───────────────────────────────
+// The arrow flies along a quadratic Bezier (control point lifted
+// PIERCE_ARC_LIFT above the chord midpoint → curve peak ≈ 3.1u above
+// the ground for a 15u shot). On impact it PLANTS in the dirt at the
+// end of the line: position frozen, orientation locked to the curve's
+// tangent at u=1 (tip buried, feathered tail sticking up). The planted
+// arrow lingers PIERCE_PLANTED seconds, then fades over PIERCE_FADE.
+// No tether, no scorch decal — one discrete arrow per shot.
+// A dark ground SHADOW disc tracks the arrow's XZ projection during
+// flight (the strongest "in the air" cue in our iso camera) and is
+// hidden the moment the arrow plants.
+const PIERCE_FLIGHT  = 0.70;
+const PIERCE_PLANTED = 10.0;
+const PIERCE_FADE    = 1.0;
+const PIERCE_TOTAL   = PIERCE_FLIGHT + PIERCE_PLANTED + PIERCE_FADE;
+const PIERCE_ARC_LIFT = 5.00;
+const PIERCE_STEEL    = 0xc8c8d0;        // bright silver
+const PIERCE_STEEL_GLINT = 0xeef4ff;
+const PIERCE_SHADOW_RADIUS = 0.30;
+const PIERCE_SHADOW_PEAK_OPACITY = 0.45;
+const PIERCE_SHADOW_HEIGHT_REF = 3.5;
+
 // ── Magma-breath fire particles ───────────────────────────────────────
 // Soft glowing-orb sprite texture, lazy-created on first use. Shared
 // across every fire particle ever spawned.
@@ -263,6 +285,199 @@ export class CombatVFXSystem {
             state.heldSpear.visible = true;
             this._activeThrows.delete(state.scoutId);
             return true; // signal removal from _fx
+        }
+        return false;
+    }
+
+    /**
+     * Spawn a pierce-arrow VFX for the Sharpshooter. Unlike the scout's
+     * spear-throw, the held bow STAYS visible — only the arrow leaves
+     * the bowstring. The arrow flies along a Bezier arc (control point
+     * lifted PIERCE_ARC_LIFT units) for `range` units, casts a moving
+     * ground shadow during flight, then PLANTS in the dirt at the end
+     * of the line for PIERCE_PLANTED seconds before fading over
+     * PIERCE_FADE. No trailing tether — one discrete arrow per shot.
+     * Damage is delivered separately by ContactDamageSystem (line-pierce);
+     * this VFX is purely cosmetic.
+     */
+    spawnPierceArrow({ shooterId, shooterMesh, range = 15 }) {
+        if (!shooterMesh) return;
+        if (this._activeThrows.has(shooterId)) return;
+
+        // Find the held bow for the launch position (bowstring midpoint
+        // sits at the bow group's local origin). We do NOT hide it.
+        let heldBow = null;
+        shooterMesh.traverse(obj => {
+            if (heldBow) return;
+            if (obj.userData?.weaponKind === 'bow') heldBow = obj;
+        });
+        if (!heldBow) return;
+
+        const startPos = new THREE.Vector3();
+        heldBow.getWorldPosition(startPos);
+
+        // Forward direction from the shooter's facing. shooterMesh's
+        // forward in this game is +Z (matches the cone-AOE convention in
+        // ContactDamageSystem: fx = sin(yaw), fz = cos(yaw)).
+        const yaw = shooterMesh.rotation.y;
+        const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+        if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
+
+        // End at ground level (0.15u) so the arc plants in the dirt
+        // at the end of the line.
+        const endPos = startPos.clone().addScaledVector(forward, range);
+        endPos.y = 0.15;
+
+        // ── Arrow projectile: long wooden shaft + silver pointy tip
+        // + 3 ivory fletching vanes. Materials are transparent-enabled
+        // from the start so the planted arrow can fade out at the end
+        // of its lifetime without flicker. Sized for legibility — the
+        // arrow has to read clearly at full extension during a 0.70s
+        // flight across 15 game-units.
+        const arrowGroup = new THREE.Group();
+        const ARROW_LEN = 1.10;          // wooden shaft length
+        const TIP_LEN   = 0.38;          // cone height — pointy
+        const TIP_RAD   = 0.105;
+        const SHAFT_RAD = 0.055;
+        const shaftMat = new THREE.MeshStandardMaterial({
+            color: 0x6b4a2a, roughness: 0.7,
+            transparent: true, opacity: 1.0
+        });
+        const tipMat = new THREE.MeshStandardMaterial({
+            color: PIERCE_STEEL, emissive: PIERCE_STEEL_GLINT,
+            emissiveIntensity: 0.35, metalness: 0.90, roughness: 0.20,
+            transparent: true, opacity: 1.0
+        });
+        const featherMat = new THREE.MeshStandardMaterial({
+            color: 0xe8e0c4, roughness: 0.9,
+            transparent: true, opacity: 1.0,
+            side: THREE.DoubleSide
+        });
+        const arrowShaft = new THREE.Mesh(
+            new THREE.CylinderGeometry(SHAFT_RAD, SHAFT_RAD, ARROW_LEN, 8),
+            shaftMat
+        );
+        arrowGroup.add(arrowShaft);
+        const arrowTip = new THREE.Mesh(new THREE.ConeGeometry(TIP_RAD, TIP_LEN, 10), tipMat);
+        arrowTip.position.y = ARROW_LEN / 2 + TIP_LEN / 2;
+        arrowGroup.add(arrowTip);
+        const featherGeo = new THREE.PlaneGeometry(0.32, 0.18);
+        for (let i = 0; i < 3; i++) {
+            const f = new THREE.Mesh(featherGeo, featherMat);
+            f.position.y = -ARROW_LEN / 2 + 0.10;
+            f.rotation.y = (i / 3) * Math.PI * 2;
+            arrowGroup.add(f);
+        }
+        arrowGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward);
+        arrowGroup.position.copy(startPos);
+        this.scene.add(arrowGroup);
+
+        // ── Ground shadow: dark disc that tracks the arrow's XZ
+        // projection during flight. Strong cue for "arrow is in the
+        // air" since vertical motion is foreshortened in the iso
+        // camera. Hidden the moment the arrow plants.
+        const shadowMat = new THREE.MeshBasicMaterial({
+            color: 0x000000, transparent: true, opacity: 0.0,
+            depthWrite: false
+        });
+        const shadow = new THREE.Mesh(
+            new THREE.CircleGeometry(PIERCE_SHADOW_RADIUS, 16),
+            shadowMat
+        );
+        shadow.rotation.x = -Math.PI / 2;
+        shadow.position.set(startPos.x, 0.025, startPos.z);
+        shadow.renderOrder = 2;
+        this.scene.add(shadow);
+
+        const state = {
+            shooterId,
+            arrowGroup, shaftMat, tipMat, featherMat,
+            shadow, shadowMat,
+            startPos: startPos.clone(),
+            endPos:   endPos.clone(),
+            forward,
+            t: 0
+        };
+        this._activeThrows.set(shooterId, state);
+        this._fx.push({ kind: 'pierce-arrow', state });
+    }
+
+    _tickPierceArrow(state, deltaTime) {
+        state.t += deltaTime;
+        const t = state.t;
+
+        if (t < PIERCE_FLIGHT) {
+            // ── Phase 1: flight ─────────────────────────────────────
+            const u = t / PIERCE_FLIGHT;
+            const start = state.startPos;
+            const end   = state.endPos;
+            const mid = start.clone().lerp(end, 0.5);
+            mid.y += PIERCE_ARC_LIFT;
+            const arrowPos = _bezierPoint(start, mid, end, u);
+            const tangent  = _bezierTangent(start, mid, end, u);
+            state.arrowGroup.position.copy(arrowPos);
+            if (tangent.lengthSq() > 1e-6) {
+                tangent.normalize();
+                state.arrowGroup.quaternion.setFromUnitVectors(
+                    new THREE.Vector3(0, 1, 0), tangent
+                );
+            }
+            // Shadow tracks the arrow's XZ projection at ground level.
+            // Bigger/darker when the arrow is low, smaller/fainter when
+            // it's high — the parallax sells "this thing is in the air."
+            state.shadow.position.x = arrowPos.x;
+            state.shadow.position.z = arrowPos.z;
+            const heightFactor = Math.max(0, 1 - arrowPos.y / PIERCE_SHADOW_HEIGHT_REF);
+            state.shadowMat.opacity = PIERCE_SHADOW_PEAK_OPACITY * heightFactor;
+            state.shadow.scale.setScalar(0.5 + 0.7 * heightFactor);
+        } else if (t < PIERCE_FLIGHT + PIERCE_PLANTED) {
+            // ── Phase 2: planted in the dirt ────────────────────────
+            // Snap to endPos with the curve's u=1 tangent locked in
+            // (tip buried, feathered tail up). Hide the shadow — the
+            // arrow is on the ground now, it IS the impact. Release
+            // the shooter from _activeThrows here (NOT at PIERCE_TOTAL)
+            // so the next shot's cooldown can fire normally — the
+            // planted arrow keeps ticking in _fx as a passive scene
+            // object that no longer blocks new throws.
+            if (!state.planted) {
+                const start = state.startPos;
+                const end   = state.endPos;
+                const mid = start.clone().lerp(end, 0.5);
+                mid.y += PIERCE_ARC_LIFT;
+                const tangent = _bezierTangent(start, mid, end, 1);
+                if (tangent.lengthSq() > 1e-6) {
+                    tangent.normalize();
+                    state.arrowGroup.quaternion.setFromUnitVectors(
+                        new THREE.Vector3(0, 1, 0), tangent
+                    );
+                }
+                state.arrowGroup.position.copy(end);
+                state.shadow.visible = false;
+                state.planted = true;
+                this._activeThrows.delete(state.shooterId);
+            }
+        } else {
+            // ── Phase 3: fade out ──────────────────────────────────
+            const u = (t - PIERCE_FLIGHT - PIERCE_PLANTED) / PIERCE_FADE;
+            const a = Math.max(0, 1 - u);
+            state.shaftMat.opacity   = a;
+            state.tipMat.opacity     = a;
+            state.featherMat.opacity = a;
+        }
+
+        if (t >= PIERCE_TOTAL) {
+            this.scene.remove(state.arrowGroup);
+            this.scene.remove(state.shadow);
+            state.arrowGroup.traverse(o => {
+                if (o.isMesh) o.geometry?.dispose?.();
+            });
+            state.shaftMat?.dispose?.();
+            state.tipMat?.dispose?.();
+            state.featherMat?.dispose?.();
+            state.shadow.geometry?.dispose?.();
+            state.shadowMat?.dispose?.();
+            this._activeThrows.delete(state.shooterId);
+            return true;
         }
         return false;
     }
@@ -630,6 +845,13 @@ export class CombatVFXSystem {
             // Spear-throw is its own state machine — handle separately.
             if (f.kind === 'spear-throw') {
                 const finished = this._tickSpearThrow(f.state, deltaTime);
+                if (finished) this._fx.splice(i, 1);
+                continue;
+            }
+            // Pierce-arrow (Sharpshooter) — Bezier arc → plants in
+            // the dirt → fades. Same state-machine pattern as spear-throw.
+            if (f.kind === 'pierce-arrow') {
+                const finished = this._tickPierceArrow(f.state, deltaTime);
                 if (finished) this._fx.splice(i, 1);
                 continue;
             }

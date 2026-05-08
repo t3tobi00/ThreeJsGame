@@ -15,9 +15,10 @@ const ARCHETYPE_NAMES = [
     'market-stall', 'market-coin-tray', 'customer',
     // ?prototype mode archetypes (newGameDesign/PROTOTYPE_PLAN.md).
     // Most are extends-based overrides of the legacy archetype to keep
-    // legacy/diorama feel unchanged; scout + bruiser are full new units.
+    // legacy/diorama feel unchanged; scout + bruiser + sharpshooter are
+    // full new units (the three soldier classes).
     'player-prototype', 'enemy-prototype', 'enemy-prototype-marcher', 'tree-prototype',
-    'scout', 'bruiser', 'unlock-turret-prototype', 'wall-segment',
+    'scout', 'bruiser', 'sharpshooter', 'unlock-turret-prototype', 'wall-segment',
     // Act 3 (PR #3.0) — Worker Pad anchor + placeholder fallback.
     // PR #3.1 adds the real worker archetypes (visual-only; AI in PR #3.2/#3.3).
     'worker-pad-active', 'worker-placeholder',

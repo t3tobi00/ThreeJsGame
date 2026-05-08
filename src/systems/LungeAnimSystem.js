@@ -49,6 +49,21 @@ const SOLDIER_SCALE_BOOST      = 0.10;
 // the target and returns on a cyan tether (siphon-beam visual idiom).
 // All scout combat visuals live in CombatVFXSystem now.
 
+// ── Sharpshooter archer-draw animation (bow stays in hand) ────────────
+// Windup: nocked arrow slides back into the bow (bowstring drawn) while
+// the torso leans forward and the head tilts down to aim. Release: the
+// arrow snaps back to rest pose, the projectile launches, the body
+// vibrates briefly. Recovery: ease back to idle pose. The bow itself
+// does not animate — only the nocked-arrow group inside it.
+const ARCHER_DURATION       = 0.65;
+const ARCHER_WINDUP_END     = 0.54;   // 0..0.54 → draw the bow back
+const ARCHER_RELEASE_END    = 0.66;   // 0.54..0.66 → snap release (arrow launches)
+                                       // 0.66..1.0 → recover to rest
+const ARCHER_DRAW_BACK      = -0.30;  // nocked arrow local-Z offset at full draw
+const ARCHER_TORSO_LEAN     = +0.18;  // forward lean (chest toward target)
+const ARCHER_HEAD_TILT      = +0.22;  // chin down, sighting along the arrow
+const ARCHER_RELEASE_RECOIL = +0.04;  // tiny torso bounce on release
+
 // ── Bruiser magma-breath body animation (no held weapon) ──────────────
 // Body-only windup→exhale lean. No arm rotation, no held weapon. The
 // MAGMA BREATH VFX is the visual focus (fires at strike peak via
@@ -172,8 +187,9 @@ export class LungeAnimSystem {
             if (isAlly) {
                 const tag = this._ecs.getComponent(attackerId, 'Tag');
                 const tagList = (tag && Array.isArray(tag.tags)) ? tag.tags : [];
-                const isScout   = tagList.includes('scout');
-                const isBruiser = tagList.includes('bruiser');
+                const isScout        = tagList.includes('scout');
+                const isBruiser      = tagList.includes('bruiser');
+                const isSharpshooter = tagList.includes('sharpshooter');
                 const torso  = root.getObjectByName('torso');
                 const pelvis = root.getObjectByName('pelvis');
 
@@ -198,6 +214,38 @@ export class LungeAnimSystem {
                             });
                         }
                     }
+                    EventBus.emit('audio:cue', { name: 'impact_thud' });
+                    return;
+                }
+
+                if (isSharpshooter) {
+                    // Sharpshooter: archer draw → release → recovery.
+                    // Bow stays in hand; only the nocked-arrow group
+                    // animates back and forth. The pierce-arrow VFX
+                    // launches at the END of windup (release peak), not
+                    // immediately, so the visual reads as "draw, aim,
+                    // loose" instead of an instant flash.
+                    const head = root.getObjectByName('head');
+                    const torso = root.getObjectByName('torso');
+                    let bow = null;
+                    let nock = null;
+                    root.traverse(o => {
+                        if (!bow && o.userData?.weaponKind === 'bow') bow = o;
+                    });
+                    if (bow) {
+                        bow.traverse(o => {
+                            if (!nock && o.userData?.isNockedArrow) nock = o;
+                        });
+                    }
+                    this._active.set(attackerId, {
+                        kind: 'archer',
+                        root, torso, head, nock,
+                        baseTorsoX: torso ? torso.rotation.x : 0,
+                        baseHeadX:  head  ? head.rotation.x  : 0,
+                        baseNockZ:  nock  ? nock.position.z  : 0,
+                        impactFired: false,
+                        t: 0
+                    });
                     EventBus.emit('audio:cue', { name: 'impact_thud' });
                     return;
                 }
@@ -251,10 +299,63 @@ export class LungeAnimSystem {
         for (const [id, a] of this._active) {
             const dur = a.kind === 'spit'    ? SPIT_DURATION
                       : a.kind === 'bruiser' ? BRUISER_DURATION
+                      : a.kind === 'archer'  ? ARCHER_DURATION
                       : a.kind === 'soldier' ? SOLDIER_DURATION
                       : DURATION;
             a.t += deltaTime;
             const ratio = Math.min(1, a.t / dur);
+
+            if (a.kind === 'archer') {
+                // Sharpshooter draw: nocked arrow slides back during
+                // windup, snaps forward at release, recovers to rest.
+                // Pierce-arrow VFX launches once at release start.
+                let nockOff, torsoOff, headOff;
+
+                if (ratio < ARCHER_WINDUP_END) {
+                    // Windup: ease-in pull back. Slow start → fast as
+                    // the bowstring nears full draw.
+                    const u = easeInQuad(ratio / ARCHER_WINDUP_END);
+                    nockOff  = ARCHER_DRAW_BACK   * u;
+                    torsoOff = ARCHER_TORSO_LEAN  * u;
+                    headOff  = ARCHER_HEAD_TILT   * u;
+                } else if (ratio < ARCHER_RELEASE_END) {
+                    // Release: snap forward. Nock returns to rest, body
+                    // bounces with recoil. Fire the projectile at the
+                    // very start of this phase (release moment).
+                    if (!a.impactFired && this._combatVFX && this._ecs) {
+                        a.impactFired = true;
+                        const cd = this._ecs.getComponent(id, 'ContactDamage');
+                        const range = cd?.range ?? 15;
+                        this._combatVFX.spawnPierceArrow({
+                            shooterId: id,
+                            shooterMesh: a.root,
+                            range
+                        });
+                    }
+                    const u = easeOutCubic((ratio - ARCHER_WINDUP_END) / (ARCHER_RELEASE_END - ARCHER_WINDUP_END));
+                    nockOff  = ARCHER_DRAW_BACK   * (1 - u);
+                    torsoOff = ARCHER_TORSO_LEAN  + (ARCHER_RELEASE_RECOIL - ARCHER_TORSO_LEAN) * u;
+                    headOff  = ARCHER_HEAD_TILT   * (1 - u);
+                } else {
+                    // Recovery: ease body + head back to neutral.
+                    const u = easeOutCubic((ratio - ARCHER_RELEASE_END) / (1 - ARCHER_RELEASE_END));
+                    nockOff  = 0;
+                    torsoOff = ARCHER_RELEASE_RECOIL * (1 - u);
+                    headOff  = 0;
+                }
+
+                if (a.nock)  a.nock.position.z   = a.baseNockZ  + nockOff;
+                if (a.torso) a.torso.rotation.x  = a.baseTorsoX + torsoOff;
+                if (a.head)  a.head.rotation.x   = a.baseHeadX  + headOff;
+
+                if (ratio >= 1) {
+                    if (a.nock)  a.nock.position.z   = a.baseNockZ;
+                    if (a.torso) a.torso.rotation.x  = a.baseTorsoX;
+                    if (a.head)  a.head.rotation.x   = a.baseHeadX;
+                    this._active.delete(id);
+                }
+                continue;
+            }
 
             if (a.kind === 'bruiser') {
                 // Magma-breath body animation: body-only lean (no arm

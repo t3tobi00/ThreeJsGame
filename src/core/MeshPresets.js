@@ -1395,6 +1395,70 @@ function _makeSoldierWeapon(kind) {
         tip.position.y = 0.85;
         tip.castShadow = true;
         g.add(tip);
+    } else if (kind === 'bow') {
+        // Sharpshooter bow — large vertical recurve with a visible
+        // bowstring and a nocked golden arrow pointing forward (+Z).
+        // The bow STAYS visible during attacks; only the arrow projectile
+        // leaves the bowstring on attack (CombatVFXSystem.spawnPierceArrow
+        // spawns a separate world-space arrow). Grip sits at local y=0,
+        // limbs extend ±0.7u up/down. Arc bulges toward -Z (behind the
+        // soldier's facing) so the curve "points away" like a real recurve.
+        const bowMat   = new THREE.MeshStandardMaterial({ color: 0x4a2e1a, roughness: 0.80 });
+        const stringMat = new THREE.MeshBasicMaterial({ color: 0xddc88a });
+        const arrowShaftMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.7 });
+        const arrowTipMat   = new THREE.MeshStandardMaterial({
+            color: 0xb8b8c0, roughness: 0.25, metalness: 0.85,
+            emissive: 0xddeeff, emissiveIntensity: 0.20
+        });
+
+        // Bow body: parabolic curve from bottom limb to top limb, bulging
+        // backward. TubeGeometry along a Catmull-Rom curve.
+        const ARC_HEIGHT = 1.40;
+        const ARC_BACK   = 0.30;
+        const SEGMENTS   = 10;
+        const TUBE_R     = 0.040;
+        const points = [];
+        for (let i = 0; i <= SEGMENTS; i++) {
+            const t = i / SEGMENTS;
+            const y = (t - 0.5) * ARC_HEIGHT;
+            const z = -ARC_BACK * 4 * t * (1 - t);
+            points.push(new THREE.Vector3(0, y, z));
+        }
+        const curve = new THREE.CatmullRomCurve3(points);
+        const arc = new THREE.Mesh(
+            new THREE.TubeGeometry(curve, SEGMENTS * 2, TUBE_R, 6, false),
+            bowMat
+        );
+        arc.castShadow = true;
+        g.add(arc);
+
+        // Bowstring — straight thin cylinder running between the limb tips.
+        const string = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.008, 0.008, ARC_HEIGHT, 4),
+            stringMat
+        );
+        string.position.set(0, 0, 0);
+        g.add(string);
+
+        // Nocked arrow — small shaft + golden cone tip, pointing forward
+        // (+Z). The shaft sits at the bowstring's midpoint at rest; on
+        // attack, CombatVFX spawns its own clone and flies it down-range.
+        // The nocked-arrow group here is purely visual at-rest decoration.
+        const arrow = new THREE.Group();
+        const ARROW_LEN = 0.55;
+        const shaft = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.025, 0.025, ARROW_LEN, 6),
+            arrowShaftMat
+        );
+        shaft.rotation.x = Math.PI / 2;
+        shaft.position.z = ARROW_LEN / 2;
+        arrow.add(shaft);
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 6), arrowTipMat);
+        tip.rotation.x = Math.PI / 2;
+        tip.position.z = ARROW_LEN + 0.07;
+        arrow.add(tip);
+        arrow.userData.isNockedArrow = true;
+        g.add(arrow);
     }
     return g;
 }
