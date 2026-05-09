@@ -47,6 +47,7 @@ import { EnemySystem } from './systems/EnemySystem.js';
 import { HeroAISystem } from './systems/HeroAISystem.js';
 import { WaypointFollowSystem } from './systems/WaypointFollowSystem.js';
 import { DragInputSystem } from './systems/DragInputSystem.js';
+import { DrawWallSystem } from './systems/DrawWallSystem.js';
 import { CollectorSystem } from './systems/CollectorSystem.js';
 import { AgentAISystem } from './systems/AgentAISystem.js';
 import { TraderSystem } from './systems/TraderSystem.js';
@@ -399,6 +400,21 @@ class Game {
             this.cameraSystem
         );
         this.ecs.registerSystem(this.dragInputSystem, []);
+
+        // DrawWallSystem — ?prototype-only. Listens on the canvas in CAPTURE
+        // phase; while draw-mode is OFF it's a no-op so DragInputSystem keeps
+        // owning input. The HUD "Draw Wall" toggle flips it via EventBus.
+        if (this._prototype) {
+            this.drawWallSystem = new DrawWallSystem(
+                this.ecs,
+                this.camera.instance,
+                this.scene.instance,
+                this.renderer.threeRenderer.domElement,
+                this.factory
+            );
+            this.ecs.registerSystem(this.drawWallSystem, []);
+        }
+
         this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
         this.enemySystem.setECS(this.ecs);
         this.enemySystem.setPlayerEntityId(this.playerId);
@@ -425,6 +441,7 @@ class Game {
 
         // HUD — self-wired via EventBus
         this.hud = new HUD(this.ecs, this.playerId);
+        if (this._prototype) this.hud.enableDrawWallButton();
         this.heroBar = new HeroBar(this.ecs, this.scene.instance, this.factory, this.playerId, this.playerSpawnPos, this.camera.instance);
         this.gameOverUI = new GameOverUI();
 

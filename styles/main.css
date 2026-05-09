@@ -177,6 +177,29 @@ canvas {
    make small/precise position adjustments while combat is active. */
 body.prototype-mode #joystick-container { display: block !important; }
 
+/* Draw-Wall HUD button (prototype-only — appended by HUD.enableDrawWallButton).
+   Sits inside the top-row #hud container next to the resource chips. */
+.draw-wall-btn {
+    cursor: pointer;
+    background: linear-gradient(180deg, #b07a3a 0%, #5e3d18 100%);
+    border-color: #d6a25a;
+    font-family: inherit;
+    user-select: none;
+}
+.draw-wall-btn:hover  { filter: brightness(1.1); }
+.draw-wall-btn:active { transform: translateY(2px); }
+.draw-wall-btn.active {
+    background: linear-gradient(180deg, #f5c542 0%, #b0860b 100%);
+    border-color: #fff7b0;
+    color: #1a0f00;
+    box-shadow:
+        0 3px 0 rgba(0, 0, 0, 0.8),
+        0 0 14px rgba(255, 215, 0, 0.7);
+}
+
+/* While draw mode is active, hint with a crosshair cursor over the canvas. */
+body.draw-wall-mode canvas { cursor: crosshair; }
+
 .hud-item.pop {
     animation: pop-bounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }

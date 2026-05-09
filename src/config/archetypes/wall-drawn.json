@@ -1,0 +1,10 @@
+{
+    "_doc": "Drawn-wall log. The DrawWallSystem spawns one of these per LOG_SPACING (0.30u) along the player's drawn polyline so a curved drag yields a curved wall. Each log is its own ECS entity with Health + circular Collider; the 'wall' Tag plugs into HeroAI's DEFEND_WALL behavior. HP-per-log ~= 8 ⇒ ~25 HP per unit-length given 0.30u spacing — total wall HP scales naturally with the number of logs (= length / spacing).",
+    "extends": "wall",
+    "mesh": { "preset": "palisade-log" },
+    "components": {
+        "Health":   { "hp": 8, "maxHp": 8 },
+        "Tag":      { "tags": ["wall", "wall-drawn", "structure", "static"] },
+        "Collider": { "shape": "box", "width": 0.25, "depth": 0.25, "isStatic": true }
+    }
+}

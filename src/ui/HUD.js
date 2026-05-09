@@ -71,4 +71,30 @@ export class HUD {
         void element.offsetWidth;
         element.classList.add('pop');
     }
+
+    /**
+     * Optional Draw-Wall toggle button. Called from main.js only in
+     * ?prototype mode. Click toggles a global draw mode (DrawWallSystem
+     * listens on EventBus); ESC inside DrawWallSystem also flips it off,
+     * and we mirror the visual state by listening to the same event.
+     */
+    enableDrawWallButton() {
+        if (this._drawWallBtn) return;
+        const btn = document.createElement('button');
+        btn.id = 'draw-wall-btn';
+        btn.className = 'hud-item draw-wall-btn';
+        btn.type = 'button';
+        btn.innerHTML = '<span class="icon">✏️</span><span class="value">Draw Wall</span>';
+        let active = false;
+        const apply = (next) => {
+            active = !!next;
+            btn.classList.toggle('active', active);
+        };
+        btn.addEventListener('click', () => {
+            EventBus.emit('draw:setMode', { enabled: !active });
+        });
+        EventBus.on('draw:setMode', ({ enabled }) => apply(enabled));
+        this.container.appendChild(btn);
+        this._drawWallBtn = btn;
+    }
 }

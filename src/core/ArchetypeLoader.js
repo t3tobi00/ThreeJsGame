@@ -19,6 +19,7 @@ const ARCHETYPE_NAMES = [
     // full new units (the three soldier classes).
     'player-prototype', 'enemy-prototype', 'enemy-prototype-marcher', 'tree-prototype',
     'scout', 'bruiser', 'sharpshooter', 'unlock-turret-prototype', 'wall-segment',
+    'wall-drawn',
     // Act 3 (PR #3.0) — Worker Pad anchor + placeholder fallback.
     // PR #3.1 adds the real worker archetypes (visual-only; AI in PR #3.2/#3.3).
     'worker-pad-active', 'worker-placeholder',
