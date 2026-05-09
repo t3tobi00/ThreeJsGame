@@ -80,6 +80,23 @@ const BRUISER_BREATH_LENGTH    = 6.0;
 const BRUISER_BREATH_ANGLE     = 60;
 const BRUISER_BREATH_COLOR     = 0xff6622;
 
+// ── Worker wood-chop animation (axe-only swing) ───────────────────────
+// The AXE pivots around the grip (worker's hand). The worker's body is
+// completely still — ONLY the axe rotates.
+//
+// Motion (3 phases): rest → BACK behind shoulder (windup) → FORWARD-DOWN
+// in front (strike) → rest (recovery). Wide arc covering ~190° total
+// (from -69° behind to +112° forward). Wood-chip burst spawns at the
+// strike peak on the tree's hit-point. Triggered by 'worker:chop:swing'
+// (emitted by WorkerAISystem._chop each beat).
+const CHOP_DURATION      = 0.45;
+const CHOP_WINDUP_END    = 0.32;   // 0..0.32     → pull head back over shoulder
+const CHOP_STRIKE_PEAK   = 0.58;   // 0.32..0.58  → sweep through to forward-down
+                                    // 0.58..1.0   → ease back up to rest
+const CHOP_AXE_BACK_OFF  = -Math.PI * 0.42;   // ~ -76° behind shoulder at windup
+const CHOP_AXE_DOWN_OFF  = +Math.PI * 0.62;   // ~ +112° forward at peak strike
+const CHOP_CHIP_COUNT    = 14;
+
 // ── Spit attack animation (head recoil → thrust) ──────────────────────
 // Drives the rigged head + torso pivots when SpitterSystem fires
 // 'zombie:spit:windup'. The thrust peak coincides with windupDuration in
@@ -115,6 +132,7 @@ export class LungeAnimSystem {
         this._combatVFX = combatVFX;
         EventBus.on('entity:attacked', ({ attackerId, targetId }) => this._begin(attackerId, targetId));
         EventBus.on('zombie:spit:windup', ({ attackerId }) => this._beginSpit(attackerId));
+        EventBus.on('worker:chop:swing', ({ workerId, hitPos }) => this._beginChop(workerId, hitPos));
     }
 
     _spawnVFX(_root, _kind) {
@@ -144,6 +162,32 @@ export class LungeAnimSystem {
             length: BRUISER_BREATH_LENGTH,
             angleDeg: BRUISER_BREATH_ANGLE,
             color: BRUISER_BREATH_COLOR
+        });
+    }
+
+    _beginChop(workerId, hitPos) {
+        if (!this._ecs) return;
+        if (this._active.has(workerId)) return;
+        const tr = this._ecs.getComponent(workerId, 'Transform');
+        if (!tr?.mesh) return;
+        const root = tr.mesh;
+
+        // Find the axe — tagged at preset registration as isWorkerAxe.
+        // ONLY the axe rotates during the chop; the worker's body stays
+        // completely still.
+        let axe = null;
+        root.traverse(o => {
+            if (!axe && o.userData?.isWorkerAxe) axe = o;
+        });
+        if (!axe) return;
+
+        this._active.set(workerId, {
+            kind: 'chop',
+            root, axe,
+            baseAxeX: axe.rotation.x,
+            hitPos: hitPos ? hitPos.clone() : null,
+            impactFired: false,
+            t: 0
         });
     }
 
@@ -301,6 +345,7 @@ export class LungeAnimSystem {
                       : a.kind === 'bruiser' ? BRUISER_DURATION
                       : a.kind === 'archer'  ? ARCHER_DURATION
                       : a.kind === 'soldier' ? SOLDIER_DURATION
+                      : a.kind === 'chop'    ? CHOP_DURATION
                       : DURATION;
             a.t += deltaTime;
             const ratio = Math.min(1, a.t / dur);
@@ -432,6 +477,39 @@ export class LungeAnimSystem {
                     if (a.torso)  a.torso.rotation.x  = a.baseTorsoX;
                     if (a.pelvis) a.pelvis.position.y = a.basePelvisY;
                     a.root.scale.set(a.baseScaleX, a.baseScaleY, a.baseScaleZ);
+                    this._active.delete(id);
+                }
+                continue;
+            }
+
+            if (a.kind === 'chop') {
+                // Axe-only chop: rest → back (windup) → forward+down
+                // (strike) → rest. Worker's body stays still; only axe
+                // rotates.
+                let axeOff;
+                if (ratio < CHOP_WINDUP_END) {
+                    // Windup: ease-in. Head pulls back behind shoulder.
+                    const u = easeInQuad(ratio / CHOP_WINDUP_END);
+                    axeOff = CHOP_AXE_BACK_OFF * u;
+                } else if (ratio < CHOP_STRIKE_PEAK) {
+                    // Strike: snap from back, through rest, to forward+down.
+                    const u = easeOutCubic((ratio - CHOP_WINDUP_END) / (CHOP_STRIKE_PEAK - CHOP_WINDUP_END));
+                    axeOff = CHOP_AXE_BACK_OFF + (CHOP_AXE_DOWN_OFF - CHOP_AXE_BACK_OFF) * u;
+                    // Spawn chips near the end of the strike (impact frame).
+                    if (!a.impactFired && u > 0.85 && this._particleSystem && a.hitPos) {
+                        a.impactFired = true;
+                        this._particleSystem.createWoodChips(a.hitPos, CHOP_CHIP_COUNT);
+                        EventBus.emit('audio:cue', { name: 'impact_thud' });
+                    }
+                } else {
+                    // Recovery: ease forward-down → rest.
+                    const u = easeOutCubic((ratio - CHOP_STRIKE_PEAK) / (1 - CHOP_STRIKE_PEAK));
+                    axeOff = CHOP_AXE_DOWN_OFF * (1 - u);
+                }
+                a.axe.rotation.x = a.baseAxeX + axeOff;
+
+                if (ratio >= 1) {
+                    a.axe.rotation.x = a.baseAxeX;
                     this._active.delete(id);
                 }
                 continue;

@@ -330,3 +330,4 @@ This is the EMOTIONAL CENTERPIECE. Heavy losses. Player learns "we're not alone.
 | 5 | M: March | reach rival base | 30s |
 | 5 | N: King Fight | Rival King dies | 30s (must win!) |
 | END | — | VICTORY / DEFEAT screen | — |
+       

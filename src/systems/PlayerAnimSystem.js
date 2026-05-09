@@ -36,6 +36,17 @@ export class PlayerAnimSystem {
                 };
                 walkAnim._prevPos = new THREE.Vector3().copy(root.position);
                 walkAnim._bodyRestY = root.userData.bodyRestY ?? (walkAnim._refs.body?.position.y ?? 0);
+                // Detect a tool tagged isWorkerAxe inside the rightArm
+                // subtree. When present, the walk cycle skips animating
+                // rightArm so the axe stays still while the worker
+                // walks. (The chop animation rotates the axe directly
+                // via LungeAnimSystem; the arm never needs to move.)
+                walkAnim._holdsAxe = false;
+                if (walkAnim._refs.rightArm) {
+                    walkAnim._refs.rightArm.traverse(o => {
+                        if (o.userData?.isWorkerAxe) walkAnim._holdsAxe = true;
+                    });
+                }
             }
 
             const refs = walkAnim._refs;
@@ -100,7 +111,7 @@ export class PlayerAnimSystem {
                 const swing = Math.sin(walkAnim.phase) * (0.6 + speed01 * 0.4);
 
                 refs.leftArm.rotation.x  =  swing;
-                refs.rightArm.rotation.x = -swing;
+                if (!walkAnim._holdsAxe) refs.rightArm.rotation.x = -swing;
                 refs.leftLeg.rotation.x  = -swing * 0.8;
                 refs.rightLeg.rotation.x =  swing * 0.8;
 
@@ -116,7 +127,7 @@ export class PlayerAnimSystem {
                 // Idle: lerp limbs back to rest, gentle breath on body
                 const k = Math.min(1, deltaTime * 8);
                 refs.leftArm.rotation.x  += (0 - refs.leftArm.rotation.x)  * k;
-                refs.rightArm.rotation.x += (0 - refs.rightArm.rotation.x) * k;
+                if (!walkAnim._holdsAxe) refs.rightArm.rotation.x += (0 - refs.rightArm.rotation.x) * k;
                 refs.leftLeg.rotation.x  += (0 - refs.leftLeg.rotation.x)  * k;
                 refs.rightLeg.rotation.x += (0 - refs.rightLeg.rotation.x) * k;
                 if (refs.torso) refs.torso.rotation.x += (0 - refs.torso.rotation.x) * k;

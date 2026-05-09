@@ -102,6 +102,43 @@ export class ParticleSystem {
         });
     }
 
+    /**
+     * Wood chips spraying off a chopped tree. Two-layer burst:
+     *   - Mid-tone brown chunks (heavier, longer-lived) — the main mass.
+     *   - Lighter splinters (smaller, faster, shorter-lived) — accents.
+     * Both arc up and outward, fall under gravity, fade over their lifetime.
+     */
+    createWoodChips(position, count = 10) {
+        const chunks    = Math.max(1, Math.ceil(count * 0.7));
+        const splinters = Math.max(1, Math.ceil(count * 0.4));
+
+        // Heavy chunks — mid-brown, slower, larger, lingers ~0.65s
+        this._spawnBurst(position, {
+            count: chunks,
+            color: 0x6b3a17,
+            size: PARTICLE_CONFIG.size * 1.6,
+            duration: 0.65,
+            yOffset: 0.0,
+            velSpreadXZ: 4.5,
+            velUpMin: 1.6,
+            velUpRange: 2.4,
+            gravity: 18.0
+        });
+
+        // Light splinters — warmer brown, faster, smaller, fades quickly
+        this._spawnBurst(position, {
+            count: splinters,
+            color: 0xa67340,
+            size: PARTICLE_CONFIG.size * 1.0,
+            duration: 0.42,
+            yOffset: 0.05,
+            velSpreadXZ: 5.5,
+            velUpMin: 2.2,
+            velUpRange: 3.0,
+            gravity: 22.0
+        });
+    }
+
     _spawnBurst(position, opts) {
         const {
             count, color, size, duration,

@@ -175,6 +175,19 @@ export class WorkerAISystem {
             entityId: ai.currentTarget,
             damage: ai.attackDamage
         });
+
+        // Drive the wood-chop visual. LungeAnimSystem listens for
+        // 'worker:chop:swing' (parallel to entity:attacked for soldiers)
+        // and runs a windup→strike→recover arm cycle, spawning chip
+        // particles at hitPos on the strike frame.
+        const treeTr = ecs.getComponent(ai.currentTarget, 'Transform');
+        const hitPos = treeTr?.mesh ? treeTr.mesh.position.clone() : null;
+        if (hitPos) hitPos.y += 0.8; // mid-trunk strike height
+        EventBus.emit('worker:chop:swing', {
+            workerId: id,
+            treeId: ai.currentTarget,
+            hitPos
+        });
     }
 
     // ─── MOVE_TO_PAD ─────────────────────────────────────────────────

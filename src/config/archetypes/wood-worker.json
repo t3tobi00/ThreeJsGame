@@ -31,7 +31,7 @@
             "scanRadius": 15,
             "attackRange": 1.6,
             "attackDamage": 1,
-            "attackCooldown": 0.6,
+            "attackCooldown": 0.45,
             "depositRange": 2.0
         }
     }
