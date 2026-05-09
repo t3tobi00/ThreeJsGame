@@ -615,6 +615,98 @@ MeshPresets.register('rock', ({ color = 0x999999, scale = 1.0 } = {}) => {
     return mesh;
 });
 
+// stone — sculpted irregular pebble, ported from design/resource-preview/stone.html.
+// Subdivided icosahedron with vertical squash, capped top/bottom, and lateral
+// noise to make organic lumps. Uses a procedural mottled-stone texture.
+// Default radius 0.22 keeps the chunk size compatible with the wood-log /
+// essence-tube stack scale (~0.4-0.6u silhouette).
+let _stoneTexCache = null;
+function _makeStoneTexture() {
+    if (_stoneTexCache) return _stoneTexCache;
+    const c = document.createElement('canvas');
+    c.width = c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#888a8e';
+    ctx.fillRect(0, 0, 512, 512);
+    // Soft mottled blotches.
+    for (let i = 0; i < 800; i++) {
+        const x = Math.random() * 512, y = Math.random() * 512;
+        const r = 4 + Math.random() * 18;
+        const g = 80 + Math.random() * 70;
+        ctx.fillStyle = `rgba(${g}, ${g}, ${g + 5}, ${0.06 + Math.random() * 0.12})`;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+    // Dark grain speckles.
+    for (let i = 0; i < 200; i++) {
+        ctx.fillStyle = `rgba(40, 40, 45, ${0.4 + Math.random() * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(Math.random() * 512, Math.random() * 512, 0.7 + Math.random() * 1.8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // Light dust speckles.
+    for (let i = 0; i < 120; i++) {
+        ctx.fillStyle = `rgba(220, 220, 225, ${0.25 + Math.random() * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(Math.random() * 512, Math.random() * 512, 0.6 + Math.random() * 1.4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    // A few hairline cracks.
+    for (let i = 0; i < 5; i++) {
+        ctx.strokeStyle = 'rgba(40, 40, 45, 0.5)';
+        ctx.lineWidth = 1.2;
+        const x = Math.random() * 512, y = Math.random() * 512;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.bezierCurveTo(x + 20, y + 5, x + 40, y - 10, x + 60, y + 8);
+        ctx.stroke();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 8;
+    t.needsUpdate = true;
+    _stoneTexCache = t;
+    return t;
+}
+
+MeshPresets.register('stone', ({ radius = 0.22 } = {}) => {
+    const group = new THREE.Group();
+    const geo = new THREE.IcosahedronGeometry(radius, 4);
+
+    // Squash + cap + lateral lump displacement (per-vertex).
+    const halfHeight = radius * 0.41;
+    const pos = geo.attributes.position;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i);
+        v.y *= 0.45;
+        if (v.y >  halfHeight * 0.92) v.y =  halfHeight;
+        if (v.y < -halfHeight * 0.92) v.y = -halfHeight;
+        const capDist = Math.max(0, 1 - Math.abs(v.y) / halfHeight);
+        const noise =
+            Math.sin(v.x * 4.1 + v.z * 2.3) * 0.06 +
+            Math.sin(v.z * 3.5 + v.x * 4.7) * 0.04 +
+            Math.sin(v.x * 5.2 + v.z * 1.9) * 0.03;
+        const lateral = 1 + noise * capDist;
+        v.x *= lateral;
+        v.z *= lateral;
+        pos.setXYZ(i, v.x, v.y, v.z);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+
+    const mat = new THREE.MeshStandardMaterial({
+        map: _makeStoneTexture(),
+        roughness: 0.92,
+        metalness: 0.0,
+        color: 0xffffff
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    return group;
+});
+
 MeshPresets.register('dead-tree', ({ color = 0x5d4037 } = {}) => {
     const trunkMat = new THREE.MeshStandardMaterial({ color, roughness: 1.0 });
     const tree = new THREE.Group();
@@ -761,6 +853,40 @@ MeshPresets.register('wall', ({ color = 0x888888, size = { x: 2, y: 1.5, z: 0.8 
     const capMat = new THREE.MeshStandardMaterial({ color: 0x666666 });
     const cap = new THREE.Mesh(capGeo, capMat);
     cap.position.y = size.y;
+    group.add(cap);
+
+    return group;
+});
+
+// storage-pad: same silhouette as `wall`, but the top cap is the resource's
+// rim color instead of grey. A floating resource-icon (real wood-log /
+// essence-tube mesh) is attached separately by EntityFactory via the
+// archetype's top-level `iconResource` field — we can't import
+// ResourceRegistry here without a circular dependency.
+MeshPresets.register('storage-pad', ({
+    color = 0x888888,
+    rimColor = 0xcccccc,
+    size = { x: 2.4, y: 0.4, z: 2.4 }
+} = {}) => {
+    const group = new THREE.Group();
+    const c  = (typeof color    === 'string') ? parseInt(color,    16) : color;
+    const rc = (typeof rimColor === 'string') ? parseInt(rimColor, 16) : rimColor;
+
+    const bodyGeo = new THREE.BoxGeometry(size.x, size.y, size.z);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.65, metalness: 0.15 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = size.y / 2;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    // Rim cap — a slightly oversized lip in the resource color sitting on top.
+    // Brighter + lower roughness so it pops under the prototype's flat lighting.
+    const capGeo = new THREE.BoxGeometry(size.x + 0.18, 0.16, size.z + 0.18);
+    const capMat = new THREE.MeshStandardMaterial({ color: rc, roughness: 0.4, metalness: 0.1 });
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.y = size.y;
+    cap.receiveShadow = true;
     group.add(cap);
 
     return group;
@@ -1257,19 +1383,82 @@ function _makeWorkerHat(kind) {
 function _makeWorkerTool(kind) {
     const g = new THREE.Group();
     if (kind === 'axe') {
-        // Wood worker — handle (vertical) + wedge head near the top
-        const handle = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.025, 0.025, 0.5, 8),
-            new THREE.MeshStandardMaterial({ color: 0x6b4123, roughness: 0.85 })
+        // Stylized woodsman axe — chunky cartoon proportions, BIG size
+        // (total length ~0.95u).
+        //
+        // GEOMETRY LAYOUT — the GRIP sits at local y = 0. This is the
+        // rotation pivot used by the chop animation: when the axe
+        // swings, it pivots around the worker's hand without the
+        // worker's arm needing to move. Head extends to high +Y,
+        // pommel sits below the grip at low -Y.
+        //
+        // BLADE FACES FORWARD (+Z): at rest the cutting edge points in
+        // the +Z direction. Chop animation rotates around X axis, so
+        // the head sweeps from straight-up (rest) to forward-down (90°
+        // strike) and back to rest.
+        //
+        // The whole group is offset DOWN (g.position.y) so the grip
+        // lands at the worker's hand position.
+
+        // Haft — fat cartoon cylinder, warm brown.
+        const haft = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.09, 0.10, 0.82, 12),
+            new THREE.MeshStandardMaterial({ color: 0x8a5026, roughness: 0.85 })
         );
-        handle.position.y = -0.10;
-        g.add(handle);
-        const head = new THREE.Mesh(
-            new THREE.BoxGeometry(0.18, 0.10, 0.04),
-            new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 0.4, metalness: 0.6 })
+        haft.position.y = +0.36;
+        g.add(haft);
+
+        // Leather grip wrap — at the pivot point (worker's hand).
+        const grip = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.13, 0.13, 0.22, 12),
+            new THREE.MeshStandardMaterial({ color: 0x2a1a0a, roughness: 0.95 })
         );
-        head.position.set(0.10, 0.10, 0);
-        g.add(head);
+        grip.position.y = 0;
+        g.add(grip);
+
+        // Pommel — chunky knob just below the grip.
+        const pommel = new THREE.Mesh(
+            new THREE.SphereGeometry(0.10, 12, 10),
+            new THREE.MeshStandardMaterial({ color: 0x2a1a0a, roughness: 0.85 })
+        );
+        pommel.position.y = -0.18;
+        g.add(pommel);
+
+        // Iron head — stylized chunky blade at top of haft. BLADE FACES +Z.
+        const ironMat = new THREE.MeshStandardMaterial({
+            color: 0x4a4a52, roughness: 0.35, metalness: 0.85
+        });
+        const ironLight = new THREE.MeshStandardMaterial({
+            color: 0xa6acb6, roughness: 0.25, metalness: 0.95
+        });
+        const headY = 0.78;
+
+        // Eye — chunky cube wrapping the haft where the head mounts.
+        const eye = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.28, 0.26), ironMat);
+        eye.position.y = headY;
+        g.add(eye);
+
+        // Forward blade — wide wedge in +Z direction (faces forward).
+        const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 0.58), ironMat);
+        blade.position.set(0, headY, 0.40);
+        g.add(blade);
+
+        // Cutting edge — bright leading strip at the front face.
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.42, 0.07), ironLight);
+        edge.position.set(0, headY, 0.73);
+        g.add(edge);
+
+        // Offset DOWN so the grip lands at the worker's hand.
+        g.position.y = -0.36;
+
+        // At-rest pose: axe straight up (head over hand). No tilt — the
+        // chop animation will pivot it forward and back from this pose.
+        g.rotation.x = 0;
+        g.rotation.z = 0;
+
+        // Tag so LungeAnimSystem can find this group at chop time.
+        g.userData.isWorkerAxe = true;
+        g.name = 'workerAxe';
     } else if (kind === 'jar') {
         // Essence collector — small handle + glowing wisp jar on top
         const handle = new THREE.Mesh(

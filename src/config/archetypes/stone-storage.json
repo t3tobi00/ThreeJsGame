@@ -1,0 +1,21 @@
+{
+    "_doc": "Stone Storage — visible storage prop for the stone resource. Same pattern as wood-storage / essence-storage. Placed at (0, 3) on the central axis of the south logistics belt as a 3rd-row complement to the existing wood/essence pair, ahead of the south_wall_zone footprint (x=-4..0, z=5..7). Reserved for the future stone-worker / rock-harvesting feature. Visual ID: cool slate body + silver rim cap (storage-pad preset).",
+    "type": "StoneStorage",
+    "mesh": {
+        "preset": "storage-pad",
+        "color": "0x787880",
+        "rimColor": "0xc8c8d4",
+        "size": { "x": 2.4, "y": 0.4, "z": 2.4 }
+    },
+    "iconResource": { "type": "stone", "height": 0.65, "scale": 1.8 },
+    "components": {
+        "Tag": { "tags": ["storage", "stone-storage", "structure", "static"] },
+        "InventoryStack": {
+            "maxSlots": 1,
+            "slotCapacity": 30,
+            "acceptsTypes": ["stone"],
+            "anchorOffset": { "x": 0, "y": 0.55, "z": 0 },
+            "slotSpacing": 0.45
+        }
+    }
+}

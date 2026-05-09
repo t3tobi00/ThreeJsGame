@@ -55,6 +55,12 @@
         { "archetype": "tree-prototype", "position": { "x": -6, "y": 0, "z": -5 } },
         { "archetype": "tree-prototype", "position": { "x":  6, "y": 0, "z": -5 } },
 
+        "_doc 4 rock nodes flanking the base east/west, just outside the fence at x=±12, z=±3. Stone is rarer than wood (4 rocks vs 6 trees) and lives on the unused east/west axis to diversify player movement. Inside the fence is reserved for the existing belt; rocks are 4u outside the east/west fences (x=±8) so they're freely reachable in Act 1 and remain accessible once the east/west walls + auto-sink gates land in Act 2.",
+        { "archetype": "rock", "position": { "x": -12, "y": 0, "z": -3 } },
+        { "archetype": "rock", "position": { "x": -12, "y": 0, "z":  3 } },
+        { "archetype": "rock", "position": { "x":  12, "y": 0, "z": -3 } },
+        { "archetype": "rock", "position": { "x":  12, "y": 0, "z":  3 } },
+
         "_doc TEST: 4 Scouts + 1 Bruiser + 1 Sharpshooter pre-spawned in a skirmish line north of the player so we can watch all three classes fight side by side. Sharpshooter sits one row back at z=-1.5 since its 15u range lets it shoot over the front line into the zombie horde. Remove once balancing is locked.",
         { "archetype": "scout",        "position": { "x": -5, "y": 0, "z": -3 } },
         { "archetype": "scout",        "position": { "x": -3, "y": 0, "z": -3 } },
@@ -66,6 +72,8 @@
         "_doc PR #4.0 — Acts 1-3 architecture redesign (2026-05-07). Workers pre-placed at boot per the locked design pivot: 1 wood-worker, 1 essence-collector, 2 builders all on the map from frame 0. Storage props (wood + essence, cap 100) are visible at fixed positions; workers deposit there, builders withdraw. The old worker-pad-active test is gone.",
 
         "_doc PR #4.5 South Logistics Belt — all worker infrastructure on the southern third of the perimeter so the north stays clean for combat + tree-chop + wall-build action. Two rows: storages forward at z=+5 (visible stacks read at a glance), worker/builder bases tucked behind the south wall ghost at z=+7. Wood ops on the west side, essence ops on the east, builder centered for equal reach to all 4 wall ghosts.",
+
+        "_doc Stone storage archetype + preset are kept in code as scaffolding for the future stone-worker pipeline, but NOT placed in the prototype scene yet — the prototype doesn't ship a stone economy. Re-enable by adding {\"archetype\":\"stone-storage\",\"position\":{\"x\":0,\"y\":0,\"z\":3}} here.",
 
         "_doc Storage row at z=+5 — visible stacks face the player.",
         { "archetype": "wood-storage",    "position": { "x": -4, "y": 0, "z": 5 } },

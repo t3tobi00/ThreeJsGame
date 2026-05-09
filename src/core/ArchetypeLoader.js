@@ -24,9 +24,9 @@ const ARCHETYPE_NAMES = [
     'worker-pad-active', 'worker-placeholder',
     'wood-worker', 'essence-collector', 'worker-builder',
     // Act 3 (PR #4.0) — storage redesign. Replaces invisible Stockpile
-    // with two visible storage props that show their contents stacked
-    // on top.
-    'wood-storage', 'essence-storage',
+    // with visible storage props that show their contents stacked on top.
+    // stone-storage added as scaffolding for the future stone economy.
+    'wood-storage', 'essence-storage', 'stone-storage',
     // PR #4.2 — three worker-base buildings, each spawns its worker via OnSpawn.
     'wood-worker-base', 'essence-collector-base', 'builder-base',
     // PR #4.4 — military bases (mesh archetypes used by scout_pad / bruiser_pad).

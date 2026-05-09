@@ -1,11 +1,13 @@
 {
-    "_doc": "Essence Storage — visible storage prop for the essence resource. Same pattern as wood-storage. Reuses the player's stacking pipeline (InventoryStack + StackSystem) so essence orbs stack identically to how the player would carry them.",
+    "_doc": "Essence Storage — visible storage prop for the essence resource. Same pattern as wood-storage. Reuses the player's stacking pipeline (InventoryStack + StackSystem) so essence orbs stack identically to how the player would carry them. Visual ID: cyan body + pale teal rim cap (storage-pad preset) so wood vs essence is readable even when the stack is empty.",
     "type": "EssenceStorage",
     "mesh": {
-        "preset": "wall",
-        "color": "0x224466",
+        "preset": "storage-pad",
+        "color": "0x1ea5d6",
+        "rimColor": "0x7fe9ff",
         "size": { "x": 2.4, "y": 0.4, "z": 2.4 }
     },
+    "iconResource": { "type": "essence", "height": 0.75, "scale": 0.4 },
     "components": {
         "Tag": { "tags": ["storage", "essence-storage", "structure", "static"] },
         "InventoryStack": {

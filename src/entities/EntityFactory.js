@@ -42,6 +42,7 @@ import { Component_OnSpawn } from '../ecs/components/Component_OnSpawn.js';
 import { Component_Stockpile } from '../ecs/components/Component_Stockpile.js';
 import { Component_WorkerAI } from '../ecs/components/Component_WorkerAI.js';
 import MeshPresets from '../core/MeshPresets.js';
+import ResourceRegistry from '../core/ResourceRegistry.js';
 import EventBus from '../core/EventBus.js';
 
 // Map component name strings (from JSON) → constructor functions
@@ -135,6 +136,9 @@ export class EntityFactory {
         } else {
             // Fallback to individual mesh (player, gates, or pool full)
             mesh = this._createMesh(archetype, pos, meshOpts);
+            // Optional resource-icon attached above the mesh (e.g. wood/essence
+            // storage pads use this to show what they hold even when empty).
+            if (archetype.iconResource) this._attachResourceIcon(mesh, archetype.iconResource);
         }
 
         // Always add Transform (works with both real mesh and proxy)
@@ -243,5 +247,28 @@ export class EntityFactory {
         }
         this.scene.add(mesh);
         return mesh;
+    }
+
+    /**
+     * Clone the actual resource mesh (the same wood-log / essence-tube the
+     * player carries) and float it above the parent mesh as a labeling icon.
+     * Driven by archetype.iconResource: { type, height?, scale?, state? }.
+     */
+    _attachResourceIcon(parentMesh, spec) {
+        const type   = spec.type;
+        const height = spec.height ?? 1.6;
+        const scale  = spec.scale  ?? 2.0;
+        const state  = spec.state  ?? 'stacked';
+        if (!type) return;
+
+        const icon = ResourceRegistry.createMesh(type, state);
+        if (!icon) return;
+
+        icon.position.set(0, height, 0);
+        icon.scale.set(scale, scale, scale);
+        icon.name = 'resourceIcon';
+        // Skip raycast so clicks/hovers fall through to the underlying pad.
+        icon.traverse(c => { c.raycast = () => {}; });
+        parentMesh.add(icon);
     }
 }

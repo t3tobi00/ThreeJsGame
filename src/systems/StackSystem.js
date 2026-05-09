@@ -34,6 +34,12 @@ export class StackSystem {
             const inventory = ecs.getComponent(entityId, 'InventoryStack');
             if (!transform || !inventory) continue;
 
+            // Empty-state icon (e.g. wood/essence storage label): show only
+            // when nothing is stored. Cheap getObjectByName — falls through
+            // for entities without an icon attached.
+            const icon = transform.mesh.getObjectByName?.('resourceIcon');
+            if (icon) icon.visible = (inventory.getTotalCount() === 0);
+
             const anchor = inventory.anchorOffset;
             const entityPos = transform.mesh.position;
             const numSlots = inventory.slots.length;
