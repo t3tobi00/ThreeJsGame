@@ -1,5 +1,14 @@
-# Claude Code scratch worktrees (each is an embedded git repo; not meant to commit)
-.claude/worktrees/
+# Claude Code internal files — workspaces, skills, scratch
+.claude/
+
+# Claude "superpowers" planning notes
+docs/superpowers/
 
 # OS noise
 .DS_Store
+**/.DS_Store
+
+# All Markdown (internal design notes, brainstorms, dev logs).
+# README is the only one we share publicly.
+*.md
+!README.md
