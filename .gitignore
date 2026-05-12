@@ -9,6 +9,8 @@ docs/superpowers/
 **/.DS_Store
 
 # All Markdown (internal design notes, brainstorms, dev logs).
-# README is the only one we share publicly.
+# README at the repo root is the only one we share publicly — leading
+# slash anchors the exception to root so subdirectory README.md files
+# (design/.../README.md etc.) stay ignored.
 *.md
-!README.md
+!/README.md
