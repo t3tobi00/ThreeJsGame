@@ -362,9 +362,6 @@ class Game {
             await Loader.load(path, this.scene.instance);
         this.grid = grid;
 
-        // --- Grid toggle ---
-        if (gridOverlay) this._createGridToggle(gridOverlay);
-
         // --- Instanced character pools (GPU batching for crowds) ---
         this._characterPools = [
             new InstancedCharacterPool(this.scene.instance, 0xff3333, 120),  // enemy
@@ -979,23 +976,6 @@ class Game {
         };
     }
 
-    _createGridToggle(overlay) {
-        const btn = document.createElement('button');
-        btn.id = 'grid-toggle';
-        btn.textContent = overlay.visible ? 'Grid: ON' : 'Grid: OFF';
-        btn.style.cssText = `
-            position: fixed; top: 10px; right: 10px; z-index: 1000;
-            padding: 8px 16px; border: none; border-radius: 6px;
-            background: rgba(0,0,0,0.6); color: #fff;
-            font: bold 14px Arial, sans-serif; cursor: pointer;
-            touch-action: manipulation;
-        `;
-        btn.addEventListener('click', () => {
-            overlay.visible = !overlay.visible;
-            btn.textContent = overlay.visible ? 'Grid: ON' : 'Grid: OFF';
-        });
-        document.body.appendChild(btn);
-    }
 
     animate() {
         requestAnimationFrame(this.animate.bind(this));

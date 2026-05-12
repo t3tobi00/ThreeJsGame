@@ -42,23 +42,10 @@
         { "archetype": "enemy-prototype", "position": { "x": -3, "y": 0, "z":  18 } },
         { "archetype": "enemy-prototype", "position": { "x":  3, "y": 0, "z":  18 } },
 
-        "_doc RIVAL 1 (west) — king at (-40,0,0), 3 soldiers in arc facing origin.",
+        "_doc Rival KING flags only (soldiers removed 2026-05-12 per user — rival defender AI lands next session). Kings remain as objective markers for the win condition. Without defenders the challenge moves to 'survive the zombie horde to reach each king'.",
         { "archetype": "rival-king",    "position": { "x": -40, "y": 0, "z":  0 } },
-        { "archetype": "rival-soldier", "position": { "x": -37, "y": 0, "z": -3 } },
-        { "archetype": "rival-soldier", "position": { "x": -37, "y": 0, "z":  0 } },
-        { "archetype": "rival-soldier", "position": { "x": -37, "y": 0, "z":  3 } },
-
-        "_doc RIVAL 2 (north) — king at (0,0,-40), 3 soldiers facing origin.",
         { "archetype": "rival-king",    "position": { "x":  0, "y": 0, "z": -40 } },
-        { "archetype": "rival-soldier", "position": { "x": -3, "y": 0, "z": -37 } },
-        { "archetype": "rival-soldier", "position": { "x":  0, "y": 0, "z": -37 } },
-        { "archetype": "rival-soldier", "position": { "x":  3, "y": 0, "z": -37 } },
-
-        "_doc RIVAL 3 (east) — king at (+40,0,0), 3 soldiers facing origin.",
-        { "archetype": "rival-king",    "position": { "x":  40, "y": 0, "z":  0 } },
-        { "archetype": "rival-soldier", "position": { "x":  37, "y": 0, "z": -3 } },
-        { "archetype": "rival-soldier", "position": { "x":  37, "y": 0, "z":  0 } },
-        { "archetype": "rival-soldier", "position": { "x":  37, "y": 0, "z":  3 } }
+        { "archetype": "rival-king",    "position": { "x":  40, "y": 0, "z":  0 } }
     ],
 
     "_proceduralDoc": "Both trees AND rocks are now placed at boot by main.js _spawnProcedural(). Change `seed` to reroll the full layout (trees + rocks together). Tune `count` per generator to scale density. Pure unfiltered random — there is NO base / cemetery exclusion: a tree CAN spawn on a king or inside the player ring (collider system pushes things apart on first frame). Map half-extent 48u keeps everything just inside the ±50u world edge.",

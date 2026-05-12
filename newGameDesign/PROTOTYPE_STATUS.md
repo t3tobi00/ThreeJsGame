@@ -1,6 +1,40 @@
-# Prototype Build Status — 2026-05-11 (post-tutorial cleanup)
+# Prototype Build Status — 2026-05-12 (haunt-pass complete)
 
-## §0. Headline (2026-05-11 session — sandbox + storage economy + carry cap)
+## §0. Headline (2026-05-12 session — spatial + rival + zombie AI overhaul)
+
+End-of-session state — user said: *"looks really impressive but now it's becoming overall very challenging to survive."*
+
+**Live and validated:**
+- **100×100u map** (was 60u). Player south (0,0,+40); 3 rival king flags at W/N/E compass extremes (±40u).
+- **Procedural trees + rocks** (`level-prototype.json` → `procedural` block). Seeded RNG (mulberry32), tunable counts/radii/min-spacing. Default 70 trees + 10 rocks.
+- **Finite forest** — trees don't regrow; felling leaves a **vertical squat stump** (new `tree-stump` archetype + new MeshPreset).
+- **Victory condition** wired — kill all 3 `rival-king` entities → `state:entered { id: 'END' }` → PrototypeEndUI Victory.
+- **Smart zombies** — Reynolds boids (separation + alignment + cohesion + random), batched cemetery bursts with shared-march destination, stall-break, cemetery→cemetery herd patrols, random ground emergence with 2s dust-puff marker, F.E.A.R.-style LKP memory, 3-tier horde call (immediate 25u / drift 60u / alert 120u map-wide), combat blood sense buff. Detection icons (`!`/`?`) flash above zombie heads on aggro/noise pickup.
+
+**Key locked decisions during this session:**
+- Forest is one big random sprawl (no per-base starter clusters; pure unfiltered random).
+- Rival soldiers REMOVED; only king flags remain (rival worker AI deferred to next session).
+- Rival kings tagged `no_zombie_target` — zombies don't pile on the objectives; player still attacks normally.
+- Zombies attack rival faction too (haunted for everyone), but the tag filter keeps kings safe.
+
+**See `~/.claude/projects/.../memory/project_haunt_pass_complete_2026_05_12.md`** for the granular file-by-file change log + every tuning knob exposed.
+
+## §0a. Next-session priorities (in order)
+
+**1. Difficulty tuning** (user-flagged). Most likely first dial-downs:
+- `Z_max` 100 → 60-70
+- `hordecall_alert_radius` 120 → 80
+- `hordecall_alert_sense_multiplier` 2.0 → 1.5
+- `combat_blood_radius` 20 → 14
+- `investigate_duration` 10s → 6s
+- enemy-prototype `senseRadius` 16 → 12
+- Survivability levers: reintroduce 3-4 starter trees near each base; bump player `regen_rate_per_sec` 1 → 2
+
+**2. Rival workers + behavior archetypes** (deferred from this session). Add Rusher / Economist / Turtle defensive AI + 3-5 idle soldiers around each king. Currently rivals are JUST passive flags.
+
+**3. (Optional) Sound** — combat noise mechanic uses `entity:damaged` but there's no actual audio cue. Could add muffled moans on Tier 3 alert + dramatic chord on horde events.
+
+## §0b. Historical: 2026-05-11 (post-tutorial cleanup)
 
 End-of-session state, all user-validated:
 

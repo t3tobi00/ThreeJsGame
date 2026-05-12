@@ -10,7 +10,7 @@
         "value": 1
     },
     "essence": {
-        "emoji": "✨",
+        "emoji": "🧪",
         "meshGround":  { "preset": "essence-puddle" },
         "meshStacked": { "preset": "essence-tube" },
         "value": 1

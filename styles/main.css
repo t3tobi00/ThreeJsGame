@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Outfit:wght@500;700;800;900&display=swap');
+
 * {
     margin: 0;
     padding: 0;
@@ -204,135 +206,177 @@ body.draw-wall-mode canvas { cursor: crosshair; }
 body.place-mode canvas { cursor: crosshair; }
 
 /* ───────────────────────────────────────────────────────────────────────
-   Spawn menu (?prototype) — top-center connected toolbar, RPG/game style.
-   The 3 section chips share borders to read as a single bar. Tap a chip
-   → its item panel drops down beneath that chip (one open at a time).
-   Tapping a wall/box BUILD chip puts the menu in mode-active state and
-   the whole bar fades up out of the way so the player can draw freely;
-   the bar fades back in once the mode exits.
-   Each section is faction-colored: ARMY = blood-red, WORK = ocean-blue,
-   BUILD = stone-brown.
+   Spawn menu (?prototype) — "Command Console"
+   Three faction tabs (ARMY · WORK · BUILD) at top-center expand into an
+   item tray below. Each item: portrait card with a faction-tinted body,
+   big icon, display-font label, and a coin-style cost badge.
+   Faction palette propagates to the section chip + item border + cost.
+   Hidden during wall-draw / storage-place so the canvas is uncovered.
    ─────────────────────────────────────────────────────────────────────── */
 #spawn-menu {
     position: absolute;
-    top: 12px;
+    top: 18px;
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     flex-direction: row;
-    gap: 0;                                  /* chips share borders */
+    gap: 0;
     pointer-events: auto;
     z-index: 25;
-    font-family: inherit;
-    transition: opacity 0.18s ease, transform 0.22s ease;
-    /* Per-section accent overrides (set on .spawn-section[data-section=*]). */
-    --accent: #d6a25a;
-    --accent-deep: #5e3d18;
-    --accent-dark: #2e1f0c;
-    --accent-glow: rgba(255, 215, 0, 0.55);
+    font-family: 'Bangers', 'Outfit', 'Inter', sans-serif;
+    transition: opacity 0.2s ease, transform 0.25s ease;
+    /* Default accent (overridden per section). */
+    --accent:      #ffc94a;
+    --accent-deep: #a36b14;
+    --accent-dark: #3b2105;
+    --accent-glow: rgba(255, 200, 75, 0.55);
+    /* Chip width is exposed so the items panel's arrow notch can offset
+       to point at the active chip (panel centers on the WHOLE menu, not
+       the chip — see .section-items + arrow rules below). Overridden in
+       the mobile @media blocks. */
+    --chip-w: 116px;
 }
 
-/* Auto-hide while wall-draw / storage-place is armed so the player can
-   interact with the canvas unobstructed. */
+/* Hidden while a placement mode is armed. */
 #spawn-menu.menu-hidden {
     opacity: 0;
     pointer-events: none;
-    transform: translateX(-50%) translateY(-12px);
+    transform: translateX(-50%) translateY(-16px);
 }
 
 .spawn-section {
     display: flex;
     flex-direction: column;
     align-items: center;
-    position: relative;
-    /* Faction palette — propagated to chip + items via custom properties. */
+    /* Intentionally NOT position: relative — the items panel positions
+       relative to the menu (so it stays centered no matter which chip is
+       active, preventing off-screen overflow on the leftmost/rightmost
+       sections). Chip z-index uses position: relative on the chip itself. */
 }
 .spawn-section[data-section="army"] {
-    --accent:      #ff7a55;
-    --accent-deep: #8a1f17;
-    --accent-dark: #3b0c08;
-    --accent-glow: rgba(255, 80, 60, 0.65);
+    --accent:      #ff5a3e;
+    --accent-deep: #9c2415;
+    --accent-dark: #3a0d07;
+    --accent-glow: rgba(255, 90, 60, 0.7);
 }
 .spawn-section[data-section="workers"] {
-    --accent:      #6cc9ff;
-    --accent-deep: #1d4f8a;
-    --accent-dark: #08203c;
-    --accent-glow: rgba(80, 180, 255, 0.6);
+    --accent:      #4ea8ff;
+    --accent-deep: #1a4c8a;
+    --accent-dark: #0a1f3c;
+    --accent-glow: rgba(80, 170, 255, 0.7);
 }
 .spawn-section[data-section="build"] {
-    --accent:      #f0c574;
-    --accent-deep: #7a4e1c;
+    --accent:      #ffb234;
+    --accent-deep: #8a5618;
     --accent-dark: #2e1a06;
-    --accent-glow: rgba(255, 200, 90, 0.6);
+    --accent-glow: rgba(255, 178, 50, 0.7);
 }
 
-/* ─── Section chip (header in the top bar, connected) ──────────────────── */
+/* ─── Section chip (top tab) ─────────────────────────────────────────── */
 .section-chip {
-    width: 86px;
-    height: 44px;
+    width: var(--chip-w);
+    height: 56px;
+    position: relative;     /* enables z-index so expanded chip sits above neighbors */
+    z-index: 1;
     border-radius: 0;
-    border: 2px solid var(--accent);
+    border: 3px solid var(--accent);
     border-right-width: 0;
     background:
-        radial-gradient(circle at 50% 24%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 60%),
+        radial-gradient(circle at 50% 18%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 65%),
         linear-gradient(180deg, var(--accent-deep) 0%, var(--accent-dark) 100%);
     color: #fff7e0;
-    font-weight: 900;
-    font-size: 0.82rem;
-    letter-spacing: 1.2px;
+    font-family: 'Bangers', 'Outfit', sans-serif;
+    font-weight: 400;
+    font-size: 1.55rem;
+    letter-spacing: 2.5px;
     cursor: pointer;
     box-shadow:
-        inset 0 2px 0 rgba(255, 255, 255, 0.20),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.45),
-        0 3px 0 rgba(0, 0, 0, 0.80),
-        0 5px 10px rgba(0, 0, 0, 0.50);
+        inset 0 3px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.55),
+        0 4px 0 rgba(0, 0, 0, 0.80),
+        0 7px 16px rgba(0, 0, 0, 0.55);
     text-shadow:
-        0 -1px 0 rgba(0, 0, 0, 0.55),
-        0 1px 2px rgba(0, 0, 0, 0.80);
-    transition: transform 0.12s, filter 0.15s, box-shadow 0.15s;
+        0 2px 0 rgba(0, 0, 0, 0.70),
+        0 0 10px rgba(0, 0, 0, 0.40);
+    transition: transform 0.12s ease, filter 0.18s, box-shadow 0.18s;
     flex-shrink: 0;
-    font-family: inherit;
+    line-height: 1;
+    padding-top: 4px;     /* visual centering for Bangers' baseline */
 }
 
-/* Outer corners rounded on the leftmost / rightmost section. */
 .spawn-section:first-child .section-chip {
-    border-top-left-radius: 14px;
-    border-bottom-left-radius: 14px;
+    border-top-left-radius: 18px;
+    border-bottom-left-radius: 18px;
 }
 .spawn-section:last-child .section-chip {
-    border-top-right-radius: 14px;
-    border-bottom-right-radius: 14px;
-    border-right-width: 2px;
+    border-top-right-radius: 18px;
+    border-bottom-right-radius: 18px;
+    border-right-width: 3px;
 }
 
-.section-chip:hover  { filter: brightness(1.15); }
-.section-chip:active { transform: translateY(2px); }
+.section-chip:hover  { filter: brightness(1.18); }
+.section-chip:active { transform: translateY(3px); }
 
 .spawn-section.expanded .section-chip {
-    border-color: #fff7b0;
+    border-color: #fff7d8;
     box-shadow:
-        inset 0 2px 0 rgba(255, 255, 255, 0.30),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.45),
-        0 3px 0 rgba(0, 0, 0, 0.80),
-        0 0 18px var(--accent-glow);
-    filter: brightness(1.18);
-    z-index: 2;                              /* sits on top of neighbors  */
+        inset 0 3px 0 rgba(255, 255, 255, 0.36),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.55),
+        0 4px 0 rgba(0, 0, 0, 0.80),
+        0 0 24px var(--accent-glow);
+    filter: brightness(1.25);
+    z-index: 2;
 }
 
-/* ─── Items panel (drops DOWN below the active chip) ───────────────────── */
+/* ─── Item tray panel (drops below the active chip) ──────────────────── */
 .section-items {
     position: absolute;
     top: 100%;
     left: 50%;
-    margin-top: 6px;
-    transform: translate(-50%, -8px);
+    margin-top: 14px;
+    transform: translate(-50%, -10px);
     display: flex;
     flex-direction: row;
-    gap: 6px;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(32, 36, 52, 0.94) 0%, rgba(12, 14, 24, 0.94) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.5),
+        0 8px 28px rgba(0, 0, 0, 0.65),
+        0 0 24px var(--accent-glow);
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.16s ease, transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: opacity 0.2s ease, transform 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     z-index: 3;
+}
+
+/* Up-arrow notch that joins the panel to the active chip.
+   The panel itself is centered on the menu (not the chip), so the arrow
+   shifts left/right by one chip-width to point at the active chip.
+   WORK is the center chip → no shift. */
+.section-items::before {
+    content: '';
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 10px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+    filter: drop-shadow(0 -2px 1px rgba(0, 0, 0, 0.3));
+}
+.spawn-section[data-section="army"] .section-items::before {
+    left: calc(50% - var(--chip-w));
+}
+.spawn-section[data-section="build"] .section-items::before {
+    left: calc(50% + var(--chip-w));
 }
 
 .spawn-section.expanded .section-items {
@@ -341,132 +385,408 @@ body.place-mode canvas { cursor: crosshair; }
     transform: translate(-50%, 0);
 }
 
-/* ─── Portrait card (per-unit chip, smaller now) ───────────────────────── */
+/* ─── Item card ──────────────────────────────────────────────────────── */
 .spawn-item {
-    width: 64px;
-    height: 76px;
-    border-radius: 12px;
-    border: 2px solid var(--accent);
+    width: 88px;
+    height: 112px;
+    border-radius: 14px;
+    border: 2.5px solid var(--accent);
     background:
-        radial-gradient(circle at 50% 18%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 55%),
-        linear-gradient(180deg, #2e2e36 0%, #14141a 100%);
+        radial-gradient(circle at 50% 22%, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 60%),
+        linear-gradient(170deg, var(--accent-deep) 0%, var(--accent-deep) 35%, var(--accent-dark) 78%, #14141c 100%);
     color: #fff7e0;
-    font-weight: 900;
+    font-family: 'Bangers', sans-serif;
+    font-weight: 400;
     line-height: 1;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
-    gap: 2px;
-    padding: 4px 3px 3px;
+    justify-content: space-between;
+    padding: 10px 5px 8px;
     box-shadow:
-        inset 0 2px 0 rgba(255, 255, 255, 0.18),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.50),
-        0 3px 0 rgba(0, 0, 0, 0.80),
-        0 5px 9px rgba(0, 0, 0, 0.50);
+        inset 0 2px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+        0 4px 0 rgba(0, 0, 0, 0.75),
+        0 7px 14px rgba(0, 0, 0, 0.5);
     text-shadow:
-        0 -1px 0 rgba(0, 0, 0, 0.55),
-        0 1px 2px rgba(0, 0, 0, 0.80);
-    transition: transform 0.10s, filter 0.15s, box-shadow 0.15s;
-    font-family: inherit;
+        0 2px 0 rgba(0, 0, 0, 0.70);
+    transition: transform 0.11s ease, filter 0.18s, box-shadow 0.18s;
     position: relative;
+    overflow: hidden;
 }
 
-.spawn-item:hover  { filter: brightness(1.12); }
-.spawn-item:active { transform: translateY(2px); }
+/* Thin accent stripe across the very top of each card. */
+.spawn-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--accent);
+    box-shadow: 0 1px 6px var(--accent-glow);
+    opacity: 0.85;
+}
 
-/* Big portrait icon — emoji or baked resource PNG. */
+.spawn-item:hover {
+    filter: brightness(1.16);
+    transform: translateY(-2px);
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+        0 6px 0 rgba(0, 0, 0, 0.75),
+        0 9px 16px rgba(0, 0, 0, 0.55);
+}
+.spawn-item:active {
+    transform: translateY(3px);
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+        0 2px 0 rgba(0, 0, 0, 0.75),
+        0 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Portrait icon (emoji or baked resource PNG). */
 .spawn-item .item-icon {
     line-height: 1;
-    margin-top: 1px;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+    margin-top: 6px;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7));
 }
 .spawn-item .item-icon.emoji {
-    font-size: 1.55rem;
+    font-size: 2.1rem;
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
                  "Twemoji Mozilla", sans-serif;
 }
 .spawn-item .item-icon.img {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     object-fit: contain;
     pointer-events: none;
     user-select: none;
 }
 
 .spawn-item .item-label {
-    font-size: 0.56rem;
-    letter-spacing: 0.4px;
+    font-family: 'Bangers', sans-serif;
+    font-weight: 400;
+    font-size: 0.95rem;
+    letter-spacing: 1.4px;
     text-transform: uppercase;
-    color: #fff;
-    opacity: 0.92;
+    color: #fffaee;
+    margin: -1px 0 0;
 }
 
-/* Cost pill — number + baked resource icon (or emoji fallback). */
+/* Coin-style cost badge.
+   Each resource appears as a number followed by a circular "coin slot"
+   holding the baked resource icon. The slot is a light-radial chip with
+   an inset rim, which pops the (often tiny / low-contrast) resource
+   mesh icon against ANY pill color — gold (affordable), red (disabled),
+   or green (free). */
 .spawn-item .item-cost {
-    margin-top: auto;
-    font-size: 0.66rem;
+    font-family: 'Bangers', sans-serif;
+    font-weight: 400;
+    font-size: 0.78rem;
     background:
-        linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 8px;
-    padding: 1px 5px 1px;
+        linear-gradient(180deg, #fff3b0 0%, #f6b62b 55%, #a36808 100%);
+    border: 2px solid #5a3a0a;
+    border-radius: 999px;
+    padding: 3px 11px 2px;
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    color: #ffe9a0;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
-    line-height: 1.1;
+    gap: 5px;
+    color: #2a1a00;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.7),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+        0 2px 0 rgba(0, 0, 0, 0.55);
+    line-height: 1.05;
+    min-width: 54px;
+    min-height: 28px;
+    justify-content: center;
 }
 
-.spawn-item .item-cost .cost-num   { font-weight: 900; font-size: 0.78rem; }
-.spawn-item .item-cost .cost-icon  {
-    width: 16px;
-    height: 16px;
+/* Pair = one "num + icon" group. Multi-resource costs ship multiple
+   pairs and CSS below stacks them vertically. */
+.spawn-item .item-cost .cost-pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    line-height: 1;
+}
+
+/* Multi-resource (2+ pairs) — stack pairs vertically so the pill stays
+   narrow enough to fit inside an 88px card. Detected via the sibling
+   combinator inside :has, so it only fires when a real second pair
+   exists (the WALL pill has 1 pair + a `/2 logs` trailer, which stays
+   horizontal). */
+.spawn-item .item-cost:has(.cost-pair + .cost-pair) {
+    flex-direction: column;
+    gap: 1px;
+    padding: 4px 12px 3px;
+    min-height: auto;
+}
+.spawn-item .item-cost:has(.cost-pair + .cost-pair) .cost-num {
+    font-size: 1rem;
+}
+.spawn-item .item-cost:has(.cost-pair + .cost-pair) .cost-emoji {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    font-size: 0.95rem;
+}
+
+.spawn-item .item-cost .cost-num {
+    font-family: 'Bangers', sans-serif;
+    font-weight: 400;
+    font-size: 1.15rem;
+    letter-spacing: 0.6px;
+    min-width: 16px;
+    text-align: center;
+}
+.spawn-item .item-cost .cost-icon {
+    width: 22px;
+    height: 22px;
     object-fit: contain;
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+    padding: 2px;
+    background:
+        radial-gradient(circle at 35% 28%, #ffffff 0%, #ece4cd 70%, #c0b294 100%);
+    border-radius: 50%;
+    box-shadow:
+        inset 0 0 0 1.5px rgba(0, 0, 0, 0.45),
+        inset 0 -1px 1px rgba(0, 0, 0, 0.2),
+        0 1px 1px rgba(0, 0, 0, 0.35);
     pointer-events: none;
     user-select: none;
 }
 .spawn-item .item-cost .cost-emoji {
-    font-size: 0.85rem;
+    font-size: 1.1rem;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    background:
+        radial-gradient(circle at 35% 28%, #ffffff 0%, #ece4cd 70%, #c0b294 100%);
+    border-radius: 50%;
+    box-shadow:
+        inset 0 0 0 1.5px rgba(0, 0, 0, 0.45),
+        0 1px 1px rgba(0, 0, 0, 0.35);
     font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
                  "Twemoji Mozilla", sans-serif;
-    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+    text-shadow: none;
+    flex-shrink: 0;
+}
+.spawn-item .item-cost .cost-sep {
+    color: #5a3a0a;
+    font-size: 0.85rem;
+    margin: 0 1px;
+    text-shadow: none;
+    opacity: 0.7;
 }
 .spawn-item .item-cost .cost-trailer {
-    font-size: 0.62rem;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 0.58rem;
     opacity: 0.85;
-    letter-spacing: 0.2px;
+    color: #2a1a00;
+    letter-spacing: 0.3px;
+    text-shadow: none;
+    margin-left: 3px;
+    line-height: 1;
 }
 .spawn-item .item-cost.free {
-    color: #b6ffb6;
-    font-size: 0.62rem;
-    letter-spacing: 0.5px;
-    padding: 0 6px 1px;
+    background:
+        linear-gradient(180deg, #c5ffd1 0%, #4dcb6f 55%, #1f7038 100%);
+    border-color: #073c1c;
+    color: #052816;
+    font-size: 0.85rem;
+    letter-spacing: 1.2px;
+    padding: 2px 12px 1px;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-/* Unaffordable: greyscale body, red cost number. */
+/* Unaffordable.
+   Note: no parent `filter:` — CSS filters cascade and would wash out the
+   red cost badge (turning it olive). Instead: cool the body via background
+   override, grayscale just the icon, dim the label. The red coin renders
+   at true saturation so "can't afford" reads instantly. */
 .spawn-item.disabled {
-    filter: grayscale(0.85) brightness(0.55);
     cursor: not-allowed;
-}
-.spawn-item.disabled .item-cost { color: #ff7777; }
-.spawn-item.disabled .item-cost .cost-num { color: #ff5555; }
-
-/* Active build-mode highlight (visible briefly before menu hides). */
-.spawn-item.active-mode {
-    border-color: #fff7b0;
+    border-color: rgba(120, 130, 145, 0.55);
+    background:
+        radial-gradient(circle at 50% 22%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 55%),
+        linear-gradient(170deg, #2c2f3a 0%, #1c1e26 60%, #12131a 100%);
     box-shadow:
-        inset 0 2px 0 rgba(255, 255, 255, 0.30),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.45),
-        0 3px 0 rgba(0, 0, 0, 0.80),
-        0 0 16px var(--accent-glow);
-    filter: brightness(1.20);
+        inset 0 2px 0 rgba(255, 255, 255, 0.10),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+        0 4px 0 rgba(0, 0, 0, 0.55),
+        0 6px 10px rgba(0, 0, 0, 0.40);
+}
+.spawn-item.disabled::before {
+    background: rgba(140, 150, 165, 0.4);
+    box-shadow: none;
+}
+.spawn-item.disabled .item-icon {
+    filter: grayscale(1) brightness(0.55);
+    opacity: 0.7;
+}
+.spawn-item.disabled .item-label {
+    color: #9ea3b0;
+    opacity: 0.85;
+}
+.spawn-item.disabled .item-cost {
+    background: linear-gradient(180deg, #ff9a9a 0%, #d62b2b 55%, #6b0a0a 100%);
+    border-color: #3a0606;
+    color: #2b0000;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.30),
+        0 2px 0 rgba(0, 0, 0, 0.55);
+}
+.spawn-item.disabled .item-cost .cost-num    { color: #2b0000; }
+.spawn-item.disabled .item-cost .cost-sep    { color: #3a0606; }
+.spawn-item.disabled .item-cost .cost-trailer { color: #2b0000; opacity: 0.95; }
+
+/* Active build-mode highlight + breathing pulse. */
+.spawn-item.active-mode {
+    border-color: #fff7d8;
+    filter: brightness(1.3);
+    animation: spawn-active-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes spawn-active-pulse {
+    0%, 100% {
+        box-shadow:
+            inset 0 2px 0 rgba(255, 255, 255, 0.32),
+            inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+            0 4px 0 rgba(0, 0, 0, 0.75),
+            0 0 18px var(--accent-glow);
+    }
+    50% {
+        box-shadow:
+            inset 0 2px 0 rgba(255, 255, 255, 0.32),
+            inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+            0 4px 0 rgba(0, 0, 0, 0.75),
+            0 0 32px var(--accent-glow);
+    }
 }
 
 .spawn-item.shake { animation: hero-shake 0.35s ease-in-out; }
+
+/* ─── Responsive: shrink chips, items, and fonts on narrow viewports.
+   The panel is centered on the menu (not the chip), so we just need the
+   menu + panel to fit horizontally. --chip-w shrinks here too, which
+   re-anchors the arrow notch to the smaller chip width. ─────────────── */
+@media (max-width: 720px) {
+    #spawn-menu {
+        --chip-w: 100px;
+        top: 12px;
+    }
+    .section-chip {
+        height: 50px;
+        font-size: 1.3rem;
+        letter-spacing: 1.8px;
+        padding-top: 3px;
+    }
+    .section-items {
+        gap: 8px;
+        padding: 10px 12px;
+        margin-top: 12px;
+        border-radius: 16px;
+    }
+    .spawn-item {
+        width: 78px;
+        height: 102px;
+        padding: 9px 4px 7px;
+        border-width: 2px;
+    }
+    .spawn-item .item-icon.emoji { font-size: 1.85rem; }
+    .spawn-item .item-icon.img   { width: 38px; height: 38px; }
+    .spawn-item .item-label {
+        font-size: 0.85rem;
+        letter-spacing: 1.1px;
+    }
+    .spawn-item .item-cost {
+        min-width: 50px;
+        min-height: 26px;
+        padding: 2px 10px 2px;
+    }
+    .spawn-item .item-cost .cost-num   { font-size: 1.05rem; }
+    .spawn-item .item-cost .cost-emoji {
+        width: 22px;
+        height: 22px;
+        line-height: 22px;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 420px) {
+    #spawn-menu {
+        --chip-w: 88px;
+        top: 10px;
+    }
+    .section-chip {
+        height: 46px;
+        font-size: 1.15rem;
+        letter-spacing: 1.4px;
+        border-width: 2.5px;
+    }
+    .section-items {
+        gap: 6px;
+        padding: 8px 10px;
+        margin-top: 10px;
+    }
+    .spawn-item {
+        width: 70px;
+        height: 92px;
+        padding: 7px 3px 6px;
+        border-radius: 12px;
+    }
+    .spawn-item .item-icon.emoji { font-size: 1.65rem; }
+    .spawn-item .item-icon.img   { width: 34px; height: 34px; }
+    .spawn-item .item-label {
+        font-size: 0.78rem;
+        letter-spacing: 0.9px;
+    }
+    .spawn-item .item-cost {
+        min-width: 46px;
+        min-height: 24px;
+        padding: 2px 9px 2px;
+        border-width: 1.5px;
+    }
+    .spawn-item .item-cost .cost-num   { font-size: 0.95rem; }
+    .spawn-item .item-cost .cost-emoji {
+        width: 20px;
+        height: 20px;
+        line-height: 20px;
+        font-size: 0.92rem;
+    }
+    .spawn-item .item-cost:has(.cost-pair + .cost-pair) .cost-num {
+        font-size: 0.9rem;
+    }
+    .spawn-item .item-cost:has(.cost-pair + .cost-pair) .cost-emoji {
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 340px) {
+    #spawn-menu { --chip-w: 78px; }
+    .section-chip {
+        height: 42px;
+        font-size: 1.02rem;
+        letter-spacing: 1.1px;
+    }
+    .spawn-item {
+        width: 62px;
+        height: 84px;
+    }
+    .spawn-item .item-icon.emoji { font-size: 1.45rem; }
+    .spawn-item .item-label { font-size: 0.7rem; letter-spacing: 0.6px; }
+}
 
 /* Storage-placement ground indicator (3D) — no HTML, but the cursor hint
    above gives the player a visual cue that the canvas is now in place mode. */

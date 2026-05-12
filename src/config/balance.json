@@ -347,18 +347,18 @@
 
     "waves": {
         "_master": {
-            "Z_init":           5,
-            "_Z_init_doc":      "Concurrent zombie cap at T=0. Dance around panic threshold (Z_swarm_panic=4) — player sees 1-2 simultaneous threats but rarely 4+. Onboarding minute teaches combat without overwhelming.",
+            "Z_init":           18,
+            "_Z_init_doc":      "Concurrent zombie cap at T=0. 2026-05-12 v2: bumped 12→18 (user feedback: map still feels empty). 18 starting zombies on 100u map = ~1 per 555 sqU at boot — visible but not overwhelming. Player still survives first contacts.",
 
-            "Z_max":            25,
-            "_Z_max_doc":       "Concurrent zombie cap ceiling. Miller's Law (7±2) trippled for chaotic-but-readable peak density. Density limit on 60×60 map.",
+            "Z_max":            100,
+            "_Z_max_doc":       "Concurrent zombie cap ceiling. 2026-05-12 v2: bumped 60→100. ~1 zombie per 100 sqU at peak — real horde density. Cohesion + bursts mean these 100 zombies move as ~20-25 clusters of 4-5, not 100 scattered ones.",
 
-            "T_ramp_full":      240,
-            "_T_ramp_full_doc": "Sec to ramp from Z_init to Z_max. 80% of session length (5min × 0.8 = 240s) = hyper-casual peak at 4:00 with last minute at full intensity for climax.",
+            "T_ramp_full":      120,
+            "_T_ramp_full_doc": "Sec to ramp from Z_init to Z_max. 2026-05-12: cut 240→120 to front-load pressure. Peak density at 2:00 instead of 4:00 — last 3 min are all-out climax not 'ramping'.",
 
-            "spawn_interval_min": 4,
-            "spawn_interval_max": 7,
-            "_spawn_interval_doc": "Sec between individual zombie spawns from random cemetery. TaB-style ~1 zombie per 5s. 4-7s = 8.5-15 zombies/min flow rate at peak cap."
+            "spawn_interval_min": 2.5,
+            "spawn_interval_max": 5,
+            "_spawn_interval_doc": "Sec between individual zombie spawns from random cemetery. 2026-05-12: tightened 4-7→2.5-5. With Z_max=60 the cap holds higher; spawn cadence + kill churn needs faster trickle to refill."
         },
 
         "_derived_doc": "EnemySystem reads cap_per_minute via 60-sec discrete ramps.",
@@ -368,15 +368,78 @@
 
         "ramp_per_60s_int":     5,
 
-        "pack_radius":          4,
+        "pack_radius":          12,
+        "_pack_radius_doc":     "Aggro broadcast radius (zombie sees player → shouts to nearby zombies). 2026-05-12: bumped 4→12. With batched cemetery spawns + wander cohesion zombies stay grouped, so a single aggro pulls 3-5 nearby zombies into a coordinated chase. 'No more solo Scout snowball' lever.",
         "pack_cooldown":        1.0,
         "stack_cap":            4,
         "_stack_cap_doc":       "Max zombies attacking the same target. = Z_swarm_panic. A 5th zombie waits its turn — readability win.",
 
         "anchor_drift_min":     30,
         "anchor_drift_max":     60,
-        "drift_home_radius":    8,
-        "_drift_doc":           "Each zombie's wander pivot slides every 30-60s within 8u of its cemetery. Without this they orbit forever; with it the world feels populated."
+        "drift_home_radius":    20,
+        "_drift_doc":           "Each zombie's wander pivot slides every 30-60s within drift_home_radius of its cemetery. 2026-05-12: bumped 8→20 — on a 100u map zombies need more roaming room to feel alive between cemeteries instead of orbiting one.",
+
+        "burst_size_min":       3,
+        "burst_size_max":       5,
+        "burst_interval_min":   8,
+        "burst_interval_max":   14,
+        "_burst_doc":           "2026-05-12: cemeteries now spawn in BURSTS instead of single trickles. Every burst_interval_min..max seconds, a random cemetery vomits burst_size_min..max zombies at once. Same average spawn rate as the old trickle (~3.5s/zombie), but zombies arrive AS a group → whoever they reach (player, scout, rival, ally) faces a clump, not a single. L4D-style common-infected pack pattern. Combined with cohesion + pack_radius, this is the core 'no solo Scout = trivial' fix.",
+
+        "cohesion_radius":      14,
+        "cohesion_weight":      0.55,
+        "_cohesion_doc":        "Boids-style attraction: while wandering, each zombie applies a force toward the mean position of zombies within cohesion_radius. weight is the blend with the random-walk direction (0=pure random, 1=pure cohesion). 2026-05-12 v2: bumped radius 8→14 + weight 0.35→0.55 (user feedback: bursts separated after spawn). Combined with shared-burst wander target below, groups now stick together visibly while migrating.",
+
+        "burst_shared_offset":  18,
+        "_burst_shared_offset_doc": "When a cemetery vomits a burst, all members get the SAME initial wander target chosen as a single random point burst_shared_offset units from the cemetery. They walk together until cohesion takes over for the rest of the wander loop. Fixes 'burst spawns but zombies arrive solo' — they now march as a clump from the cemetery.",
+
+        "noise_radius":         14,
+        "noise_duration":       8,
+        "noise_cooldown_per_event": 0.25,
+        "_noise_doc":           "Combat noise: every entity:damaged event (sword swing, wall hit, zombie death) creates a noise pulse at the victim's position. Wandering zombies within noise_radius transition to a 'hunt' chase that targets the noise position for noise_duration seconds, then forget. Creates the 'fighting attracts more fighting' cascade. noise_cooldown_per_event throttles the listener so a furious melee doesn't fire 100 noise pulses/sec.",
+
+        "herd_patrol_interval_min": 60,
+        "herd_patrol_interval_max": 90,
+        "herd_patrol_size":     4,
+        "_herd_patrol_doc":     "Every herd_patrol_interval_min..max seconds, herd_patrol_size random zombies at one cemetery have their wander anchor reassigned to ANOTHER cemetery. They migrate as a loose pack (cohesion keeps them together). Map always has motion somewhere. Cemetery→cemetery routes are deterministic + readable (advisor: don't use arbitrary destinations).",
+
+        "emerge_interval_min":  90,
+        "emerge_interval_max":  120,
+        "emerge_warning_duration": 2,
+        "_emerge_doc":          "Random ground emergence: every emerge_interval_min..max seconds, a single zombie spawns at a random map position (NOT a cemetery). emerge_warning_duration seconds before, a dust-puff particle plays at the spawn point as a tell. Sells 'nowhere is truly safe' — the rare 'wait, where did THAT come from' moment without crossing into unfair.",
+
+        "_smart_zombies_doc":   "2026-05-12 v4 — smart zombies pass. Memory (LKP) + tiered Horde Call + Combat Blood. Replaces pack_radius single-tier broadcast. Designed to make zombies feel persistent + group up across the whole map when one sights you. Sources: F.E.A.R. memory + L4D Director horde calls + Project Zomboid sound propagation.",
+
+        "investigate_duration": 10,
+        "_investigate_duration_doc": "When a chase-real-target zombie loses sight, it remembers the last-known position for this many seconds. Walks there, scans with heightened sense, then reverts to wander. F.E.A.R. / Half-Life 'search' state pattern.",
+
+        "investigate_sense_multiplier": 1.5,
+        "_investigate_sense_doc": "Effective sense radius multiplier while searching at LKP. Heightened awareness — 'I know they're near here somewhere'.",
+
+        "hordecall_immediate_radius": 25,
+        "_hordecall_immediate_doc":  "Tier 1 — immediate chase join when a zombie aggros wander→chase REAL target. Receivers within this radius join the chase without needing to see the target themselves (the broadcaster's word is enough). 25u > previous pack_radius=12 so cascades actually propagate.",
+
+        "hordecall_drift_radius":   60,
+        "_hordecall_drift_doc":     "Tier 2 — drift pull. Receivers in (25, 60u) keep wander state but their wander target is overridden to the broadcaster's position for hordecall_drift_duration seconds. They walk TOWARD the fight without committing to chase.",
+
+        "hordecall_drift_duration": 15,
+
+        "hordecall_alert_radius":  120,
+        "_hordecall_alert_doc":    "Tier 3 — heightened alert. Receivers anywhere in (60, 120u) — effectively map-wide — get sense radius × hordecall_alert_sense_multiplier for hordecall_alert_duration seconds. They don't move toward broadcaster; they just become more easily aggro'd when something passes by.",
+
+        "hordecall_alert_duration": 30,
+        "hordecall_alert_sense_multiplier": 2.0,
+
+        "hordecall_cooldown":      1.5,
+        "_hordecall_cooldown_doc": "Per-broadcaster cooldown so a single zombie can't spam broadcasts every frame. Replaces pack_cooldown for the horde-call path.",
+
+        "combat_blood_radius":     20,
+        "_combat_blood_doc":       "On any non-silent entity:damaged event, wandering zombies within this radius get sense radius × combat_blood_sense_multiplier for combat_blood_duration seconds. Distinct from noise_radius (which sets a HUNT TARGET — pulls zombies to the noise position). Combat blood is passive — 'smell of blood = sharper senses, but stay put'.",
+
+        "combat_blood_duration":   5,
+        "combat_blood_sense_multiplier": 1.5,
+
+        "effective_sense_max_mult": 2.5,
+        "_effective_sense_max_doc": "Cap on the effective sense radius. Multiple boosts (investigate, alert, blood) take the MAX rather than multiply, but this cap is a hard ceiling against future stacking."
     },
 
     "regen": {

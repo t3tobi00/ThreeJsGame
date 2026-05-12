@@ -214,10 +214,16 @@ export class SpawnMenuUI {
     }
 
     /**
-     * Render a cost like "8 [essence-icon]" using the BAKED 2D image of
-     * the actual resource mesh (falls back to the resources.json emoji if
-     * baking failed for that type). Wraps each (number + icon) pair so
-     * multi-resource costs flow naturally.
+     * Render a cost like "8 🪵" or, for multi-resource, two stacked rows
+     * "30 🪵" / "5 ✨". Each resource pair is a `.cost-pair` span that the
+     * CSS stacks vertically when more than one pair is present.
+     *
+     * Cost icons use the color emoji from resources.json rather than the
+     * baked 3D mesh PNGs — the baked meshes render as tiny dark blobs at
+     * this size and players can't tell which resource is which. Emojis
+     * read instantly. The baked icons are still used for the larger item
+     * PORTRAITS (Wood Box / Ess. Box cards) where the mesh shape is big
+     * enough to recognize.
      */
     _buildCostBadge(cost) {
         const frag = document.createDocumentFragment();
@@ -225,37 +231,25 @@ export class SpawnMenuUI {
         for (let i = 0; i < entries.length; i++) {
             const [type, n] = entries[i];
 
+            const pair = document.createElement('span');
+            pair.className = 'cost-pair';
+
             const numEl = document.createElement('span');
             numEl.className = 'cost-num';
             numEl.textContent = n;
-            frag.appendChild(numEl);
+            pair.appendChild(numEl);
 
-            const baked = this._resourceIcons[type];
-            if (baked) {
-                const img = document.createElement('img');
-                img.className = 'cost-icon';
-                img.src = baked;
-                img.alt = type;
-                img.draggable = false;
-                frag.appendChild(img);
-            } else {
-                let emoji = '?';
-                try {
-                    const def = ResourceRegistry.get(type);
-                    if (def?.emoji) emoji = def.emoji;
-                } catch (_) { /* unknown type */ }
-                const emojiEl = document.createElement('span');
-                emojiEl.className = 'cost-emoji';
-                emojiEl.textContent = emoji;
-                frag.appendChild(emojiEl);
-            }
+            let emoji = '?';
+            try {
+                const def = ResourceRegistry.get(type);
+                if (def?.emoji) emoji = def.emoji;
+            } catch (_) { /* unknown type */ }
+            const emojiEl = document.createElement('span');
+            emojiEl.className = 'cost-emoji';
+            emojiEl.textContent = emoji;
+            pair.appendChild(emojiEl);
 
-            if (i < entries.length - 1) {
-                const sep = document.createElement('span');
-                sep.className = 'cost-sep';
-                sep.textContent = ' · ';
-                frag.appendChild(sep);
-            }
+            frag.appendChild(pair);
         }
         return frag;
     }

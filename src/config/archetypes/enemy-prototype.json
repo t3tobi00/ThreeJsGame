@@ -1,5 +1,5 @@
 {
-    "_doc": "Prototype-mode zombie (V1 Shambler). Extends legacy enemy.json. All combat numbers come from balance.json combat.zombie.* — HP, contact damage, cooldown, speed. Spitter cooldown also balance-derived; spit damage uses zombie.spit_damage. EnemyAI: senseRadius 8 + wanderLeash 12 anchor wander to the OWN cemetery spawn point. aggroPriority drives closest+worker-preference targeting in EnemySystem._pickNearestTarget. wanderPause matches V1 PHASE_2_ENTITIES.md §2.5.4. Mesh + WalkAnim are the rigged 'character-zombie' so PlayerAnimSystem drives the lurch and LungeAnimSystem swings arms on each ContactDamage hit.",
+    "_doc": "Prototype-mode zombie (V1 Shambler). Extends legacy enemy.json. Combat numbers from balance.json combat.zombie.*. 2026-05-12 (haunt pass): senseRadius 8→16 (twice the sight, see player at 16u), wanderLeash 12→35 (roam between cemeteries instead of orbiting one — required for 100u map), targetFactions now include 'rival' so zombies attack rival soldiers + king too (haunted-map-for-everyone). aggroPriority drives closest+worker-preference targeting in EnemySystem._pickNearestTarget.",
     "extends": "enemy",
     "mesh": { "preset": "character-zombie", "color": "0x6a8a4a" },
     "components": {
@@ -17,7 +17,7 @@
             "damage":         "$balance.combat.zombie.damage_per_hit",
             "cooldown":       "$balance.combat.zombie.cooldown",
             "range":          2.0,
-            "targetFactions": ["player", "ally", "structure"]
+            "targetFactions": ["player", "ally", "rival", "structure"]
         },
         "Spitter":       {
             "range":            5.0,
@@ -26,13 +26,13 @@
             "windupDuration":   0.45,
             "projectileSpeed":  9,
             "arcHeight":        1.2,
-            "targetFactions":   ["player", "ally", "structure"]
+            "targetFactions":   ["player", "ally", "rival", "structure"]
         },
         "EnemyAI":       {
-            "senseRadius":      8,
-            "wanderLeash":      12,
-            "aggroRadius":      8,
-            "wanderRadius":     12,
+            "senseRadius":      16,
+            "wanderLeash":      35,
+            "aggroRadius":      16,
+            "wanderRadius":     35,
             "herdRadius":       5,
             "wanderSpeed":      0.9,
             "wanderPauseMin":   1.5,

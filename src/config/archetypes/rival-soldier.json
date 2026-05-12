@@ -32,7 +32,7 @@
             "damage":         "$balance.combat.rival_soldier.damage_per_hit",
             "cooldown":       "$balance.combat.rival_soldier.cooldown",
             "range":          "$balance.combat.rival_soldier.range",
-            "targetFactions": ["player", "ally", "structure"]
+            "targetFactions": ["player", "ally", "enemy", "structure"]
         },
         "Arms": {},
         "BehaviorState": {

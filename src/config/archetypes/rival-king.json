@@ -15,7 +15,7 @@
         },
         "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
         "Collider": { "shape": "box", "width": 1.2, "depth": 1.2, "isStatic": true },
-        "Tag": { "tags": ["rival", "rival-king", "structure"] },
+        "Tag": { "tags": ["rival", "rival-king", "structure", "no_zombie_target"] },
         "Movement": {
             "speed":      0,
             "controller": "hero_ai",
