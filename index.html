@@ -6,6 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Base Defense Tycoon</title>
     <link rel="stylesheet" href="styles/main.css">
+    <script>
+        // Default visitors to ?prototype so friends don't have to know to add
+        // the query string. Preserves explicit ?prototype / ?diorama / ?scene
+        // links and any other query params already in the URL.
+        (function () {
+            var s = location.search;
+            if (!/(\?|&)(prototype|diorama|scene)(=|&|$)/.test(s)) {
+                var join = s ? s + '&' : '?';
+                location.replace(location.pathname + join + 'prototype' + location.hash);
+            }
+        })();
+    </script>
 </head>
 
 <body>
