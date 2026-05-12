@@ -12,6 +12,8 @@
  * Mirrors the ArchetypeLoader + ResourceRegistry patterns used elsewhere.
  */
 
+import BalanceLoader from './BalanceLoader.js';
+
 const _skills = new Map();
 const _projectiles = new Map();
 let _loaded = false;
@@ -25,12 +27,14 @@ async function _fetchJson(url) {
 async function load() {
     if (_loaded) return;
 
-    // Load skill manifest + all skill files
+    // Load skill manifest + all skill files. Each definition is walked by
+    // BalanceLoader so $balance.X.Y.Z placeholders resolve to live numbers.
     const skillsManifestUrl = new URL('../config/skills/_manifest.json', import.meta.url);
     const skillsManifest = await _fetchJson(skillsManifestUrl);
     await Promise.all((skillsManifest.skills || []).map(async (id) => {
         const url = new URL(`../config/skills/${id}.json`, import.meta.url);
         const def = await _fetchJson(url);
+        BalanceLoader.resolvePlaceholders(def);
         _skills.set(def.id || id, def);
     }));
 
@@ -40,6 +44,7 @@ async function load() {
     await Promise.all((projManifest.projectiles || []).map(async (id) => {
         const url = new URL(`../config/projectiles/${id}.json`, import.meta.url);
         const def = await _fetchJson(url);
+        BalanceLoader.resolvePlaceholders(def);
         _projectiles.set(def.id || id, def);
     }));
 

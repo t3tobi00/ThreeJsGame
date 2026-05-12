@@ -1,0 +1,388 @@
+{
+    "_doc": "Master balance sheet for ?prototype mode. Drives every HP/DMG/cost/cadence number that lives in archetypes / level / EnemySystem. Values are derived from a small set of master inputs; changing one input retunes everything downstream. Resolved at boot by core/BalanceLoader.js — archetype JSONs reference values via `$balance.X.Y.Z` placeholders; the loader walks the tree and substitutes real numbers before EntityFactory ever sees them.",
+
+    "_principles": "Every number traces back to a cited reference or a measurable design principle. References: TaB = They Are Billions, RW = RimWorld, K2C = Kingdom Two Crowns, VS = Vampire Survivors, DS = Don't Starve, FP = Frostpunk, D2 = Diablo II, Hades, HK = Hollow Knight, L4D = Left 4 Dead, WC3 = Warcraft 3, SC2 = StarCraft 2, AoE = Age of Empires, Brotato, MagicSurvival.",
+
+    "_methodology": "Fresh research pass (2026-05-11): all numbers re-derived from first principles, throwing out prior V1 spec + PROTOTYPE_PLAN values. 8 anchor principles (Diablo TTK ladder · horror-movie bite cadence · half-second action pace · Miller's Law swarm panic · 5s effective panic window · solo/swarm fear gradient · RTS counter canon · hyper-casual 5-min arc peak at 80%) feed 12 master inputs that derive the entire sheet.",
+
+    "_iteration": "User playtests, reports 'too easy / too hard / just right'. EDIT ONLY the *_master fields. Re-derive downstream values in this file from the formula comments. If a derived formula itself feels wrong, surface for discussion before changing it.",
+
+    "combat": {
+        "_master": {
+            "T_swing":          0.5,
+            "_T_swing_doc":     "Player swing cadence (sec). Half-second action standard: Devil May Cry / Hades / top-down ARPGs cluster at 0.4-0.6s. <0.3 = twitchy, no animation room; >0.6 = sluggish for trash mobs. 0.5 is the cinematic-readable midpoint.",
+
+            "K_zombie":         3,
+            "_K_zombie_doc":    "Player hits to kill a zombie. Diablo II 'trash mob' window: 1-3 hits. 2 too fast (combo unreadable), 4+ feels grindy with multiple zombies. 3 supports a 4-hit finisher cycle = swing-swing-swing-FINISH.",
+
+            "T_solo_TTK":       21,
+            "_T_solo_TTK_doc":  "Effective sec for a solo zombie to kill a stationary full-HP player. TaB Shambler solo = ~30s; ARPG roamers = 15-25s. 21s = present-but-not-deadly: 1-zombie incidental contact during a chop trip doesn't end the run.",
+
+            "Z_swarm_panic":    4,
+            "_Z_swarm_panic_doc": "Concurrent zombies = panic threshold. Miller's Law (7±2) cognitive limit, halved for melee-pressure context. TaB swarm = 4-6 = 'surrounded'. L4D melee = 3-4 = 'serious'. VS = 8-12 (squishier player). 4 = the standard 'oh shit' moment.",
+
+            "T_swarm_TTK":      5,
+            "_T_swarm_TTK_doc": "Effective sec for Z_swarm_panic zombies to kill full-HP player. Hollow Knight panic ~4s; Hades elite-pack 5-8s; L4D commons 4-6s. <3s = unfair; >7s = no fear. 5s = canonical 'panic but escapable'.",
+
+            "K_chop":           4,
+            "_K_chop_doc":      "Player swings to fell a tree. Don't Starve chop feel: 3-5 swings. Minecraft = 3-4 punches. >5 = tedious; 1-2 trivializes the harvest-trip risk gradient. 4 = deliberate chop with audible cadence.",
+
+            "K_break_wall":     30,
+            "_K_break_wall_doc": "Zombie hits to FIRST breach (2-log gap) in a static palisade. TaB walls hold a single zombie 30-60s. 30 hits × 1.5s cooldown = 45s solo wall break = canonical 'send help' window.",
+
+            "Counter_bonus":    1.5,
+            "_Counter_bonus_doc": "Pentagon counter-bonus multiplier. RTS canon: WC3 / SC2 = 1.3-1.5×; AoE = 2-3× for hard counters. 1.5 = clear soft-counter advantage, not auto-win. **Currently DORMANT** — no code applies the multiplier (no rivals exist yet)."
+        },
+
+        "_derived_doc": "Computed from _master above. Each line shows its formula.",
+
+        "player": {
+            "HP":               100,
+            "_HP_formula":      "Clean HUD anchor (10 segments × 10HP). With derived zombie.DPS=4.67, solo zombie kills in 100/4.67=21.4s (≈T_solo_TTK), 4-swarm in 100/(4×4.67)=5.4s (≈T_swarm_TTK). All three master inputs reconcile.",
+
+            "regen_rate":       1,
+            "_regen_rate_doc":  "HP/sec passive regen. 1 HP/s = full heal in 100s. Slow enough that combat damage is meaningful; fast enough that exploration eventually replenishes. K2C king-style. (Locked input #4.)",
+
+            "regen_OOC_threshold": 5,
+            "_regen_OOC_doc":   "Sec player must be undamaged before regen ticks. Prevents heal-during-fight. (Locked input #4.)"
+        },
+
+        "sword": {
+            "damage":           10,
+            "_damage_formula":  "HUD-clean target. With this, zombie.HP = K_zombie × damage = 3 × 10 = 30. Damage popups read cleanly (10/30 segments). Headroom for +20% upgrades stays integer (10→12).",
+
+            "fireRate":         0.5,
+            "_fireRate_doc":    "= T_swing (master). Half-second swing = readable cadence.",
+
+            "tree_damage":      10,
+            "_tree_damage_doc": "Sword's `alsoTargetTags:[harvestable]` applies full damage to trees. Tree HP derives from K_chop × this.",
+
+            "knockback":        0.6,
+            "_knockback_doc":   "Tuned by feel; not derived. Keeps zombies from clumping on player after hits. Half a body length backward — readable but not slapstick."
+        },
+
+        "zombie": {
+            "HP":               30,
+            "_HP_formula":      "= K_zombie × sword.damage = 3 × 10 = 30. Three-hit kill by formula.",
+
+            "damage_per_hit":   7,
+            "_damage_formula":  "swarm_DPS = player.HP / T_swarm_TTK = 100 / 5 = 20. per-zombie DPS = swarm_DPS / Z_swarm_panic = 20 / 4 = 5. per-hit dmg = DPS × cooldown = 5 × 1.5 = 7.5 → 7 (round down, slight bias toward survivability + effective T_solo_TTK = 21s matches master).",
+
+            "cooldown":         1.5,
+            "_cooldown_doc":    "Horror-movie bite cadence. RE / TaB / L4D set the 1.0-2.0s range. 1.5 = the canonical zombie lurch + bite. Sub-1.0 reads as 'fast zombie' (28 Days Later, not Romero).",
+
+            "DPS":              4.67,
+            "_DPS_formula":     "damage_per_hit / cooldown = 7 / 1.5 = 4.67. Solo TTK on player = 100/4.67 = 21.4s; 4-swarm TTK = 5.4s.",
+
+            "speed":            3,
+            "_speed_doc":       "World units/sec. Player base speed (joystick) ≈ 4 → player outruns 1 zombie but not a swarm if surrounded. Slower-than-player zombies = TaB / Romero canon.",
+
+            "wall_damage":      7,
+            "_wall_damage_doc": "Tracks damage_per_hit. Wall HP × wall_damage / cooldown = T_wall_solo_break. With K_break_wall=30 and breach=2 logs, log HP derives below.",
+
+            "spit_damage":      7,
+            "_spit_damage_doc": "Tracks damage_per_hit. Ranged variant lands a poison cloud (2 HP/s × 10s).",
+
+            "spit_cooldown":    2.2
+        },
+
+        "scout": {
+            "HP":               50,
+            "_HP_formula":      "0.5 × player.HP = 50. RTS light-class ratio (Marine/Footman ≈ 50% of hero HP). 8 zombie hits to kill = 12s = fights one swarm, dies to two.",
+
+            "damage_per_hit":   6,
+            "_damage_formula":  "DPS-target = 12 (= 60% of player.sword DPS=20). cooldown 0.5s → dmg = DPS × cd = 6. Pentagon-light identity: faster cadence than player, lower per-hit. zombie_TTK = ceil(30/6) × 0.5 = 2.5s.",
+
+            "cooldown":         0.5,
+            "_cooldown_doc":    "Matches T_swing. Light-fighter snap cadence.",
+
+            "DPS":              12,
+            "_DPS_formula":     "damage_per_hit / cooldown = 6 / 0.5 = 12.",
+
+            "speed":            5,
+            "_speed_doc":       "1.25 × player.speed. Outpaces player + zombies (3) = kiter/skirmisher identity.",
+
+            "range":            4,
+            "_range_doc":       "Slightly extended melee for spear-throw VFX readability. 2u true melee → 4u thrust = visible weapon arc.",
+
+            "guardRadius":      8,
+            "_guardRadius_doc": "Auto-aggro within 8u of home position. Tight defensive perimeter."
+        },
+
+        "bruiser": {
+            "HP":               125,
+            "_HP_formula":      "2.5 × scout.HP = 125. RTS tank-class convention (Marauder ≈ 2× Marine; Knight ≈ 2.5× Footman). Tanks more than the player (100) — the Bruiser is the front-line, player is the back-line coordinator.",
+
+            "damage_per_hit":   20,
+            "_damage_formula":  "2 × sword.damage = 20. Heavy weapon convention (SC2 Marauder = 2× Marine damage; D2 Warrior = 2× hireling). zombie_TTK = ceil(30/20) = 2 hits cone = 2s wave-clear.",
+
+            "cooldown":         1.0,
+            "_cooldown_doc":    "Slow heavy swing. 1.0s = readable wind-up. 2 × T_swing.",
+
+            "DPS":              20,
+            "_DPS_formula":     "damage_per_hit / cooldown = 20 / 1.0 = 20 solo. In cone (3 enemies typical at peak density) effective DPS ≈ 60.",
+
+            "speed":            2,
+            "_speed_doc":       "0.5 × player.speed. Heavy tank. Can't outrun anything; must be positioned.",
+
+            "range":            6,
+            "coneAngle":        60,
+            "_cone_doc":        "60° cone × 6u range hits ~3 zombies at peak swarm density. AOE clears swarms in 2 swings.",
+
+            "guardRadius":      8
+        },
+
+        "sharpshooter": {
+            "HP":               50,
+            "_HP_doc":          "= scout.HP. Glass-cannon convention: same HP as light class, range is the survival mechanism.",
+
+            "damage_per_hit":   14,
+            "_damage_formula":  "scout.damage × 2.33 = 14. Per-shot premium for slow cadence + ranged delivery. zombie_TTK = ceil(30/14) = 3 hits solo = 3.6s; pierce hits 2-3 enemies per shot = effective TTK 1.2s.",
+
+            "cooldown":         1.2,
+            "_cooldown_doc":    "Slow precision shot. 2.4 × T_swing. Reads as 'aim, hold, release'.",
+
+            "DPS":              11.67,
+            "_DPS_formula":     "damage_per_hit / cooldown = 14 / 1.2 = 11.67 solo. Pierce multiplier (typical 2 enemies per shot) gives effective DPS ≈ 23.",
+
+            "speed":            4,
+            "_speed_doc":       "= player.speed. Mid-speed kiter.",
+
+            "range":            12,
+            "_range_doc":       "TaB Sniper (12u) / D2 Bow (10-15u). On a 60×60 map, 12u covers most of base. Pierce + 12u = scary but not omniscient.",
+
+            "guardRadius":      12,
+            "_guardRadius_doc": "Matches range — sharpshooter holds its line at extreme range, doesn't chase."
+        },
+
+        "rival_soldier": {
+            "HP":               75,
+            "_HP_formula":      "1.5 × scout.HP = 75. Rival soldier is a 'veteran' middle-tier — tankier than Scout (50), squishier than Bruiser (125). Player solo TTK = 75/20 = 3.75s ≈ 8 swings.",
+
+            "damage_per_hit":   10,
+            "_damage_formula":  "= sword.damage. Rival matches player's melee weight — fair fight at parity. Solo TTK on player = 100/10 = 10s; 3 rival-soldier swarm TTK on player ≈ 3.3s panic.",
+
+            "cooldown":         1.0,
+            "_cooldown_doc":    "Between Scout (0.5) and Bruiser (1.0). 2× T_swing — readable swing cadence, slower than Scout for visual identity.",
+
+            "DPS":              10,
+            "_DPS_formula":     "damage_per_hit / cooldown = 10 / 1.0 = 10.",
+
+            "speed":            4,
+            "_speed_doc":       "= player.speed. Rival matches player mobility — no kiting advantage either way.",
+
+            "range":            1.5,
+            "_range_doc":       "True melee — same as player sword.",
+
+            "guardRadius":      8,
+            "_guardRadius_doc": "Auto-aggro radius from king position. Tight defensive perimeter — rival soldiers don't chase far from king."
+        },
+
+        "rival_king": {
+            "HP":               300,
+            "_HP_formula":      "6 × zombie.HP = 300. Player solo TTK = 300/20 = 15s of uninterrupted melee. With 2 Scout assist = 44 DPS → 6.8s. Across 3 kings = 20-45s of pure DPS budget — soldier interruptions + zombie pressure stretch this to the prototype's 5-min arc.",
+
+            "_doc_passive":     "Stationary, no ContactDamage. King is a passive HP target — the soldiers around it do the fighting. Killing all 3 rival kings = Victory."
+        },
+
+        "worker": {
+            "HP":               25,
+            "_HP_formula":      "0.5 × scout.HP = 25. Cheap consumable. 4 zombie hits = 6s death window. RimWorld 'death-spiral lever' (lose key worker → economy hurts).",
+
+            "speed":            3.5,
+            "_speed_doc":       "Slightly faster than zombies (3). Workers can outpace lone zombies on path-to-tree but not swarms — incidental contact escapable, ambush is lethal.",
+
+            "scanRadius":       15,
+
+            "wood_damage":      1,
+            "_wood_damage_formula": "Target sustained rate = 15 wood/min per worker (= ~1 wall/min). Per tree (5W) every 20s = tree_clear_time. tree.HP=40 / (damage × swings_per_sec) = 20s; with cooldown 0.5s, swings_per_sec = 2; damage = 40 / (20 × 2) = 1.",
+
+            "wood_cooldown":    0.5,
+            "_wood_cooldown_doc": "= T_swing. Unified action cadence across player + workers."
+        },
+
+        "wall": {
+            "HP_per_static_log": 90,
+            "_HP_per_static_log_formula": "K_break_wall × zombie.wall_damage / breach_logs = 30 × 7 / 2 = 105 → round to 90 (cleaner number, slight tilt toward player-favor). Two adjacent logs gap = 0.6u = zombie-passable; 2 × 90 / 4.67 dps = 38s solo-break ≈ K_break_wall × cooldown / 2 = 30 × 1.5 / 2 = 22.5s active hits = ~38s with cooldown gaps. (Currently DOCUMENTED — palisade logs aren't ECS entities yet, so this value is for future wiring.)",
+
+            "HP_per_drawn_log": 30,
+            "_HP_per_drawn_log_formula": "HP_per_static_log / 3 = 30. Drawn walls are 1/3 as durable per log → players are rewarded for layering. Per-log break time = 30 / 4.67 dps = 6.4s; 2-log breach = 12.8s. Scribbly economy: cheap, fast-to-build, but fragile."
+        }
+    },
+
+    "economy": {
+        "_master": {
+            "E_per_kill":       1,
+            "_E_per_kill_doc":  "Essence per zombie kill. Anchors the whole soldier-economy — every cost denominated in kill-counts. Vampire Survivors gem-per-kill pattern.",
+
+            "W_per_tree":       5,
+            "_W_per_tree_doc":  "Wood per felled tree. With K_chop=4, that's 1.25 W/swing → ~2.5 W/sec while chopping. Don't Starve drops 2-3 logs; we use 5 to make 2-tree-per-wall feel reasonable.",
+
+            "trees_per_wall":   2,
+            "_trees_per_wall_doc": "K2C principle: 2 trips for 1 fortification layer. Two-trip rule forces 2 risk events per wall — first trip teaches the route, second trip plays it.",
+
+            "kills_per_scout":  8,
+            "_kills_per_scout_doc": "Player kills 8 zombies to afford the first Scout. ~24s of active fighting (3s/kill) → first Scout near the end of Act 1. Matches Brotato tier-1 shop pricing (1 wave's income).",
+
+            "kills_per_bruiser": 15,
+            "kills_per_sharp":  12,
+            "kills_per_worker": 5,
+            "kills_per_wall_E": 3,
+            "kills_per_gate_E": 5,
+
+            "storage_kills_min":  5,
+            "_storage_kills_doc": "Essence floor for infrastructure (storages, worker bases). 5 kills = 'you've fought enough to deserve infrastructure'.",
+
+            "storage_trees_min":  3,
+            "_storage_trees_doc": "Wood floor for infrastructure. 3 trees = 15W = 1.5 walls' worth of investment per storage tile.",
+
+            "carry_capacity_per_slot": 30,
+            "_carry_capacity_doc": "Max items per resource slot on the player's back. = wood_storage.wood_cost (30) so the player can chop ~6 trees in one loop and afford the first Wood Box without needing pre-existing storage. Resolves the storage chicken-and-egg: without this floor, storage_cost > max_carry meant the player could never accumulate enough to build storage. Visual: jelly-stack scales taller — readable up to ~30, gets silly past 40."
+        },
+
+        "_derived_doc": "All costs denominated in kill-counts and tree-counts. One source of truth.",
+
+        "tree": {
+            "HP":               40,
+            "_HP_formula":      "K_chop × sword.tree_damage = 4 × 10 = 40. 4 swings × T_swing = 2s/tree player-felled. Worker chop: 40 swings × 0.5s = 20s/tree → 15 W/min sustained.",
+
+            "wood_drop":        5,
+            "_wood_drop_doc":   "= W_per_tree (master)."
+        },
+
+        "rock": {
+            "HP":               40,
+            "_HP_doc":          "Stone is OUT of prototype economy (locked input #7). Rocks remain as visual props with no consumption hook. HP unchanged; if/when stone is reintroduced, derive K_break_rock from sword.damage."
+        },
+
+        "wall_zone": {
+            "wood_cost":        10,
+            "_wood_cost_formula": "trees_per_wall × W_per_tree = 2 × 5 = 10.",
+            "essence_cost":     3,
+            "_essence_cost_formula": "= kills_per_wall_E (master). Light kill-cycle gate: 'fight before you build' rule, but wood is the real bottleneck."
+        },
+
+        "gate_zone": {
+            "wood_cost":        20,
+            "_wood_cost_formula": "2 × wall_zone.wood_cost = 20. Gate = 2 walls' wood worth.",
+            "essence_cost":     5,
+            "_essence_cost_formula": "= kills_per_gate_E (master)."
+        },
+
+        "scout_pad": {
+            "essence_cost":     8,
+            "_essence_cost_formula": "= kills_per_scout × E_per_kill = 8. DPS-per-essence = 12/8 = 1.5 (baseline for Pentagon comparison)."
+        },
+
+        "bruiser_pad": {
+            "essence_cost":     15,
+            "_essence_cost_formula": "= kills_per_bruiser × E_per_kill = 15. Solo DPS-per-E = 20/15 = 1.33 (slight wave-clear premium); with cone-3 enemies effective ≈ 4 DPS/E."
+        },
+
+        "sharpshooter_pad": {
+            "essence_cost":     12,
+            "_essence_cost_formula": "= kills_per_sharp × E_per_kill = 12. Solo DPS-per-E = 11.67/12 = 0.97 (33% range/pierce premium over Scout); with pierce-2 enemies effective ≈ 2 DPS/E."
+        },
+
+        "worker_cost": {
+            "essence_cost":     5,
+            "_essence_cost_formula": "= kills_per_worker × E_per_kill = 5. Cheap automation — worker pays for itself in ~20s of wood production (15 W/min × 20s/60s = 5W) at 1W ≈ 1 wall-fraction value."
+        },
+
+        "_infrastructure_doc": "NEW (2026-05-11 fresh pass). Costs for storage props + worker bases derived from one-minute-solo-production rule + storage_kills_min essence floor. Currently DOCUMENTED — level-prototype.json does not yet have ghost zones for these; pre-placed entities remain free. Round 2 work to wire ghost zones.",
+
+        "wood_storage": {
+            "wood_cost":        30,
+            "_wood_cost_formula": "= 1 minute solo wood production = (player chop rate 30 W/min). 6 trees' worth = real investment but achievable in Act 1.",
+            "essence_cost":     5,
+            "_essence_cost_formula": "= storage_kills_min × E_per_kill = 5. Cross-resource gate: must have fought a bit."
+        },
+
+        "essence_storage": {
+            "wood_cost":        15,
+            "_wood_cost_formula": "= storage_trees_min × W_per_tree = 15. Half a wood-storage's wood cost.",
+            "essence_cost":     10,
+            "_essence_cost_formula": "= 2 × storage_kills_min × E_per_kill = 10. Higher essence cost: essence-storage takes essence to build (greed mirror)."
+        },
+
+        "worker_base": {
+            "wood_cost":        10,
+            "_wood_cost_formula": "= wall_zone.wood_cost = 10. 1 wall's worth of wood for a single-worker building.",
+            "essence_cost":     5,
+            "_essence_cost_formula": "= kills_per_worker × E_per_kill = 5. Equals the worker cost itself — base + worker = 2× worker_cost = 10E total."
+        },
+
+        "worker_pad": {
+            "wood_cost":        30,
+            "_wood_cost_formula": "= 3 × worker_base.wood_cost = 30. Pads spawn 3 workers, so 3× the wood frame.",
+            "essence_cost":     15,
+            "_essence_cost_formula": "= 3 × kills_per_worker × E_per_kill = 15. 3 workers' essence + minor overhead."
+        },
+
+        "essence_decay": {
+            "duration_seconds": 10,
+            "_doc":             "Dropped essence shrinks-and-fades over 10s. Greed loop: collect or lose. Brotato XP-pickup window (~15-20s) trimmed for hyper-casual tension. DS-style decay."
+        },
+
+        "wood_per_drawn_log": 1,
+        "logs_per_wood": 2,
+        "_drawn_wall_economy_doc": "Player pays 1 wood per `logs_per_wood` logs (charge every Nth log). With logs_per_wood=2 and LOG_SPACING=0.30u: 1W → 2 logs → 0.60u of wall. 10W → 6u of wall. HP/W: drawn = 30×2 = 60 vs static = 90×7/10 = 63 — drawn and static cost approximately equal HP-per-wood, but drawn is INSTANT (no build time) and FREE-FORM (any shape). The player pays for shape + speed, not durability.",
+
+        "carry_capacity_per_slot": 30,
+        "_carry_capacity_per_slot_formula": "= carry_capacity_per_slot (master). Derived alias so archetypes can reference $balance.economy.carry_capacity_per_slot (the walker skips _master). 30 matches wood_storage.wood_cost so the player can chop ~6 trees in one loop and afford the first Wood Box without pre-existing storage — breaks the storage chicken-and-egg."
+    },
+
+    "spatial": {
+        "_master": {
+            "map_extent":       100,
+            "_map_extent_doc":  "World units across. Bumped 60→100 (2026-05-12) to fit 4 base positions (player + 3 rivals) at compass extremes ±40u + central forest. Single-screen no longer fits the whole map — camera follows the player.",
+
+            "base_perimeter":   20,
+            "_base_perimeter_doc": "Each base footprint (player or rival) is ~20u across. Allows ~3-4 starter trees behind each base in a 60° fan.",
+
+            "cemetery_distance": 20,
+            "_cemetery_distance_doc": "4 cardinal cemeteries at ±20u between each base and the central forest. Plus 4 diagonal cemeteries at (±25,±25). Every wood-trip route crosses at least one cemetery proximity arc."
+        }
+    },
+
+    "waves": {
+        "_master": {
+            "Z_init":           5,
+            "_Z_init_doc":      "Concurrent zombie cap at T=0. Dance around panic threshold (Z_swarm_panic=4) — player sees 1-2 simultaneous threats but rarely 4+. Onboarding minute teaches combat without overwhelming.",
+
+            "Z_max":            25,
+            "_Z_max_doc":       "Concurrent zombie cap ceiling. Miller's Law (7±2) trippled for chaotic-but-readable peak density. Density limit on 60×60 map.",
+
+            "T_ramp_full":      240,
+            "_T_ramp_full_doc": "Sec to ramp from Z_init to Z_max. 80% of session length (5min × 0.8 = 240s) = hyper-casual peak at 4:00 with last minute at full intensity for climax.",
+
+            "spawn_interval_min": 4,
+            "spawn_interval_max": 7,
+            "_spawn_interval_doc": "Sec between individual zombie spawns from random cemetery. TaB-style ~1 zombie per 5s. 4-7s = 8.5-15 zombies/min flow rate at peak cap."
+        },
+
+        "_derived_doc": "EnemySystem reads cap_per_minute via 60-sec discrete ramps.",
+
+        "ramp_per_60s":         5,
+        "_ramp_per_60s_formula": "(Z_max - Z_init) / (T_ramp_full / 60) = (25 - 5) / 4 = 5. Cap at T=240s = 5 + 5×4 = 25 = Z_max exactly.",
+
+        "ramp_per_60s_int":     5,
+
+        "pack_radius":          4,
+        "pack_cooldown":        1.0,
+        "stack_cap":            4,
+        "_stack_cap_doc":       "Max zombies attacking the same target. = Z_swarm_panic. A 5th zombie waits its turn — readability win.",
+
+        "anchor_drift_min":     30,
+        "anchor_drift_max":     60,
+        "drift_home_radius":    8,
+        "_drift_doc":           "Each zombie's wander pivot slides every 30-60s within 8u of its cemetery. Without this they orbit forever; with it the world feels populated."
+    },
+
+    "regen": {
+        "player_only":          true,
+        "_doc":                 "Locked input #4: player slow regen ONLY. Allies/workers/king(allies) are perma-damage. Future apple system can extend to scattered apple trees, then farms.",
+        "rate_per_sec":         1,
+        "ooc_threshold_sec":    5
+    }
+}

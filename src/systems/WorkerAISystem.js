@@ -640,9 +640,28 @@ export class WorkerAISystem {
             const mesh = inv.popFromSlot(tripType);
             if (!mesh) break;
             if (mesh.parent) mesh.parent.remove(mesh);
+            // Dispose to avoid GPU memory leaks — the mesh is gone, not
+            // re-parented anywhere. Same disposal pattern as
+            // UnlockZoneSystem.onArrive.
+            mesh.geometry?.dispose?.();
+            mesh.material?.dispose?.();
             got++;
         }
         ai.carrying[tripType] += got;
+
+        // Emit stack:changed for the STORAGE so any listeners (HUD, debug
+        // overlays, future essence-storage counter UI) see the deduction.
+        // Without this, the visible stack data is correct but downstream
+        // observers stay stale. Reported user 2026-05-10: "wood storage
+        // isn't deducting when building things."
+        if (got > 0) {
+            EventBus.emit('stack:changed', {
+                entityId:   ai.padId,
+                type:       tripType,
+                count:      inv.getCountByType(tripType),
+                totalCount: inv.getTotalCount()
+            });
+        }
 
         if ((ai.carrying.wood + ai.carrying.essence) <= 0) {
             ai.fsmState = 'IDLE';

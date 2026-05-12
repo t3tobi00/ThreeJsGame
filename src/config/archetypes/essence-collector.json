@@ -1,33 +1,44 @@
 {
-    "_doc": "Essence Collector — Act 3 ally automation. Visual: cyan body + cone hood + glowing wisp jar. PR #3.3 ships full AI: walk to nearest essence drop, stop at safe ~6u distance, fire siphon beam from the jar, disks slide along the beam into the jar, walk to pad, deposit. Stats: HP 25, speed 3, faction ally. Non-combatant — takes damage, permanent death. Inventory caps at 10 essence.",
+    "_doc": "Essence Collector — Act 3 ally automation. Visual: cyan body + cone hood + glowing wisp jar. Walks to nearest essence drop, fires siphon beam from jar, walks to storage, deposits. Stats from balance.json combat.worker.*. Cost from economy.worker_cost. Non-combatant — takes damage, permanent death. Inventory caps at 10 essence.",
     "type": "EssenceCollector",
+    "spawn": {
+        "cost": { "essence": "$balance.economy.worker_cost.essence_cost" }
+    },
     "mesh": {
         "preset": "character-worker",
-        "color": "0x33aadd",
-        "hat": "hood",
-        "tool": "jar"
+        "color":  "0x33aadd",
+        "hat":    "hood",
+        "tool":   "jar"
     },
     "components": {
-        "Health": { "hp": 25, "maxHp": 25, "armor": 0 },
+        "Health": {
+            "hp":    "$balance.combat.worker.HP",
+            "maxHp": "$balance.combat.worker.HP",
+            "armor": 0
+        },
         "Animator": {},
         "SquashStretch": { "intensity": 0.12, "frequency": 5, "trigger": "move" },
-        "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
-        "WalkAnim": { "bobHeight": 0.06, "bobFreq": 6, "tiltAngle": 0.04 },
-        "Collider": { "shape": "circle", "radius": 0.35, "isStatic": false },
-        "Tag": { "tags": ["ally", "worker", "essence-collector"] },
-        "Movement": { "speed": 3, "controller": "none", "faction": "ally" },
+        "FlashAnim":     { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
+        "WalkAnim":      { "bobHeight": 0.06, "bobFreq": 6, "tiltAngle": 0.04 },
+        "Collider":      { "shape": "circle", "radius": 0.35, "isStatic": false },
+        "Tag":           { "tags": ["ally", "worker", "essence-collector"] },
+        "Movement":      {
+            "speed":      "$balance.combat.worker.speed",
+            "controller": "none",
+            "faction":    "ally"
+        },
         "InventoryStack": {
-            "maxSlots": 1,
+            "maxSlots":     1,
             "slotCapacity": 10,
             "acceptsTypes": ["essence"],
             "anchorOffset": { "x": 0, "y": 1.55, "z": -0.4 },
-            "slotSpacing": 0.5,
-            "style": "wobble"
+            "slotSpacing":  0.5,
+            "style":        "wobble"
         },
         "SpringStackAnim": { "wobble": 0.25, "squash": 0.12, "lag": 0.18 },
         "WorkerAI": {
-            "role": "essence",
-            "scanRadius": 30,
+            "role":         "essence",
+            "scanRadius":   30,
             "depositRange": 2.0
         }
     }

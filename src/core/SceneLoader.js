@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 import { GridSystem } from './GridSystem.js';
 import MeshPresets from './MeshPresets.js';
+import BalanceLoader from './BalanceLoader.js';
 
 export class SceneLoader {
     static async load(path, scene) {
         const response = await fetch(path);
         const levelData = await response.json();
+        // Resolve $balance.X.Y.Z placeholders in unlock-zone costs etc.
+        BalanceLoader.resolvePlaceholders(levelData);
 
         const grid = levelData.grid ? new GridSystem(levelData.grid) : null;
 

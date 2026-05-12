@@ -7,6 +7,7 @@ import { Lighting } from './core/Lighting.js';
 import { LightingDiorama } from './core/LightingDiorama.js';
 import EventBus from './core/EventBus.js';
 import { loadArchetypes, getArchetype } from './core/ArchetypeLoader.js';
+import BalanceLoader from './core/BalanceLoader.js';
 import ResourceRegistry from './core/ResourceRegistry.js';
 import SkillRegistry from './core/SkillRegistry.js';
 import StackConfigRegistry from './core/StackConfigRegistry.js';
@@ -24,9 +25,10 @@ import { DamagePopupUI } from './ui/DamagePopupUI.js';
 import { PrototypeEndUI } from './ui/PrototypeEndUI.js';
 import { AudioManager } from './core/AudioManager.js';
 import { PrototypeStats } from './state/PrototypeStats.js';
-import { PrototypeStateMachine } from './systems/PrototypeStateMachine.js';
-import { NextStepIndicator } from './systems/NextStepIndicator.js';
-import { PalisadeGateSystem } from './systems/PalisadeGateSystem.js';
+import { PrototypeToast } from './ui/PrototypeToast.js';
+import { SpawnMenuSystem } from './systems/SpawnMenuSystem.js';
+import { SpawnMenuUI } from './ui/SpawnMenuUI.js';
+import { LavaHoleSystem } from './systems/LavaHoleSystem.js';
 
 // --- ECS Framework ---
 import { ECSManager } from './ecs/ECSManager.js';
@@ -48,6 +50,8 @@ import { HeroAISystem } from './systems/HeroAISystem.js';
 import { WaypointFollowSystem } from './systems/WaypointFollowSystem.js';
 import { DragInputSystem } from './systems/DragInputSystem.js';
 import { DrawWallSystem } from './systems/DrawWallSystem.js';
+import { DrawnWallGateSystem } from './systems/DrawnWallGateSystem.js';
+import { StorageDepositSystem } from './systems/StorageDepositSystem.js';
 import { CollectorSystem } from './systems/CollectorSystem.js';
 import { AgentAISystem } from './systems/AgentAISystem.js';
 import { TraderSystem } from './systems/TraderSystem.js';
@@ -61,6 +65,7 @@ import { PoisonCloudSystem } from './systems/PoisonCloudSystem.js';
 import { SeparationSystem } from './systems/SeparationSystem.js';
 import { CombatVFXSystem } from './systems/CombatVFXSystem.js';
 import { HealthSystem } from './systems/HealthSystem.js';
+import { RegenSystem } from './systems/RegenSystem.js';
 import { UnlockZoneSystem } from './systems/UnlockZoneSystem.js';
 import { MachineSystem } from './systems/MachineSystem.js';
 import { BuildSystem } from './systems/BuildSystem.js';
@@ -118,36 +123,40 @@ class Game {
         this.ecs = new ECSManager();
         this.factory = new EntityFactory(this.scene.instance, this.ecs);
 
-        // 3b. Prototype-mode singletons (audio + counters + state machine).
-        // Only instantiated under ?prototype to keep legacy/diorama identical.
-        // AudioManager subscribes to entity:damaged/died, zone:built, audio:cue,
-        // essence:fading, boss:killed, player:died. PrototypeStats aggregates
-        // end-of-run counters (zombiesKilled, peak essence/wood, time, etc.).
-        // PrototypeStateMachine + PrototypeEndUI are instantiated later in
-        // loadLevel() — they need the player entity ID and the level scene.
+        // 3b. Prototype-mode singletons (audio + counters + toast).
+        // 2026-05-11: state machine + next-step indicator + palisade gate
+        // system removed. The right-edge SpawnMenu replaces tutorial-driven
+        // unlock zones, and the palisade fence is gone — drawn walls are
+        // the only player-built fortification. PrototypeToast handles the
+        // remaining transient feedback (e.g. DrawWallSystem out-of-wood).
         this._prototype = isPrototypeMode();
         if (this._prototype) {
-            // body class enables CSS overrides — currently keeps the joystick
-            // visible on desktops (the legacy media query hides it otherwise).
+            // body class enables CSS overrides — keeps the joystick visible
+            // on desktops (legacy media query hides it otherwise) + sets
+            // place-mode cursor for storage placement (SpawnMenuSystem).
             document.body.classList.add('prototype-mode');
             this.audio = new AudioManager(this.ecs);
             this.prototypeStats = new PrototypeStats();
             this.prototypeStats.setECS(this.ecs);
-            // 3D-parented "go here next" pointer. Reads `hints` array from the
-            // active state and resolves a target each frame. Player + state
-            // machine refs are wired in loadLevel() once both exist.
-            this.nextStepIndicator = new NextStepIndicator(this.scene.instance, this.ecs);
-            // Auto-sink palisade logs when the player approaches a wall.
-            // FenceSides + player + per-side collider IDs are wired in
-            // loadLevel() (after the level is loaded and each side reveals).
-            this.palisadeGateSystem = new PalisadeGateSystem(this.ecs);
+            this.prototypeToast = new PrototypeToast();
+            // Auto-sink behavior for player-drawn walls. DrawWallSystem
+            // emits 'draw:wallGroupRegistered' on each commit; this system
+            // listens and tracks the logs from there. No extra wiring needed.
+            this.drawnWallGateSystem = new DrawnWallGateSystem(this.ecs);
+            // LavaHoleSystem — animates cemetery spawn points (pulse +
+            // embers + flash on emerge). ParticleSystem reference is wired
+            // in init() right after particleSystem is constructed. Cemeteries
+            // are visually hidden post-2026-05-10, so this system skips
+            // them in its update loop — but it stays registered for future
+            // when we want them visible.
+            this.lavaHoleSystem = null; // wired below once particleSystem exists
         } else {
             this.audio = null;
             this.prototypeStats = null;
-            this.nextStepIndicator = null;
-            this.palisadeGateSystem = null;
+            this.prototypeToast = null;
+            this.drawnWallGateSystem = null;
+            this.lavaHoleSystem = null;
         }
-        this.prototypeStateMachine = null;
         this.prototypeEndUI = null;
 
         // 4. Shared pools
@@ -225,6 +234,13 @@ class Game {
         this.healthSystem = new HealthSystem(this.scene.instance);
         this.ecs.registerSystem(this.healthSystem, ['Transform', 'Health']);
 
+        // RegenSystem — out-of-combat HP regen, opt-in via Component_Regen.
+        // Currently only the prototype player has a Regen component (locked
+        // input #4). Allies/workers stay perma-damage. Runs after HealthSystem
+        // so its tick sees post-damage HP.
+        this.regenSystem = new RegenSystem();
+        this.ecs.registerSystem(this.regenSystem, ['Health', 'Regen']);
+
         this.contactDamageSystem = new ContactDamageSystem();
         this.ecs.registerSystem(this.contactDamageSystem, ['Transform', 'ContactDamage']);
 
@@ -241,6 +257,13 @@ class Game {
         this.ecs.registerSystem(this.machineSystem, ['Transform', 'Machine']);
 
         this.particleSystem = new ParticleSystem(this.scene.instance);
+
+        // LavaHoleSystem can only construct once particleSystem + ecs exist.
+        // Update is called from animate(); skips work if no spawn points are
+        // registered, so legacy/diorama paths remain a no-op.
+        if (this._prototype) {
+            this.lavaHoleSystem = new LavaHoleSystem(this.scene.instance, this.particleSystem, this.ecs);
+        }
 
         this.combatVFXSystem = new CombatVFXSystem(this.scene.instance);
 
@@ -294,7 +317,7 @@ class Game {
         // PR #3.2 keeps direct steering as the primary path; the pathfinder
         // is wired up so a future PR can flip the switch without touching
         // the AI's main loop.
-        this.pathfinder = new Pathfinder({ minX: -16, maxX: 16, minZ: -16, maxZ: 16, cell: 1 });
+        this.pathfinder = new Pathfinder({ minX: -50, maxX: 50, minZ: -50, maxZ: 50, cell: 1 });
 
         // WorkerAISystem — Act 3 automation FSM (wood / essence / builder).
         // Needs the CollectorSystem reference so the essence-collector can
@@ -380,8 +403,6 @@ class Game {
 
         // Prototype counters need the player ID for stack:changed filter.
         if (this.prototypeStats) this.prototypeStats.setPlayer(this.playerId);
-        if (this.nextStepIndicator) this.nextStepIndicator.setPlayerId(this.playerId);
-        if (this.palisadeGateSystem) this.palisadeGateSystem.setPlayer(this.playerId);
 
         // Systems that need player reference
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
@@ -410,9 +431,20 @@ class Game {
                 this.camera.instance,
                 this.scene.instance,
                 this.renderer.threeRenderer.domElement,
-                this.factory
+                this.factory,
+                this.playerId
             );
             this.ecs.registerSystem(this.drawWallSystem, []);
+
+            // StorageDepositSystem — proximity drain from player jelly-stack
+            // into wood-storage / essence-storage props. One-way only; reuses
+            // the ResourceTransfer Bezier arc + InventoryStack pipeline so the
+            // storage's StackSystem-driven visual stack updates for free.
+            this.storageDepositSystem = new StorageDepositSystem(
+                this.scene.instance,
+                this.ecs,
+                this.playerId
+            );
         }
 
         this.enemySystem = new EnemySystem(this.scene.instance, this.factory, playerTransform);
@@ -439,10 +471,15 @@ class Game {
         this.collisionSystem = new CollisionSystem();
         this.ecs.registerSystem(this.collisionSystem, ['Transform', 'Collider']);
 
-        // HUD — self-wired via EventBus
+        // HUD — self-wired via EventBus.
+        // In ?prototype mode the top-left resource chips and the Summon Hero
+        // bar are hidden via CSS (body.prototype-mode), and the Draw Wall
+        // button is absorbed into the right-edge SpawnMenu's BUILD section,
+        // so we skip both the HeroBar instantiation and the draw-wall button.
         this.hud = new HUD(this.ecs, this.playerId);
-        if (this._prototype) this.hud.enableDrawWallButton();
-        this.heroBar = new HeroBar(this.ecs, this.scene.instance, this.factory, this.playerId, this.playerSpawnPos, this.camera.instance);
+        this.heroBar = this._prototype
+            ? null
+            : new HeroBar(this.ecs, this.scene.instance, this.factory, this.playerId, this.playerSpawnPos, this.camera.instance);
         this.gameOverUI = new GameOverUI();
 
         // Floating HP bar above player's head — follows mesh in world space
@@ -500,6 +537,44 @@ class Game {
             for (const def of propEntities) {
                 const pos = new THREE.Vector3(def.position.x, def.position.y, def.position.z);
                 this.factory.create(def.archetype, pos);
+            }
+        }
+
+        // --- Procedural entity clusters ---
+        // levelData.procedural drives seeded random tree placement for the
+        // central forest + 4 starter clusters behind each base. Tune count /
+        // radii / seed in level-prototype.json; same seed = same layout.
+        if (levelData.procedural) this._spawnProcedural(levelData.procedural);
+
+        // --- Cemetery / zombie-spawn point registration ---
+        // After all entities exist, query everything tagged 'zombie-spawn'
+        // and hand it to EnemySystem. With ≥1 cemetery registered the
+        // system flips into multi-spawn regime: cap ramp 8→25, 5–10s
+        // cadence, leashed wander per zombie, pack-aggro within 4u, and
+        // the 4-attacker stacking cap. With zero cemeteries it stays in
+        // legacy single-point mode (untouched for legacy/diorama).
+        if (this.enemySystem) {
+            const taggedIds = this.ecs.queryEntities(['Transform', 'Tag']);
+            let registered = 0;
+            let hidden = 0;
+            for (const id of taggedIds) {
+                const tag = this.ecs.getComponent(id, 'Tag');
+                if (!tag?.has?.('zombie-spawn')) continue;
+                const tr = this.ecs.getComponent(id, 'Transform');
+                if (!tr?.mesh) continue;
+                this.enemySystem.addSpawnPoint(id, tr.mesh.position);
+                registered++;
+                // Locked input #2 — hide cemetery visuals so players don't
+                // wall-trap them. Spawn LOGIC stays (EnemySystem still emits
+                // zombies from these positions); the lava-hole mesh just
+                // turns invisible. LavaHoleSystem skips invisible meshes.
+                if (tag.has('spawn-hidden')) {
+                    tr.mesh.visible = false;
+                    hidden++;
+                }
+            }
+            if (registered > 0) {
+                console.log(`[EnemySystem] Registered ${registered} cemetery spawn point(s)${hidden ? ` (${hidden} hidden)` : ''}.`);
             }
         }
 
@@ -584,25 +659,17 @@ class Game {
                     }
                 });
 
-                // Optional: tag for state-machine-driven activation.
-                // PrototypeStateMachine action `factory.activateGhost <tag>`
-                // queries entities by Tag and toggles mesh.visible.
+                // Optional: tag for external lookups (legacy diorama hooks).
                 if (zoneDef.tag) {
                     const tagComp = this.ecs.getComponent(zoneEntityId, 'Tag');
                     if (tagComp) tagComp.tags.push(zoneDef.tag);
                 }
 
-                // Optional: pre-hide the zone (and its ghost mesh + UI).
-                // UnlockZoneSystem skips hidden zones in its per-frame loop,
-                // so they don't drain or render until the state machine
-                // toggles visible=true via factory.activateGhost.
+                // Optional: pre-hide a zone (mesh + collider). Used by legacy
+                // diorama levels; prototype no longer ships unlockZones.
                 if (zoneDef.hidden) {
                     const transform = this.ecs.getComponent(zoneEntityId, 'Transform');
                     if (transform?.mesh) transform.mesh.visible = false;
-                    // Disable the collider too — otherwise workers bump
-                    // into the invisible bbox of the (still-hidden) mesh.
-                    // Paired with the reveal in PrototypeStateMachine
-                    // factory.activateGhost.
                     const collider = this.ecs.getComponent(zoneEntityId, 'Collider');
                     if (collider) collider.disabled = true;
                 }
@@ -699,19 +766,14 @@ class Game {
             this._gateBarFills.delete(entityId);
         });
 
-        // --- Fence collider entities (created here, not in SceneLoader) ---
-        // SceneLoader returns plain edge data; main.js turns it into ECS entities.
-        // Two paths:
-        //   • Legacy fence (fence.cells) → bulk-create all colliders at boot.
-        //   • Staged fence (fence.sides with named sides) → hide all sides
-        //     at boot, defer collider creation until each side's
-        //     `fence:revealSide` event fires (driven by zone:built tags).
-        const sideNames = fenceSides ? Object.keys(fenceSides) : [];
-        const useStagedFence = sideNames.length > 0 && !sideNames.every(n => n === '_all');
-
+        // --- Fence collider entities ---
+        // 2026-05-11: prototype mode no longer ships a palisade fence (drawn
+        // walls replace it). Legacy / diorama level JSONs may still declare
+        // a fence block; honor it by bulk-creating all edge colliders. The
+        // staged-reveal path (per-side hide + fence:revealSide event) is
+        // gone with the state machine.
         const fenceColliderIds = [];
         const makeEdgeColliders = (edges) => {
-            const ids = [];
             for (const edge of edges) {
                 const obj = new THREE.Object3D();
                 obj.position.set(edge.x, 0, edge.z);
@@ -720,63 +782,19 @@ class Game {
                 this.ecs.addComponent(id, 'Collider', new Component_Collider({
                     shape: 'box', width: edge.width, depth: edge.depth, isStatic: true
                 }));
-                ids.push(id);
                 fenceColliderIds.push(id);
             }
-            return ids;
         };
+        if (fenceEdges && fenceEdges.length > 0) makeEdgeColliders(fenceEdges);
 
-        if (useStagedFence) {
-            // Hide every named side at boot. Each side's group + colliders
-            // are revealed lazily by 'fence:revealSide' (fired from
-            // zone:built tag listeners below).
-            this._fenceSideColliders = new Map(); // sideName → [colliderId, ...]
-            this._fenceSides = fenceSides;
-            for (const [name, data] of Object.entries(fenceSides)) {
-                if (data?.group) data.group.visible = false;
-            }
-            if (this.palisadeGateSystem) this.palisadeGateSystem.setFenceSides(fenceSides);
-
-            // PR #4.3 — wall reveals are now animated. Logs start sunk
-            // 1.8u below ground and rise to y=0 over 6 seconds while the
-            // builder stands at the site (BUILDING state). Tweens are
-            // ticked from animate() via _tickWallRise.
-            this._risingWalls = new Map();   // side → { startMs, duration }
-            const SINK_DEPTH = 1.8;
-            const RISE_SECONDS = 6.0;
-
-            const revealSide = (side) => {
-                const data = this._fenceSides?.[side];
-                if (!data || data.group.visible) return;
-                data.group.visible = true;
-                data.group.position.y = -SINK_DEPTH;
-                this._risingWalls.set(side, { startMs: performance.now(), duration: RISE_SECONDS });
-                const ids = makeEdgeColliders(data.edges || []);
-                this._fenceSideColliders.set(side, ids);
-                if (this.palisadeGateSystem) this.palisadeGateSystem.registerSide(side, ids);
-            };
-
-            EventBus.on('fence:revealSide', ({ side }) => revealSide(side));
-            EventBus.on('zone:built', ({ tags }) => {
-                if (!Array.isArray(tags)) return;
-                if (tags.includes('north_wall_zone')) revealSide('north');
-                if (tags.includes('south_wall_zone')) revealSide('south');
-                if (tags.includes('east_wall_zone'))  revealSide('east');
-                if (tags.includes('west_wall_zone'))  revealSide('west');
-            });
-        } else {
-            // Legacy path — all edges become colliders immediately.
-            makeEdgeColliders(fenceEdges);
-        }
-
-        // --- Safe Zone ---
+        // --- Safe Zone (legacy levels only) ---
         if (levelData.safeZone) {
             const szId = this.ecs.createEntity();
             const zone = new Component_SafeZone(levelData.safeZone);
             zone.fenceColliderIds = fenceColliderIds;
             this.ecs.addComponent(szId, 'SafeZone', zone);
 
-            this.safeZoneSystem.setFenceGroup(fenceGroup); // rendering ref lives in the system, not the component
+            this.safeZoneSystem.setFenceGroup(fenceGroup);
         }
 
         // --- Villager trading systems (discover targets by tag, no IDs needed) ---
@@ -814,28 +832,49 @@ class Game {
             );
         }
 
-        // --- Prototype state machine (only in ?prototype mode) ---
-        // Loaded last so it can reference enemySystem, factory, and the
-        // already-created player. JSON config drives 15-state FSM per
-        // newGameDesign/PROTOTYPE_PLAN.md §4 (foundation stub: 2-state demo).
+        // --- Kingdom Flag + Spawn Menu (?prototype only) ---
+        // Flag is the visual + logical anchor for ALL army/worker spawns
+        // placed via the right-edge HUD. Planted at the player's spawn
+        // position (level-prototype.json spawners.player) — collisions push
+        // the player aside on first frame, no permanent overlap.
+        // SpawnMenuSystem locates the flag via setFlagId().
         if (this._prototype) {
-            const cfgRes = await fetch('./src/config/prototypeStates.json');
-            const cfg = await cfgRes.json();
-            this.prototypeStateMachine = new PrototypeStateMachine({
+            const flagPos = this.playerSpawnPos.clone();
+            this.flagId = this.factory.create('flag', flagPos);
+
+            this.spawnMenuUI = new SpawnMenuUI();
+            this.spawnMenuSystem = new SpawnMenuSystem({
                 ecs: this.ecs,
                 factory: this.factory,
-                enemySystem: this.enemySystem,
-                audio: this.audio,
                 scene: this.scene.instance,
                 camera: this.camera.instance,
+                canvas: this.renderer.threeRenderer.domElement,
                 playerId: this.playerId,
-                indicator: this.nextStepIndicator,
-                collisionSystem: this.collisionSystem
-            }, cfg);
+                particleSystem: this.particleSystem
+            });
+            this.spawnMenuSystem.setFlagId(this.flagId);
+        }
+
+        // --- Prototype end UI (victory / defeat screen) ---
+        // PrototypeEndUI listens for player:died (Defeat) and state:entered
+        // { id:'END' } (Victory). The state machine that used to emit END
+        // was removed; the victory listener below now fires it when all 3
+        // rival kings have died. PrototypeStats also listens for
+        // 'boss:killed' (sets killedRivalKing flag on the summary).
+        if (this._prototype) {
             this.prototypeEndUI = new PrototypeEndUI(this.prototypeStats);
-            // Wire indicator BEFORE start() so it captures the first state:entered emit.
-            if (this.nextStepIndicator) this.nextStepIndicator.setStateMachine(this.prototypeStateMachine);
-            this.prototypeStateMachine.start();
+
+            this._rivalKingsTotal = 3;
+            this._rivalKingsKilled = 0;
+            EventBus.on('entity:died', ({ entityId }) => {
+                const tag = this.ecs.getComponent(entityId, 'Tag');
+                if (!tag?.has?.('rival-king')) return;
+                this._rivalKingsKilled++;
+                EventBus.emit('boss:killed', { entityId });
+                if (this._rivalKingsKilled >= this._rivalKingsTotal) {
+                    EventBus.emit('state:entered', { id: 'END' });
+                }
+            });
         }
 
         // --- Resource Wells (diorama basecamp testing) ---
@@ -856,6 +895,88 @@ class Game {
             this._resourceWells.push(essenceWell, candyWell, coinWell, woodWell);
         }
 
+    }
+
+    /**
+     * Spawn entities from a procedural block in level JSON. Same seed = same
+     * layout, so tuning count/radii is reproducible.
+     *
+     * Shape:
+     *   procedural: {
+     *     seed: <int>,
+     *     generators: [
+     *       { archetype, shape: 'annulus'|'disc'|'rect', center:{x,z},
+     *         minRadius, maxRadius, halfWidth, halfDepth,
+     *         count, minSpacing }, ...
+     *     ]
+     *   }
+     *
+     * Shape conventions:
+     *   disc    — uniform random inside radius [0, maxRadius]
+     *   annulus — uniform random in ring [minRadius, maxRadius]
+     *   rect    — uniform random in axis-aligned box centered at `center`,
+     *             half-extents (halfWidth, halfDepth)
+     */
+    _spawnProcedural(block) {
+        const rng = this._mulberry32(((block.seed | 0) >>> 0) || 1);
+        const MAX_TRIES = 30;
+        for (const gen of block.generators || []) {
+            const placed = [];
+            const max = gen.count || 0;
+            const center = gen.center || { x: 0, z: 0 };
+            const shape = gen.shape || 'disc';
+            const minR = gen.minRadius ?? 0;
+            const maxR = gen.maxRadius ?? gen.radius ?? 5;
+            const halfW = gen.halfWidth ?? maxR;
+            const halfD = gen.halfDepth ?? maxR;
+            const minSpacing = gen.minSpacing ?? 0;
+            const archetype = gen.archetype;
+            if (!archetype) continue;
+
+            for (let i = 0; i < max; i++) {
+                let pos = null;
+                for (let tries = 0; tries < MAX_TRIES; tries++) {
+                    let x, z;
+                    if (shape === 'rect') {
+                        x = center.x + (rng() * 2 - 1) * halfW;
+                        z = center.z + (rng() * 2 - 1) * halfD;
+                    } else {
+                        const angle = rng() * Math.PI * 2;
+                        // Uniform-area distribution for disc / annulus
+                        // (else trees bunch toward the inner edge).
+                        const u = rng();
+                        const r = shape === 'annulus'
+                            ? Math.sqrt(u * (maxR * maxR - minR * minR) + minR * minR)
+                            : Math.sqrt(u) * maxR;
+                        x = center.x + Math.cos(angle) * r;
+                        z = center.z + Math.sin(angle) * r;
+                    }
+                    const candidate = new THREE.Vector3(x, 0, z);
+                    let ok = true;
+                    if (minSpacing > 0) {
+                        for (const p of placed) {
+                            if (candidate.distanceTo(p) < minSpacing) { ok = false; break; }
+                        }
+                    }
+                    if (ok) { pos = candidate; break; }
+                }
+                if (pos) {
+                    this.factory.create(archetype, pos);
+                    placed.push(pos);
+                }
+            }
+        }
+    }
+
+    /** Mulberry32 PRNG — small, fast, seedable. */
+    _mulberry32(seed) {
+        let t = seed >>> 0;
+        return () => {
+            t = (t + 0x6D2B79F5) >>> 0;
+            let r = Math.imul(t ^ (t >>> 15), 1 | t);
+            r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+            return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+        };
     }
 
     _createGridToggle(overlay) {
@@ -891,11 +1012,6 @@ class Game {
         // 1. ECS update (all registered systems) — paused during hitstop
         this.ecs.update(deltaTime);
 
-        // 1b. Wall rise animation — logs lerp from y=-1.8 to y=0 over 6s
-        // after their zone gets funded. Eased (cubic-out) so they settle
-        // smoothly into place rather than slamming up.
-        this._tickWallRise(deltaTime);
-
         // 2. Non-ECS visual systems — camera shake still runs (we want the
         // shake visible during freeze); particles/effects pause with gameplay.
         this.cameraSystem.update(realDt);
@@ -905,14 +1021,16 @@ class Game {
         this.poisonCloudSystem.update(deltaTime);
         this.skillEffectSystem.update(deltaTime);
         this.harvestNodeSystem.update(deltaTime);
-        if (this.prototypeStateMachine) this.prototypeStateMachine.update(deltaTime);
-        if (this.nextStepIndicator) this.nextStepIndicator.update(deltaTime);
-        if (this.palisadeGateSystem) this.palisadeGateSystem.update(deltaTime);
+        if (this.drawnWallGateSystem) this.drawnWallGateSystem.update(deltaTime);
+        if (this.lavaHoleSystem) this.lavaHoleSystem.update(deltaTime);
+        if (this.spawnMenuSystem) this.spawnMenuSystem.update(deltaTime);
+        if (this.storageDepositSystem) this.storageDepositSystem.update(deltaTime);
         for (const well of this._resourceWells) well.update(deltaTime, this.scene.instance);
         this.damagePopupUI.update(realDt);
         this.floatingUI.update();
         this.playerHealthBar.update();
         if (this.heroBar) this.heroBar.update();
+        // (SpawnMenuUI is event-driven; no per-frame update needed.)
         if (this._market) this._market.update();
 
         // 3. Sync instanced character pools (proxy → GPU matrices)
@@ -923,23 +1041,6 @@ class Game {
 
         // 5. Debug overlay
         this._updateDebugOverlay();
-    }
-
-    _tickWallRise(_dt) {
-        if (!this._risingWalls || this._risingWalls.size === 0) return;
-        const now = performance.now();
-        for (const [side, info] of this._risingWalls) {
-            const data = this._fenceSides?.[side];
-            if (!data?.group) { this._risingWalls.delete(side); continue; }
-            const t = Math.min(1, (now - info.startMs) / (info.duration * 1000));
-            // Ease-out cubic for a satisfying settle
-            const eased = 1 - Math.pow(1 - t, 3);
-            data.group.position.y = -1.8 * (1 - eased);
-            if (t >= 1) {
-                data.group.position.y = 0;
-                this._risingWalls.delete(side);
-            }
-        }
     }
 
     _updateDebugOverlay() {
@@ -987,6 +1088,7 @@ class Game {
 
 // Start Game
 window.addEventListener('load', async () => {
+    await BalanceLoader.load();
     await loadArchetypes();
     await ResourceRegistry.load();
     await SkillRegistry.load();

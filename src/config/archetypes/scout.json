@@ -1,42 +1,59 @@
 {
-    "_doc": "Scout — fast/cheap ally soldier. PROTOTYPE_PLAN §4 numbers: HP 30 (bumped 30→60 for prototype testing), 10 DMG, 2 atk-sec (cooldown 0.5), cost 8E at Spawn Pad (lowered to 4E in level JSON). Uses HeroAI for steering (auto-aggro within guardRadius 8) + ContactDamage for passive melee, no SkillLoadout (Scout doesn't need sword swing — keeps prototype simple). DragCommandable + Waypoints for player drag-override.",
+    "_doc": "Scout — Pentagon's light/fast melee class. All combat numbers derived from balance.json combat.scout.*. Uses HeroAI for steering (auto-aggro within guardRadius) + ContactDamage for passive melee. DragCommandable + Waypoints for player drag-override. Spawn cost is balance-driven: economy.scout_pad.essence_cost = 8 (= 8 zombie kills).",
     "type": "Scout",
     "mesh": {
         "preset": "character-soldier",
-        "color": "0x44dd66",
+        "color":  "0x44dd66",
         "weapon": "spear"
     },
     "spawn": {
-        "cost": { "essence": 8 }
+        "cost": { "essence": "$balance.economy.scout_pad.essence_cost" }
     },
     "components": {
-        "Health": { "hp": 60, "maxHp": 60, "armor": 0 },
+        "Health": {
+            "hp":    "$balance.combat.scout.HP",
+            "maxHp": "$balance.combat.scout.HP",
+            "armor": 0
+        },
         "Animator": {},
         "SquashStretch": { "intensity": 0.15, "frequency": 6, "trigger": "move" },
         "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
         "Collider": { "shape": "circle", "radius": 0.4, "isStatic": false },
         "Tag": { "tags": ["ally", "soldier", "scout"] },
         "ZoneStatus": {},
-        "Movement": { "speed": 5, "controller": "hero_ai", "faction": "ally" },
+        "Movement": {
+            "speed":      "$balance.combat.scout.speed",
+            "controller": "hero_ai",
+            "faction":    "ally"
+        },
         "WalkAnim": { "bobHeight": 0.08, "bobFreq": 8, "tiltAngle": 0.06 },
-        "HeroAI": { "guardRadius": 8, "attackRange": 5.0, "returnSpeed": 2 },
-        "ContactDamage": { "damage": 10, "cooldown": 0.5, "range": 5.0, "targetFactions": ["enemy", "rival"] },
+        "HeroAI": {
+            "guardRadius": "$balance.combat.scout.guardRadius",
+            "attackRange": "$balance.combat.scout.range",
+            "returnSpeed": 2
+        },
+        "ContactDamage": {
+            "damage":         "$balance.combat.scout.damage_per_hit",
+            "cooldown":       "$balance.combat.scout.cooldown",
+            "range":          "$balance.combat.scout.range",
+            "targetFactions": ["enemy", "rival"]
+        },
         "Arms": {},
         "DragCommandable": {
-            "enabled": true,
-            "ringColor": "0x44dd66",
-            "trailColor": "0x44dd66",
-            "trailWidth": 0.15,
-            "ringRadius": 0.7,
-            "pickRadius": 0.9
+            "enabled":     true,
+            "ringColor":   "0x44dd66",
+            "trailColor":  "0x44dd66",
+            "trailWidth":  0.15,
+            "ringRadius":  0.7,
+            "pickRadius":  0.9
         },
         "Waypoints": {
-            "onInterruptResume": "destination",
-            "arrivalThreshold": 0.25
+            "onInterruptResume":  "destination",
+            "arrivalThreshold":   0.25
         },
         "BehaviorState": {
             "priority": 0,
-            "tag": "idle"
+            "tag":      "idle"
         }
     }
 }

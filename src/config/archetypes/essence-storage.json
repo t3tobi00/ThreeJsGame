@@ -1,5 +1,5 @@
 {
-    "_doc": "Essence Storage — visible storage prop for the essence resource. Same pattern as wood-storage. Reuses the player's stacking pipeline (InventoryStack + StackSystem) so essence orbs stack identically to how the player would carry them. Visual ID: cyan body + pale teal rim cap (storage-pad preset) so wood vs essence is readable even when the stack is empty.",
+    "_doc": "Essence Storage — visible storage prop for the essence resource. Same pattern as wood-storage. Reuses the player's stacking pipeline (InventoryStack + StackSystem). Visual ID: cyan body + pale teal rim cap. 2026-05-11: `spawn.cost` added so the right-edge SpawnMenu BUILD ▸ Ess. Box chip can read the cost and gate placement. Cost derives from balance.economy.essence_storage.",
     "type": "EssenceStorage",
     "mesh": {
         "preset": "storage-pad",
@@ -8,6 +8,12 @@
         "size": { "x": 2.4, "y": 0.4, "z": 2.4 }
     },
     "iconResource": { "type": "essence", "height": 0.75, "scale": 0.4 },
+    "spawn": {
+        "cost": {
+            "wood":    "$balance.economy.essence_storage.wood_cost",
+            "essence": "$balance.economy.essence_storage.essence_cost"
+        }
+    },
     "components": {
         "Tag": { "tags": ["storage", "essence-storage", "structure", "static"] },
         "InventoryStack": {

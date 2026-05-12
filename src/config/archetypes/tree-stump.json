@@ -1,0 +1,10 @@
+{
+    "_doc": "Cut-trunk scar left behind when a tree-prototype is felled. Vertical squat cylinder with growth-ring cap — reads as rooted stump (NOT a wood-log pickup). Visual only — no Harvestable, no Health, no Collider. Players walk through it. Spawned by HarvestNodeSystem on tree:died at the same world position as the tree.",
+    "type": "TreeStump",
+    "mesh": {
+        "preset": "tree-stump"
+    },
+    "components": {
+        "Tag": { "tags": ["stump", "scenery"] }
+    }
+}

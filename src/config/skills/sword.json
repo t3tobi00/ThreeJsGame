@@ -1,50 +1,49 @@
 {
-  "id": "sword",
-  "name": "Iron Sword",
-  "type": "melee",
-  "targetFactions": ["enemy"],
-  "alsoTargetTags": ["harvestable"],
-  "range": 2.8,
-  "damage": 6,
-  "fireRate": 0.45,
-  "windup": 0,
-  "charges": 0,
-  "reloadTime": 0,
-  "knockback": 0.6,
+    "id":            "sword",
+    "name":          "Iron Sword",
+    "type":          "melee",
+    "targetFactions": ["enemy"],
+    "alsoTargetTags": ["harvestable"],
+    "range":         2.8,
+    "damage":        "$balance.combat.sword.damage",
+    "fireRate":      "$balance.combat.sword.fireRate",
+    "windup":        0,
+    "charges":       0,
+    "reloadTime":    0,
+    "knockback":     "$balance.combat.sword.knockback",
 
-  "animation": "sword-slash",
+    "animation":     "sword-slash",
 
+    "melee": {
+        "coneAngleDeg": 130
+    },
 
-  "melee": {
-    "coneAngleDeg": 130
-  },
+    "combo": {
+        "finisherEvery":         4,
+        "finisherDamageMult":    2.8,
+        "finisherKnockbackMult": 2.2,
+        "finisherConeBonusDeg":  60,
+        "finisherRangeBonus":    1.2
+    },
 
-  "combo": {
-    "finisherEvery": 4,
-    "finisherDamageMult": 2.8,
-    "finisherKnockbackMult": 2.2,
-    "finisherConeBonusDeg": 60,
-    "finisherRangeBonus": 1.2
-  },
+    "elements": [],
 
-  "elements": [],
+    "effect": {
+        "type":      "slash_arc",
+        "color":     "0xbbeeff",
+        "duration":  0.18,
+        "radius":    1.6,
+        "thickness": 0.14,
+        "arcDeg":    140,
 
-  "effect": {
-    "type": "slash_arc",
-    "color": "0xbbeeff",
-    "duration": 0.18,
-    "radius": 1.6,
-    "thickness": 0.14,
-    "arcDeg": 140,
-
-    "finisher": {
-      "type": "slash_arc",
-      "color": "0xff5522",
-      "duration": 0.32,
-      "radius": 2.4,
-      "thickness": 0.22,
-      "arcDeg": 190,
-      "scale": 1.5
+        "finisher": {
+            "type":      "slash_arc",
+            "color":     "0xff5522",
+            "duration":  0.32,
+            "radius":    2.4,
+            "thickness": 0.22,
+            "arcDeg":    190,
+            "scale":     1.5
+        }
     }
-  }
 }

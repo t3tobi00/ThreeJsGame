@@ -1,38 +1,49 @@
 {
-    "_doc": "Wood Worker — Act 3 ally automation. Visual: brown body + flat cap + axe. PR #3.2 ships full AI: scan trees → walk → chop → walk to pad → deposit. Stats per implementation plan §10.3: HP 25, speed 3, faction ally. Non-combatant — takes damage, permanent death (no respawn from pad). Inventory caps at 10 wood (one full tree drop = 5).",
+    "_doc": "Wood Worker — Act 3 ally automation. Visual: brown body + flat cap + axe. Scans trees → walks → chops → walks to storage → deposits. Stats from balance.json combat.worker.* (HP, speed, scanRadius, chop dmg+cooldown). Cost from economy.worker_cost. Non-combatant — takes damage, permanent death (no respawn from pad). Inventory caps at 10 wood.",
     "type": "WoodWorker",
+    "spawn": {
+        "cost": { "essence": "$balance.economy.worker_cost.essence_cost" }
+    },
     "mesh": {
         "preset": "character-worker",
-        "color": "0x8b5a2b",
-        "hat": "cap",
-        "tool": "axe"
+        "color":  "0x8b5a2b",
+        "hat":    "cap",
+        "tool":   "axe"
     },
     "components": {
-        "Health": { "hp": 25, "maxHp": 25, "armor": 0 },
+        "Health": {
+            "hp":    "$balance.combat.worker.HP",
+            "maxHp": "$balance.combat.worker.HP",
+            "armor": 0
+        },
         "Animator": {},
         "SquashStretch": { "intensity": 0.12, "frequency": 5, "trigger": "move" },
-        "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
-        "WalkAnim": { "bobHeight": 0.06, "bobFreq": 6, "tiltAngle": 0.04 },
-        "Collider": { "shape": "circle", "radius": 0.35, "isStatic": false },
-        "Tag": { "tags": ["ally", "worker", "wood-worker"] },
-        "Movement": { "speed": 3, "controller": "none", "faction": "ally" },
+        "FlashAnim":     { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
+        "WalkAnim":      { "bobHeight": 0.06, "bobFreq": 6, "tiltAngle": 0.04 },
+        "Collider":      { "shape": "circle", "radius": 0.35, "isStatic": false },
+        "Tag":           { "tags": ["ally", "worker", "wood-worker"] },
+        "Movement":      {
+            "speed":      "$balance.combat.worker.speed",
+            "controller": "none",
+            "faction":    "ally"
+        },
         "Collector": { "radius": 5, "resourceTypes": ["wood"], "pullForce": 1.0 },
         "InventoryStack": {
-            "maxSlots": 1,
+            "maxSlots":     1,
             "slotCapacity": 10,
             "acceptsTypes": ["wood"],
             "anchorOffset": { "x": 0, "y": 1.55, "z": -0.4 },
-            "slotSpacing": 0.5,
-            "style": "wobble"
+            "slotSpacing":  0.5,
+            "style":        "wobble"
         },
         "SpringStackAnim": { "wobble": 0.25, "squash": 0.12, "lag": 0.18 },
         "WorkerAI": {
-            "role": "wood",
-            "scanRadius": 15,
-            "attackRange": 1.6,
-            "attackDamage": 1,
-            "attackCooldown": 0.45,
-            "depositRange": 2.0
+            "role":           "wood",
+            "scanRadius":     "$balance.combat.worker.scanRadius",
+            "attackRange":    1.6,
+            "attackDamage":   "$balance.combat.worker.wood_damage",
+            "attackCooldown": "$balance.combat.worker.wood_cooldown",
+            "depositRange":   2.0
         }
     }
 }

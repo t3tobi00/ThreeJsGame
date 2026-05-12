@@ -1,47 +1,62 @@
 {
-    "_doc": "Sharpshooter — long-range archer ally. Third soldier class (PR #5c, polished 2026-05-08 with arc trajectory + draw animation + hunter-green palette). Held BOW stays visible during attacks (key divergence from scout — only the arrow leaves the bowstring). ContactDamage uses lineWidth 0.5 + pierce true to damage EVERY enemy along a 15u forward ray; CombatVFX spawns a brown-shaft / steel-tip arrow that arcs (Bezier mid-point lift 1.2u) over a 0.32s flight, trailing an ivory tether and leaving a muted earth scorch-line. HP 50, 25 DMG per pierce, 1.2s cooldown, applies Bleeding DoT (4/s × 3s, crimson emissive). HeroAI guardRadius 12 + attackRange 15.0. Movement speed 4. Body hunter-green 0x2d5a2d, bow dark walnut 0x4a2e1a — proper archer vibe.",
+    "_doc": "Sharpshooter — Pentagon's precision-ranged class. Held bow stays visible during attacks (only the arrow leaves the bowstring). ContactDamage uses lineWidth 0.5 + pierce true to damage EVERY enemy along a forward ray; CombatVFX spawns a brown-shaft / steel-tip arrow that arcs over a 0.32s flight, leaving a muted earth scorch-line. Bleeding DoT (4/s × 3s) on hit. All combat numbers from balance.json combat.sharpshooter.*. Cost = economy.sharpshooter_pad.essence_cost = 12. Glass-cannon: range/pierce premium 1.55× over Scout's DPS-per-essence baseline.",
     "type": "Sharpshooter",
     "mesh": {
         "preset": "character-soldier",
-        "color": "0x2d5a2d",
+        "color":  "0x2d5a2d",
         "weapon": "bow"
     },
     "spawn": {
-        "cost": { "essence": 12 }
+        "cost": { "essence": "$balance.economy.sharpshooter_pad.essence_cost" }
     },
     "components": {
-        "Health": { "hp": 50, "maxHp": 50, "armor": 0 },
+        "Health": {
+            "hp":    "$balance.combat.sharpshooter.HP",
+            "maxHp": "$balance.combat.sharpshooter.HP",
+            "armor": 0
+        },
         "Animator": {},
         "SquashStretch": { "intensity": 0.13, "frequency": 6, "trigger": "move" },
         "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
         "Collider": { "shape": "circle", "radius": 0.4, "isStatic": false },
         "Tag": { "tags": ["ally", "soldier", "sharpshooter"] },
         "ZoneStatus": {},
-        "Movement": { "speed": 4, "controller": "hero_ai", "faction": "ally" },
+        "Movement": {
+            "speed":      "$balance.combat.sharpshooter.speed",
+            "controller": "hero_ai",
+            "faction":    "ally"
+        },
         "WalkAnim": { "bobHeight": 0.07, "bobFreq": 7, "tiltAngle": 0.05 },
-        "HeroAI": { "guardRadius": 12, "attackRange": 15.0, "returnSpeed": 2 },
+        "HeroAI": {
+            "guardRadius": "$balance.combat.sharpshooter.guardRadius",
+            "attackRange": "$balance.combat.sharpshooter.range",
+            "returnSpeed": 2
+        },
         "ContactDamage": {
-            "damage": 25, "cooldown": 1.2, "range": 15.0,
-            "lineWidth": 0.5, "pierce": true,
+            "damage":         "$balance.combat.sharpshooter.damage_per_hit",
+            "cooldown":       "$balance.combat.sharpshooter.cooldown",
+            "range":          "$balance.combat.sharpshooter.range",
+            "lineWidth":      0.5,
+            "pierce":         true,
             "targetFactions": ["enemy", "rival"],
-            "applyBleeding": { "duration": 3.0, "dotPerSec": 4 }
+            "applyBleeding":  { "duration": 3.0, "dotPerSec": 4 }
         },
         "Arms": {},
         "DragCommandable": {
-            "enabled": true,
-            "ringColor": "0x2d5a2d",
-            "trailColor": "0x2d5a2d",
-            "trailWidth": 0.15,
-            "ringRadius": 0.7,
-            "pickRadius": 0.9
+            "enabled":     true,
+            "ringColor":   "0x2d5a2d",
+            "trailColor":  "0x2d5a2d",
+            "trailWidth":  0.15,
+            "ringRadius":  0.7,
+            "pickRadius":  0.9
         },
         "Waypoints": {
-            "onInterruptResume": "destination",
-            "arrivalThreshold": 0.25
+            "onInterruptResume":  "destination",
+            "arrivalThreshold":   0.25
         },
         "BehaviorState": {
             "priority": 0,
-            "tag": "idle"
+            "tag":      "idle"
         }
     }
 }

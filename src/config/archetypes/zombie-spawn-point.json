@@ -1,0 +1,10 @@
+{
+    "_doc": "Hidden zombie spawn point. EnemySystem queries entities tagged 'zombie-spawn' at boot to build its spawn registry; new zombies emerge from a randomly-chosen point each cycle. The mesh is hidden at factory creation in main.js (player-facing visuals removed per locked input #2 — players were wall-trapping the visible cemeteries). No Health → indestructible. The 'spawn-hidden' tag tells main.js to flip mesh.visible=false + disable LavaHoleSystem ticking after registration. Adding more spawn points is a 1-line edit in level-prototype.json — no system changes needed.",
+    "type": "ZombieSpawn",
+    "mesh": {
+        "preset": "lava-hole"
+    },
+    "components": {
+        "Tag": { "tags": ["zombie-spawn", "spawn-hidden", "structure", "static", "invulnerable"] }
+    }
+}

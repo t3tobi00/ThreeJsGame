@@ -1,25 +1,32 @@
 {
-    "_doc": "Builder — Act 3 ally automation. Visual: yellow body + hard-hat + wrench. PR #3.3 ships full AI: scan active ghost zones, withdraw matching resources from the pad's stockpile, walk to the zone, deposit (mutates UnlockZone.progress directly; emits zone:funded when complete). Per the redefined Builder role (PROTOTYPE_STATUS.md §4 spec divergence note 2026-05-07): pulls from the pad, NOT the player's stack. Stats: HP 25, speed 3.5 (slightly faster — courier role), faction ally. Non-combatant.",
+    "_doc": "Builder — Act 3 ally automation. Visual: yellow body + hard-hat + wrench. Scans active ghost zones, withdraws matching resources from storage, walks to zone, deposits (mutates UnlockZone.progress directly; emits zone:funded when complete). Pulls from storage, NOT the player's stack. Stats from balance.json combat.worker.* — speed bumped slightly (3.5) since builder is a courier. Cost economy.worker_cost.essence_cost.",
     "type": "WorkerBuilder",
+    "spawn": {
+        "cost": { "essence": "$balance.economy.worker_cost.essence_cost" }
+    },
     "mesh": {
         "preset": "character-worker",
-        "color": "0xddcc22",
-        "hat": "hardhat",
-        "tool": "wrench"
+        "color":  "0xddcc22",
+        "hat":    "hardhat",
+        "tool":   "wrench"
     },
     "components": {
-        "Health": { "hp": 25, "maxHp": 25, "armor": 0 },
+        "Health": {
+            "hp":    "$balance.combat.worker.HP",
+            "maxHp": "$balance.combat.worker.HP",
+            "armor": 0
+        },
         "Animator": {},
         "SquashStretch": { "intensity": 0.12, "frequency": 5, "trigger": "move" },
-        "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
-        "WalkAnim": { "bobHeight": 0.06, "bobFreq": 6, "tiltAngle": 0.04 },
-        "Collider": { "shape": "circle", "radius": 0.35, "isStatic": false },
-        "Tag": { "tags": ["ally", "worker", "worker-builder"] },
-        "Movement": { "speed": 3.5, "controller": "none", "faction": "ally" },
+        "FlashAnim":     { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
+        "WalkAnim":      { "bobHeight": 0.06, "bobFreq": 6, "tiltAngle": 0.04 },
+        "Collider":      { "shape": "circle", "radius": 0.35, "isStatic": false },
+        "Tag":           { "tags": ["ally", "worker", "worker-builder"] },
+        "Movement":      { "speed": 3.5, "controller": "none", "faction": "ally" },
         "InventoryStack": { "maxSlots": 2, "slotCapacity": 20, "acceptsTypes": ["wood", "essence"] },
         "WorkerAI": {
-            "role": "builder",
-            "scanRadius": 25,
+            "role":         "builder",
+            "scanRadius":   25,
             "depositRange": 2.0
         }
     }

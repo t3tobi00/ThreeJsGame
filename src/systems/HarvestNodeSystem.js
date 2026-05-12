@@ -3,16 +3,23 @@ import EventBus from '../core/EventBus.js';
 
 /**
  * HarvestNodeSystem — Respawns harvestable resource nodes after they're
- * destroyed.
+ * destroyed, OR (when respawnTime <= 0) leaves a one-shot replacement prop
+ * (e.g. tree-prototype → tree-stump) for finite-resource maps.
  *
  * Non-ECS system: it doesn't query per frame. It listens to 'entity:died'
- * and checks if the dying entity had a Harvestable component. If yes, it
- * records the archetypeName + spawnPos + respawnTime into a pending list,
- * then ticks that list in update() each frame. When a timer hits zero it
- * calls factory.create(archetypeName, spawnPos) to recreate the node.
+ * and checks if the dying entity had a Harvestable component. If respawnTime
+ * is positive it queues a respawn timer; when the timer hits zero the node
+ * is recreated. If respawnTime <= 0 the resource is finite — a stump prop
+ * is spawned immediately (for trees) and the node never returns.
  *
  * Wiring: construct with (factory, ecs). Call update(dt) from animate loop.
  */
+
+/** archetypeName → archetypeName that should appear after a finite-resource kill */
+const FINITE_REPLACEMENT = {
+    'tree-prototype': 'tree-stump'
+};
+
 export class HarvestNodeSystem {
     constructor(factory, ecs) {
         this.factory = factory;
@@ -33,6 +40,15 @@ export class HarvestNodeSystem {
         const archetypeName = harvestable.archetypeName;
         const spawnPos = harvestable.spawnPos;
         if (!archetypeName || !spawnPos) return;
+
+        // Finite resource: spawn the replacement prop now, never respawn.
+        if (harvestable.respawnTime <= 0) {
+            const replacement = FINITE_REPLACEMENT[archetypeName];
+            if (replacement) {
+                this.factory.create(replacement, spawnPos.clone());
+            }
+            return;
+        }
 
         this._pending.push({
             archetypeName,

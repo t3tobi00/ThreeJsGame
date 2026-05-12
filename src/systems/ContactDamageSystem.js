@@ -40,6 +40,15 @@ export class ContactDamageSystem {
             const attackerPos    = attackerTransform.mesh.position;
             const attackerStatus = ecs.getComponent(attackerId, 'ZoneStatus');
 
+            // Wall-damage gate (V1 Shambler design): a wandering zombie
+            // (EnemyAI present, currentTargetId == null) does NOT damage
+            // structures it bumps into. Zombies don't *want* walls — they
+            // only break through them when chasing a sensed living being
+            // on the other side. Once aggroed, the same zombie can hammer
+            // any wall in its path normally.
+            const attackerAI = ecs.getComponent(attackerId, 'EnemyAI');
+            const attackerIsIdleZombie = !!attackerAI && attackerAI.currentTargetId == null;
+
             // Query only nearby targets from the spatial hash
             const nearby = this._hash.query(attackerPos.x, attackerPos.z, contact.range);
 
@@ -86,6 +95,15 @@ export class ContactDamageSystem {
                     f === faction || (targetTag && targetTag.has(f))
                 );
                 if (!isTarget) continue;
+
+                // Idle-zombie guard: wandering zombies skip structures
+                // (walls, gates, turrets, stalls). They keep ignoring the
+                // wall until they sense a living being and aggro.
+                if (attackerIsIdleZombie) {
+                    const targetIsStructure = faction === 'structure'
+                        || (targetTag && targetTag.has('structure'));
+                    if (targetIsStructure) continue;
+                }
 
                 // Zone-wall check: skip damage if attacker and target are on opposite sides
                 const targetStatus = ecs.getComponent(targetId, 'ZoneStatus');

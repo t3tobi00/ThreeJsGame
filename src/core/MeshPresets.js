@@ -1906,4 +1906,257 @@ MeshPresets.register('military-base-red', () => {
     return g;
 });
 
+// flag-pole: central Kingdom Flag — slim wooden pole + sloped banner with
+// a finial cap. The banner is parented to a `flagPivot` Object3D and exposed
+// via mesh.userData.flagPivot so the main loop (or any system) can apply a
+// gentle wave by mutating flagPivot.rotation.y. The pole base is a stone
+// disc that reads as "permanent fixture" rather than a buildable.
+MeshPresets.register('flag-pole', ({
+    color = 0xc89b3c,
+    bannerColor = 0xd83a3a,
+    poleHeight = 4.2,
+    poleRadius = 0.09,
+    bannerSize = { x: 1.2, y: 0.7 }
+} = {}) => {
+    const group = new THREE.Group();
+
+    const c   = (typeof color       === 'string') ? parseInt(color,       16) : color;
+    const bcl = (typeof bannerColor === 'string') ? parseInt(bannerColor, 16) : bannerColor;
+
+    // Stone disc base — sells "permanent fixture, not built"
+    const baseGeo = new THREE.CylinderGeometry(0.55, 0.7, 0.18, 18);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x6e6e6e, roughness: 0.95, metalness: 0.05 });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.position.y = 0.09;
+    base.castShadow = true;
+    base.receiveShadow = true;
+    group.add(base);
+
+    // Pole
+    const poleGeo = new THREE.CylinderGeometry(poleRadius, poleRadius * 1.05, poleHeight, 10);
+    const poleMat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.55, metalness: 0.35 });
+    const pole = new THREE.Mesh(poleGeo, poleMat);
+    pole.position.y = 0.18 + poleHeight / 2;
+    pole.castShadow = true;
+    group.add(pole);
+
+    // Spherical finial cap
+    const finialGeo = new THREE.SphereGeometry(poleRadius * 2.2, 12, 10);
+    const finialMat = new THREE.MeshStandardMaterial({ color: 0xf2d27a, roughness: 0.35, metalness: 0.6 });
+    const finial = new THREE.Mesh(finialGeo, finialMat);
+    finial.position.y = 0.18 + poleHeight + poleRadius * 1.6;
+    group.add(finial);
+
+    // Banner — parented to a pivot at the pole top so we can wave it later.
+    // Pivot sits at the pole's RIGHT edge, banner offset half its width so
+    // its inboard edge meets the pole.
+    const bannerPivot = new THREE.Object3D();
+    bannerPivot.position.set(poleRadius, 0.18 + poleHeight - 0.4, 0);
+    group.add(bannerPivot);
+
+    const bannerGeo = new THREE.PlaneGeometry(bannerSize.x, bannerSize.y, 6, 1);
+    const bannerMat = new THREE.MeshStandardMaterial({
+        color: bcl, roughness: 0.85, metalness: 0,
+        side: THREE.DoubleSide, emissive: bcl, emissiveIntensity: 0.10
+    });
+    const banner = new THREE.Mesh(bannerGeo, bannerMat);
+    banner.position.x = bannerSize.x / 2;
+    banner.position.y = -bannerSize.y / 2;
+    banner.castShadow = true;
+    bannerPivot.add(banner);
+
+    // Triangular pennant accent below the main banner — sells "kingdom" silhouette.
+    const pennantShape = new THREE.Shape();
+    pennantShape.moveTo(0, 0);
+    pennantShape.lineTo(0.55, -0.18);
+    pennantShape.lineTo(0, -0.36);
+    pennantShape.lineTo(0, 0);
+    const pennantGeo = new THREE.ShapeGeometry(pennantShape);
+    const pennantMat = new THREE.MeshStandardMaterial({
+        color: 0xf2d27a, roughness: 0.7, side: THREE.DoubleSide
+    });
+    const pennant = new THREE.Mesh(pennantGeo, pennantMat);
+    pennant.position.y = -bannerSize.y - 0.05;
+    bannerPivot.add(pennant);
+
+    // Expose the pivot so callers can wave the banner each frame.
+    group.userData.flagPivot = bannerPivot;
+    group.userData.bannerMesh = banner;
+
+    return group;
+});
+
+// Cemetery / Lava Hole — visible, indestructible zombie spawn point.
+// Reads as "the dead are crawling out of a hellish opening in the earth":
+// scorched ground decal → cracked rocky rim → red lava ring → bright molten
+// core. Lava layers use MeshBasicMaterial so they glow regardless of
+// scene lighting. Pivots are exposed via group.userData so LavaHoleSystem
+// can pulse the core, flash on emerge, and spawn embers from the bowl.
+MeshPresets.register('lava-hole', () => {
+    const group = new THREE.Group();
+
+    // 1. Scorched ground decal — wide dark patch around the rim, sells
+    //    "ground around the hole is burnt black".
+    const scorchGeo = new THREE.CircleGeometry(2.4, 40);
+    const scorchMat = new THREE.MeshStandardMaterial({
+        color: 0x141008, roughness: 1.0, metalness: 0
+    });
+    const scorch = new THREE.Mesh(scorchGeo, scorchMat);
+    scorch.rotation.x = -Math.PI / 2;
+    scorch.position.y = 0.005;
+    scorch.receiveShadow = true;
+    group.add(scorch);
+
+    // 2. Outer rocky rim — 9 dark broken stones around the perimeter,
+    //    angled randomly. Built from a low-poly dodecahedron so the
+    //    silhouette reads as broken volcanic rock, not smooth pebbles.
+    const rockMat = new THREE.MeshStandardMaterial({
+        color: 0x2a2018, roughness: 0.95, metalness: 0.1, flatShading: true
+    });
+    const rimRocks = 9;
+    for (let i = 0; i < rimRocks; i++) {
+        const angle = (i / rimRocks) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
+        const r = 1.55 + Math.random() * 0.18;
+        const size = 0.32 + Math.random() * 0.22;
+        const rock = new THREE.Mesh(
+            new THREE.DodecahedronGeometry(size, 0),
+            rockMat
+        );
+        rock.position.set(Math.cos(angle) * r, size * 0.55, Math.sin(angle) * r);
+        rock.rotation.set(Math.random() * 2, Math.random() * Math.PI * 2, Math.random() * 2);
+        rock.castShadow = true;
+        rock.receiveShadow = true;
+        group.add(rock);
+    }
+
+    // 3. Crater inner wall — short cylinder sunk slightly so the inner
+    //    rim catches light from the lava and the silhouette feels deeper
+    //    than a flat decal. OpenEnded so we don't render a top cap that
+    //    would block the lava layers below.
+    const craterGeo = new THREE.CylinderGeometry(1.45, 1.25, 0.40, 28, 1, true);
+    const craterMat = new THREE.MeshStandardMaterial({
+        color: 0x1a0d05, roughness: 0.9, metalness: 0.05, side: THREE.DoubleSide
+    });
+    const crater = new THREE.Mesh(craterGeo, craterMat);
+    crater.position.y = 0.20;
+    group.add(crater);
+
+    // 4. Outer lava ring — wide bright reddish disc that fills the bowl.
+    //    MeshBasicMaterial means it glows regardless of lights and reads
+    //    "molten" against the dark crater walls.
+    const lavaOuterGeo = new THREE.CircleGeometry(1.30, 40);
+    const lavaOuterMat = new THREE.MeshBasicMaterial({ color: 0xc8341a });
+    const lavaOuter = new THREE.Mesh(lavaOuterGeo, lavaOuterMat);
+    lavaOuter.rotation.x = -Math.PI / 2;
+    lavaOuter.position.y = 0.04;
+    group.add(lavaOuter);
+
+    // 5. Lava middle — mid-orange, sits just above the outer disc so the
+    //    color gradient pops.
+    const lavaMidGeo = new THREE.CircleGeometry(0.95, 36);
+    const lavaMidMat = new THREE.MeshBasicMaterial({ color: 0xff5a18 });
+    const lavaMid = new THREE.Mesh(lavaMidGeo, lavaMidMat);
+    lavaMid.rotation.x = -Math.PI / 2;
+    lavaMid.position.y = 0.06;
+    group.add(lavaMid);
+
+    // 6. Lava core — brightest yellow-orange, the visual "bottom of the
+    //    hole" the player's eye lands on. LavaHoleSystem pulses this
+    //    layer's color brightness sinusoidally and spikes it on emerge.
+    const lavaCoreGeo = new THREE.CircleGeometry(0.55, 30);
+    const lavaCoreMat = new THREE.MeshBasicMaterial({ color: 0xffc750 });
+    const lavaCore = new THREE.Mesh(lavaCoreGeo, lavaCoreMat);
+    lavaCore.rotation.x = -Math.PI / 2;
+    lavaCore.position.y = 0.075;
+    group.add(lavaCore);
+
+    // 7. A few embedded glowing cracks radiating outward from the rim —
+    //    thin red stripes in the scorched ground that sell "the lava is
+    //    leaking out". Static; cheap.
+    const crackMat = new THREE.MeshBasicMaterial({ color: 0xb02810 });
+    const crackCount = 5;
+    for (let i = 0; i < crackCount; i++) {
+        const angle = (i / crackCount) * Math.PI * 2 + Math.random() * 0.6;
+        const len = 0.55 + Math.random() * 0.45;
+        const crack = new THREE.Mesh(
+            new THREE.PlaneGeometry(len, 0.08),
+            crackMat
+        );
+        crack.rotation.x = -Math.PI / 2;
+        crack.rotation.z = angle;
+        crack.position.set(
+            Math.cos(angle) * (1.75 + len * 0.5),
+            0.012,
+            Math.sin(angle) * (1.75 + len * 0.5)
+        );
+        group.add(crack);
+    }
+
+    // 8. Heat haze cap — a translucent orange disc that floats just above
+    //    the lava and slowly oscillates opacity (driven by LavaHoleSystem).
+    //    Reads as a shimmer / heat distortion.
+    const hazeGeo = new THREE.CircleGeometry(1.20, 32);
+    const hazeMat = new THREE.MeshBasicMaterial({
+        color: 0xffaa44,
+        transparent: true,
+        opacity: 0.16,
+        depthWrite: false
+    });
+    const haze = new THREE.Mesh(hazeGeo, hazeMat);
+    haze.rotation.x = -Math.PI / 2;
+    haze.position.y = 0.55;
+    group.add(haze);
+
+    // Expose pivots for LavaHoleSystem.
+    //   lavaCore    — modulated emissive-style brightness (color lerp).
+    //   lavaMid     — secondary brightness layer.
+    //   haze        — opacity oscillation.
+    //   emergePos   — world-space target for ember bursts (computed in update).
+    group.userData.lavaCore = lavaCore;
+    group.userData.lavaMid  = lavaMid;
+    group.userData.haze     = haze;
+    group.userData.isLavaHole = true;
+
+    return group;
+});
+
+// ─── tree-stump preset ────────────────────────────────────────────────
+// Cut-trunk scar left on the ground when a tree-prototype is felled.
+// Squat vertical cylinder + lighter "freshly cut" cap with darker rings
+// — reads as permanent ground feature, NOT a pickup. No userData hooks.
+MeshPresets.register('tree-stump', ({
+    radius = 0.45,
+    height = 0.32,
+    barkColor = 0x4a3326,
+    coreColor = 0xb38a5e
+} = {}) => {
+    const group = new THREE.Group();
+
+    const barkMat = new THREE.MeshStandardMaterial({ color: barkColor, roughness: 0.95 });
+    const coreMat = new THREE.MeshStandardMaterial({ color: coreColor, roughness: 0.85 });
+    const ringMat = new THREE.MeshStandardMaterial({ color: 0x6e5039, roughness: 0.9 });
+
+    // Tapered trunk (slightly fatter at base) — reads as rooted stump
+    const trunkGeo = new THREE.CylinderGeometry(radius, radius * 1.18, height, 14);
+    const trunk = new THREE.Mesh(trunkGeo, [barkMat, coreMat, ringMat]);
+    trunk.position.y = height / 2;
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
+    group.add(trunk);
+
+    // Concentric growth rings on the cut top — subtle visual differentiator
+    // from a "pickup" disc. Two thin discs, slightly inset and recessed.
+    const ringMat2 = new THREE.MeshStandardMaterial({ color: 0x8a6845, roughness: 0.85 });
+    for (let i = 0; i < 2; i++) {
+        const rr = radius * (0.65 - i * 0.28);
+        const ringGeo = new THREE.RingGeometry(rr - 0.02, rr, 16);
+        const ring = new THREE.Mesh(ringGeo, ringMat2);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = height + 0.005;
+        group.add(ring);
+    }
+
+    return group;
+});
+
 export default MeshPresets;

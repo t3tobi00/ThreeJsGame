@@ -1,6 +1,82 @@
-# Prototype Build Status — 2026-05-08 (post-combat-anim-overhaul)
+# Prototype Build Status — 2026-05-11 (post-tutorial cleanup)
 
-## §0. Headline (2026-05-08 session)
+## §0. Headline (2026-05-11 session — sandbox + storage economy + carry cap)
+
+End-of-session state, all user-validated:
+
+- **Balance v2** — full research-derived math pass live (see `project_balance_v2_2026_05_11.md`).
+- **Tutorial system removed** — sandbox mode. No state machine, no fence, no unlock zones, no next-step pointer.
+- **Right-edge SpawnMenu is the sole spawn/build interface.** ARMY (Scout/Bruiser/Sharp) + WORK (Lumber/Mage) read costs from `archetype.spawn.cost` via `$balance` placeholders. BUILD ▸ Wood Box (30W+5E) / Ess. Box (15W+10E) wired. BUILD ▸ Wall shows `1🪵 / 2 logs` per-log sub-label.
+- **`ResourceDrain` util** (`src/utils/ResourceDrain.js`) is the canonical drain order — storage entities first, player back second. Both `SpawnMenuSystem` and `DrawWallSystem` route through it.
+- **Storage chicken-and-egg fixed.** Player carry capacity bumped 10 → 30 (`balance.economy.carry_capacity_per_slot`) so 6 trees of chopping (~12s) funds the first Wood Box.
+- **DrawWallSystem can drain storage wood** — no more "Need wood" lie when wood sits in storage.
+- **PrototypeToast** — `src/ui/PrototypeToast.js` carries the lazy red toast div for `EventBus 'hud:showAlert'` (DrawWallSystem out-of-wood, SpawnMenu unaffordable). Replaces the inline toast that used to live in PSM.
+
+What works end-to-end (verified by code + sim):
+1. Chop trees → up to 30W on back.
+2. BUILD ▸ Wood Box → place → drains 30W + 5E.
+3. Chop more → walk near Wood Box → StorageDepositSystem arcs items in.
+4. ARMY/WORK menu drains storage first then player back (one rule, two systems).
+5. BUILD ▸ Wall → DrawWallSystem charges 1W per 2 logs, sources from storage + player back.
+6. Player dies → PrototypeEndUI Defeat screen. (Victory has no trigger yet.)
+
+Open questions for next session: §0a.
+
+## §0a. Next session — spatial redesign (A) + first rival (B)
+
+User signed off on shipping both together in the next session:
+
+**A. Spatial redesign — risk-graded harvest.** Current sandbox has 10 trees clustered close to base; harvest feels safe, no risk-trip tension. Target: redistribute trees + rocks across the 60×60 map at distance-graded yields (e.g. close = 3W, mid = 5W, far = 8W per tree), pull inner-perimeter trees, anchor far-grove clusters near the 22u cemeteries. Optionally a `stump` prop where a tree is felled (locked input #3 — "no regrowth, leave a small remaining log").
+
+**B. First rival + win condition.** Pick one Pentagon archetype (recommend **Turtle** — defensive, easier AI to validate) and place at one corner (probably NW). Stats per `newGameDesign/PHASE_5_AI.md` + V1 §13. Includes: rival king (HP 200, DMG 30), ~5 rival soldiers, base building. Behavior: defensive sit-still + one-shot raid mid-game (per `PROTOTYPE_PLAN.md` §4 Act 4 simplification). Victory trigger: player kills rival king → `PrototypeEndUI` Victory.
+
+See `project_next_session_spatial_rival_2026_05_11.md` for the full brief.
+
+## §0b. Historical: tutorial removed (early 2026-05-11)
+
+- **Deleted files:** `src/systems/PrototypeStateMachine.js`, `src/systems/NextStepIndicator.js`, `src/systems/PalisadeGateSystem.js`, `src/config/prototypeStates.json`, `src/config/archetypes/worker-pad-active.json`.
+- **Level (`level-prototype.json`):** `fence` block + all 9 `unlockZones` (north/south/east/west wall_zone, scout_pad, bruiser_pad, plus the 3 storage/worker-pad zones added earlier this session) all removed. Boot scene is now: player at center + 4 hidden cemeteries + 7 idle zombies + 10 trees + 4 rocks.
+- **main.js:** all PSM / NextStepIndicator / palisade-gate / fence:revealSide / wall-rise tween wiring removed. Toast feedback (e.g. `DrawWallSystem` out-of-wood) routes through new `src/ui/PrototypeToast.js` which listens on `EventBus 'hud:showAlert'`.
+- **ArchetypeLoader:** `worker-pad-active` dropped from the load manifest.
+- **Palisade fence:** gone entirely. Drawn walls (BUILD ▸ Wall) are the only player-built fortification. Auto-sink palisade-gate system removed; drawn-wall gate system (`DrawnWallGateSystem`) kept for the drawn walls.
+
+What still works (no regressions):
+- Player spawn, joystick, sword swing, tree chop, rock harvest.
+- Zombies spawn from 4 hidden cemeteries via `EnemySystem` reading wave config from `balance.json`.
+- Right-edge SpawnMenu (ARMY / WORK / BUILD) — all soldier + worker spawns route through it. (Storage cost wiring landed later in the same session — see §0.)
+- Drawn walls cost 1W per 2 logs; truncation toast fires via PrototypeToast.
+- PrototypeEndUI shows the Defeat screen on `player:died`.
+
+What no longer exists:
+- Act 1-5 progression / milestone exits / stall escalation / "go here next" 3D pointer.
+- North-South-East-West palisade fence + staged build flow.
+- Worker-pad ghost zone + the 3-worker OnSpawn drop.
+
+Open items the user has flagged for later:
+- BUILD ▸ Wood Box / Essence Box currently FREE — wire `balance.economy.wood_storage` / `essence_storage` costs into `SpawnMenuSystem._onPointerDown`.
+- New tutorial design (TBD).
+- Storage drain when consumed (the `stack:changed` emit added earlier still applies when storage exists).
+
+## §0a. Earlier 2026-05-11 session — balance v2 (still live)
+
+Shipped this session:
+- **Balance v2 — fresh research-derived math pass.** All HP/DMG/cost/cadence values rederived from gaming principles (Diablo TTK, TaB swarm density, Hades panic window, RTS counter canon, Brotato 5-min arc). 12 master inputs feed the entire sheet. See `~/.claude/projects/.../memory/project_balance_v2_2026_05_11.md` for the full derivation chain and `src/config/balance.json` for the spreadsheet itself.
+- **BalanceLoader + placeholder resolver.** Archetype / skill / level JSONs reference values via `$balance.X.Y.Z` strings; `src/core/BalanceLoader.js` walks the trees and substitutes real numbers at boot. Retuning is a single-file edit. `ArchetypeLoader`, `SkillRegistry`, and `SceneLoader` all run the resolver during their load passes.
+- **RegenSystem + Component_Regen** — player slow regen 1 HP/s after 5s OOC (locked input #4). Allies/workers stay perma-damage.
+- **Hidden zombie spawn points** — cemetery lava-hole visuals hidden at factory creation (`spawn-hidden` tag), spawn logic preserved.
+- **Drawn walls now cost wood** — `DrawWallSystem` charges 1W per `logs_per_wood` (=2) and truncates the path at the affordable length; toast on truncation via `EventBus 'hud:showAlert'`.
+
+Headline tuned values (user-validated where noted): player 100HP + 1HP/s regen / sword 10dmg @ 0.5s / zombie 30/7/1.5s (4.67 DPS → solo TTK 21s, 4-swarm TTK 5.4s — playtested as "just right") / Scout 50/6/0.5s 8E / Bruiser 125/20/1.0s 15E / Sharpshooter 50/14/1.2s 12E / Worker 25HP 5E / Tree HP 40 / 5W drop / Wall 10W+3E / Drawn-log HP 30 / waves cap 5→25 @ +5/min over 240s / spawn 4-7s / essence decay 10s.
+
+NEW infrastructure costs in balance.json (NOT yet wired to ghost zones — Round 2 work): wood-storage 30W+5E · essence-storage 15W+10E · worker-base 10W+5E · worker-pad (3 workers) 30W+15E.
+
+## §0a. Known bugs (active, fix next)
+
+1. **Wood storage doesn't deduct on build.** When a builder or player consumes wood for a wall ghost zone, the wood-storage visible stack does not decrease. Storage prop appears to be a fire-and-forget deposit destination, not a real withdrawal source. Reported user 2026-05-10.
+2. **Wood storage + essence storage place for free.** Storage props are pre-placed in the level (or disabled in current clean-boot state) — no ghost zone gates their construction. balance.json now has costs (30W+5E / 15W+10E); just need the build-zones wired into `level-prototype.json`.
+3. **Drawn-wall truncate toast not visible.** When `DrawWallSystem` runs out of wood mid-draw it emits `EventBus 'hud:showAlert'` with "Out of wood — wall cut short." The state-machine has a listener for `hud:showAlert`, but the user reports the toast doesn't appear. Either the listener isn't firing or the toast renders behind something.
+
+## §0b. Old headline (2026-05-08 session, kept for history)
 
 Shipped this session, all user-validated:
 - **#9 trees blinking fix** — new `living-tree` MeshPreset with leafy crown + foliage-only pulse

@@ -1,45 +1,60 @@
 {
-    "_doc": "Bruiser — slow/strong ally soldier. Magma-breath specialist (PR #5b 2026-05-08): no held weapon — body itself is the attack. ContactDamage uses coneAngle 60° to damage ALL enemies in a 5u-radius forward cone, fired alongside CombatVFX magma-breath VFX (orange flame cone from mouth). HP 150 (bumped from 80 for prototype testing), 20 DMG per hit, 1 atk-sec (cooldown 1.0), cost 15E (lowered to 8E in level JSON). HeroAI steering + ContactDamage cone-AOE.",
+    "_doc": "Bruiser — Pentagon's heavy/slow melee class. Magma-breath specialist (no held weapon — body itself is the attack). ContactDamage uses coneAngle 60° to damage ALL enemies in a forward cone, fired alongside CombatVFX magma-breath VFX. Combat numbers derived from balance.json combat.bruiser.*. Spawn cost = economy.bruiser_pad.essence_cost = 15 (= 15 zombie kills).",
     "type": "Bruiser",
     "mesh": {
         "preset": "character-soldier",
-        "color": "0xcc4422"
+        "color":  "0xcc4422"
     },
     "spawn": {
-        "cost": { "essence": 15 }
+        "cost": { "essence": "$balance.economy.bruiser_pad.essence_cost" }
     },
     "components": {
-        "Health": { "hp": 150, "maxHp": 150, "armor": 0 },
+        "Health": {
+            "hp":    "$balance.combat.bruiser.HP",
+            "maxHp": "$balance.combat.bruiser.HP",
+            "armor": 0
+        },
         "Animator": {},
         "SquashStretch": { "intensity": 0.18, "frequency": 5, "trigger": "move" },
         "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
         "Collider": { "shape": "circle", "radius": 0.5, "isStatic": false },
         "Tag": { "tags": ["ally", "soldier", "bruiser"] },
         "ZoneStatus": {},
-        "Movement": { "speed": 2, "controller": "hero_ai", "faction": "ally" },
+        "Movement": {
+            "speed":      "$balance.combat.bruiser.speed",
+            "controller": "hero_ai",
+            "faction":    "ally"
+        },
         "WalkAnim": { "bobHeight": 0.1, "bobFreq": 6, "tiltAngle": 0.08 },
-        "HeroAI": { "guardRadius": 8, "attackRange": 6.0, "returnSpeed": 1.5 },
+        "HeroAI": {
+            "guardRadius": "$balance.combat.bruiser.guardRadius",
+            "attackRange": "$balance.combat.bruiser.range",
+            "returnSpeed": 1.5
+        },
         "ContactDamage": {
-            "damage": 35, "cooldown": 1.0, "range": 6.0, "coneAngle": 60,
+            "damage":         "$balance.combat.bruiser.damage_per_hit",
+            "cooldown":       "$balance.combat.bruiser.cooldown",
+            "range":          "$balance.combat.bruiser.range",
+            "coneAngle":      "$balance.combat.bruiser.coneAngle",
             "targetFactions": ["enemy", "rival"],
-            "applyBurning": { "duration": 3.0, "dotPerSec": 4 }
+            "applyBurning":   { "duration": 3.0, "dotPerSec": 4 }
         },
         "Arms": {},
         "DragCommandable": {
-            "enabled": true,
-            "ringColor": "0xcc4422",
-            "trailColor": "0xcc4422",
-            "trailWidth": 0.18,
-            "ringRadius": 0.8,
-            "pickRadius": 1.0
+            "enabled":     true,
+            "ringColor":   "0xcc4422",
+            "trailColor":  "0xcc4422",
+            "trailWidth":  0.18,
+            "ringRadius":  0.8,
+            "pickRadius":  1.0
         },
         "Waypoints": {
-            "onInterruptResume": "destination",
-            "arrivalThreshold": 0.25
+            "onInterruptResume":  "destination",
+            "arrivalThreshold":   0.25
         },
         "BehaviorState": {
             "priority": 0,
-            "tag": "idle"
+            "tag":      "idle"
         }
     }
 }

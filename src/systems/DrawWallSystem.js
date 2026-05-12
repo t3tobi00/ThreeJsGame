@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import EventBus from '../core/EventBus.js';
+import BalanceLoader from '../core/BalanceLoader.js';
+import * as ResourceDrain from '../utils/ResourceDrain.js';
 
 /**
  * DrawWallSystem — Draw-to-build wall experiment for ?prototype mode.
@@ -17,12 +19,11 @@ import EventBus from '../core/EventBus.js';
  * smoothing pass is applied — the per-sample MIN_POINT_SPACING already
  * dedupes finger jitter).
  *
- * Wood cost is gated behind FREE_WALL_DRAW. While true → free + no length
- * cap. When the constant flips false, truncate the path at the point where
- * the player's wood runs out and emit a toast at the truncation location.
+ * Wood-cost gate: pays 1 wood per log (balance.json economy.wood_per_drawn_log).
+ * If the player's stack runs out mid-draw, the path is truncated at the
+ * affordable length and a toast fires.
  */
 
-const FREE_WALL_DRAW    = true;       // experimental flag; flip false post-test
 const LOG_SPACING       = 0.30;       // matches palisade fence spacing
 const MIN_DRAW_DIST     = 1.0;        // ignore pencil-tap (release < this) drags
 const MIN_POINT_SPACING = 0.10;       // dedupe pointer samples below this
@@ -31,12 +32,15 @@ const PREVIEW_MAX_POINTS = 1024;
 const GROUND_Y          = 0;
 
 export class DrawWallSystem {
-    constructor(ecs, camera, scene, canvas, factory) {
-        this.ecs     = ecs;
-        this.camera  = camera;
-        this.scene   = scene;
-        this.canvas  = canvas;
-        this.factory = factory;
+    constructor(ecs, camera, scene, canvas, factory, playerId) {
+        this.ecs       = ecs;
+        this.camera    = camera;
+        this.scene     = scene;
+        this.canvas    = canvas;
+        this.factory   = factory;
+        this.playerId  = playerId;
+        this._woodPerLog  = BalanceLoader.get('economy.wood_per_drawn_log') ?? 1;
+        this._logsPerWood = BalanceLoader.get('economy.logs_per_wood') ?? 1;
 
         this.enabled = false;
         this.drawing = false;
@@ -142,25 +146,82 @@ export class DrawWallSystem {
         const totalLen = _pathLength(path);
         if (totalLen < MIN_DRAW_DIST) return;          // tap or stub — ignore
 
-        // Wood-cost truncation will go here when FREE_WALL_DRAW flips false.
-        // For now, full path → all logs.
-        const usablePath = FREE_WALL_DRAW ? path : path; // placeholder
-
-        const samples = _resampleByArcLength(usablePath, LOG_SPACING);
+        // Sample the full path first; we'll discard tail samples we can't
+        // afford. (Sampling a truncated polyline by arc-length would yield
+        // a slightly different distribution at the cut point — sampling
+        // the whole thing then dropping is simpler and visually identical.)
+        let samples = _resampleByArcLength(path, LOG_SPACING);
         if (samples.length === 0) return;
+
+        // Wood gate — 1 wood pays for `logs_per_wood` logs (default 1).
+        // logs_per_wood=2 means 1 wood -> 2 logs -> 0.60u of wall at 0.30u
+        // spacing. Affordability + drain go through ResourceDrain so wood
+        // in wood-storage is spent before wood on the player's back. Same
+        // rule the right-edge menu uses for ARMY/WORK/BUILD purchases.
+        const wantLogs   = samples.length;
+        const woodNeeded = Math.ceil(wantLogs * this._woodPerLog / this._logsPerWood);
+        const totals     = ResourceDrain.computeTotals(this.ecs, this.playerId);
+        const woodHave   = totals.wood || 0;
+
+        let logsToBuild = wantLogs;
+        let woodPaid    = woodNeeded;
+        let truncated   = false;
+        if (woodHave < woodNeeded) {
+            woodPaid    = woodHave;
+            logsToBuild = Math.floor(woodHave * this._logsPerWood / this._woodPerLog);
+            truncated   = true;
+        }
+        if (logsToBuild <= 0) {
+            EventBus.emit('hud:showAlert', { text: 'Need wood to draw walls!' });
+            return;
+        }
+        samples = samples.slice(0, logsToBuild);
+
+        // Drain — storage first, then player back. ResourceDrain emits
+        // stack:changed for every entity it touches so HUD / spawn-menu
+        // totals refresh.
+        ResourceDrain.drainResource(this.ecs, this.playerId, 'wood', woodPaid);
+        if (truncated) {
+            EventBus.emit('hud:showAlert', { text: 'Out of wood — wall cut short.' });
+        }
+
+        // Group ID lets DrawnWallGateSystem treat all logs from this drag
+        // as a single wall (so neighbor-opening works along the path order).
+        const groupId = 'drawn-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
+        const logEntries = [];
 
         for (let i = 0; i < samples.length; i++) {
             const p = samples[i];
 
-            // Aim each log along the local tangent (rotation around Y).
-            // palisade-log is radially symmetric, so this is mostly a hint
-            // for any future per-instance variation reading rotY.
-            const next = samples[i + 1] || samples[i - 1];
-            const rotY = next ? Math.atan2(next.x - p.x, next.z - p.z) : 0;
+            // Local tangent (path direction) at this log. Use the next
+            // sample if available; fall back to the previous sample at the
+            // tail of the path; default to +X if the path has only one
+            // point (shouldn't happen given the MIN_DRAW_DIST check).
+            const next = samples[i + 1];
+            const prev = samples[i - 1];
+            let tx, tz;
+            if (next)      { tx = next.x - p.x;  tz = next.z - p.z;  }
+            else if (prev) { tx = p.x - prev.x;  tz = p.z - prev.z;  }
+            else           { tx = 1;             tz = 0;             }
+            const tlen = Math.hypot(tx, tz) || 1;
+            tx /= tlen; tz /= tlen;
 
-            this.factory.create('wall-drawn', p, { _meshOpts: { rotY } });
+            // Outward normal = perpendicular to tangent. Sign is arbitrary
+            // (drawn walls don't have a defined inside/outside) — the gate
+            // system uses |dot| so direction doesn't matter, just axis.
+            const normalX = -tz;
+            const normalZ =  tx;
+
+            // Aim each log along the path direction. palisade-log is
+            // radially symmetric so this is mostly a future-proofing hint.
+            const rotY = Math.atan2(tx, tz);
+
+            const entityId = this.factory.create('wall-drawn', p, { _meshOpts: { rotY } });
+            logEntries.push({ entityId, normalX, normalZ });
         }
 
+        // Hand the group off to DrawnWallGateSystem so allies can pass through.
+        EventBus.emit('draw:wallGroupRegistered', { groupId, logs: logEntries });
         EventBus.emit('draw:wallBuilt', { logs: samples.length, length: totalLen });
     }
 

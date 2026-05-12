@@ -1,0 +1,43 @@
+{
+    "_doc": "Rival Soldier — guards a rival king. Faction 'rival' so player/ally ContactDamage (targetFactions ['enemy','rival']) targets it; itself targets ['player','ally','structure'] so it attacks the player + allied soldiers but ignores zombies and other rival units. Stats from balance.json combat.rival_soldier.* — HP 75 (between Scout 50 and Bruiser 125), damage 10 (= sword), cooldown 1.0. HeroAI with guardRadius keeps it near its spawn (next to the king). Placeholder for next-session worker-spawned soldier — for now placed directly in level-prototype.json next to each rival king.",
+    "type": "RivalSoldier",
+    "mesh": {
+        "preset": "character-soldier",
+        "color":  "0xb02828",
+        "weapon": "sword"
+    },
+    "components": {
+        "Health": {
+            "hp":    "$balance.combat.rival_soldier.HP",
+            "maxHp": "$balance.combat.rival_soldier.HP",
+            "armor": 0
+        },
+        "Animator": {},
+        "SquashStretch": { "intensity": 0.15, "frequency": 6, "trigger": "move" },
+        "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
+        "Collider": { "shape": "circle", "radius": 0.4, "isStatic": false },
+        "Tag": { "tags": ["rival", "soldier"] },
+        "Movement": {
+            "speed":      "$balance.combat.rival_soldier.speed",
+            "controller": "hero_ai",
+            "faction":    "rival"
+        },
+        "WalkAnim": { "bobHeight": 0.08, "bobFreq": 6, "tiltAngle": 0.06 },
+        "HeroAI": {
+            "guardRadius": "$balance.combat.rival_soldier.guardRadius",
+            "attackRange": "$balance.combat.rival_soldier.range",
+            "returnSpeed": 1.5
+        },
+        "ContactDamage": {
+            "damage":         "$balance.combat.rival_soldier.damage_per_hit",
+            "cooldown":       "$balance.combat.rival_soldier.cooldown",
+            "range":          "$balance.combat.rival_soldier.range",
+            "targetFactions": ["player", "ally", "structure"]
+        },
+        "Arms": {},
+        "BehaviorState": {
+            "priority": 0,
+            "tag":      "idle"
+        }
+    }
+}

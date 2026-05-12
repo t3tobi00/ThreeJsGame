@@ -1,7 +1,22 @@
 {
-    "_doc": "Prototype-mode player. Extends the legacy player.json. HP bumped 100→200 for prototype testing while Act 3 is in development (was 100 per PROTOTYPE_PLAN §4 — restore once full progression is shippable). SkillLoadout (sword) is intentionally retained — the sword skill damages both zombies and trees, and the prototype still relies on it for tree chopping.",
+    "_doc": "Prototype-mode player. Extends the legacy player.json. HP + slow regen are derived from balance.json (combat.player.HP, combat.player.regen_*). InventoryStack slotCapacity is bumped to balance.economy.carry_capacity_per_slot (default 30) so the player can chop ~6 trees of wood in one loop and afford the first Wood Box without needing pre-existing storage — fixes the chicken-and-egg where storage_cost > max_carry. Sword skill retained from parent.",
     "extends": "player",
     "components": {
-        "Health": { "hp": 200, "maxHp": 200, "armor": 0 }
+        "Health": {
+            "hp":    "$balance.combat.player.HP",
+            "maxHp": "$balance.combat.player.HP",
+            "armor": 0
+        },
+        "Regen": {
+            "ratePerSec":    "$balance.combat.player.regen_rate",
+            "oocThreshold":  "$balance.combat.player.regen_OOC_threshold"
+        },
+        "InventoryStack": {
+            "maxSlots":     3,
+            "slotCapacity": "$balance.economy.carry_capacity_per_slot",
+            "anchorOffset": { "x": 0, "y": 1.55, "z": -0.5 },
+            "slotSpacing":  1.5,
+            "style":        "wobble"
+        }
     }
 }

@@ -4,7 +4,13 @@
  * Archetypes live in src/config/archetypes/*.json.
  * An archetype can extend another via "extends": "<name>".
  * Extending merges component configs, with the child overriding parent values.
+ *
+ * After resolving inheritance, each archetype is walked by BalanceLoader to
+ * substitute `$balance.X.Y.Z` placeholders with values from balance.json.
+ * BalanceLoader.load() must complete before loadArchetypes().
  */
+
+import BalanceLoader from './BalanceLoader.js';
 
 const ARCHETYPE_NAMES = [
     'player', 'hero', 'enemy', 'speeder', 'tank',
@@ -20,9 +26,9 @@ const ARCHETYPE_NAMES = [
     'player-prototype', 'enemy-prototype', 'enemy-prototype-marcher', 'tree-prototype',
     'scout', 'bruiser', 'sharpshooter', 'unlock-turret-prototype', 'wall-segment',
     'wall-drawn',
-    // Act 3 (PR #3.0) — Worker Pad anchor + placeholder fallback.
-    // PR #3.1 adds the real worker archetypes (visual-only; AI in PR #3.2/#3.3).
-    'worker-pad-active', 'worker-placeholder',
+    // Act 3 worker archetypes. 'worker-pad-active' deleted 2026-05-11
+    // (menu-driven spawning replaced the OnSpawn 3-worker drop).
+    'worker-placeholder',
     'wood-worker', 'essence-collector', 'worker-builder',
     // Act 3 (PR #4.0) — storage redesign. Replaces invisible Stockpile
     // with visible storage props that show their contents stacked on top.
@@ -31,7 +37,21 @@ const ARCHETYPE_NAMES = [
     // PR #4.2 — three worker-base buildings, each spawns its worker via OnSpawn.
     'wood-worker-base', 'essence-collector-base', 'builder-base',
     // PR #4.4 — military bases (mesh archetypes used by scout_pad / bruiser_pad).
-    'green-military-base', 'red-military-base'
+    'green-military-base', 'red-military-base',
+    // Spawn-menu rewrite — central Kingdom Flag, the spawn anchor for all
+    // army + worker units placed via the right-edge HUD.
+    'flag',
+    // Zombie spawn-point — visible cemetery / lava hole. Indestructible.
+    // EnemySystem queries entities tagged 'zombie-spawn' to build its
+    // registry; new zombies emerge from a randomly-chosen point.
+    'zombie-spawn-point',
+    // 2026-05-12 spatial+rival pass. tree-stump = scar left behind when
+    // a tree-prototype is felled (HarvestNodeSystem spawns it). rival-king
+    // = stationary damageable target — killing all 3 = Victory. rival-soldier
+    // = guard placed near each king. Rival-worker AI + Rusher/Eco/Turtle
+    // personalities land next session.
+    'tree-stump',
+    'rival-king', 'rival-soldier'
 ];
 
 /** @type {Map<string, object>} name → resolved archetype */
@@ -52,9 +72,11 @@ export async function loadArchetypes() {
         raw.set(name, await res.json());
     }));
 
-    // Resolve inheritance
+    // Resolve inheritance, then substitute $balance.X placeholders.
     for (const name of ARCHETYPE_NAMES) {
-        _cache.set(name, _resolve(name, raw));
+        const resolved = _resolve(name, raw);
+        BalanceLoader.resolvePlaceholders(resolved);
+        _cache.set(name, resolved);
     }
 
     console.log(`[ArchetypeLoader] Loaded ${_cache.size} archetypes:`, [..._cache.keys()]);

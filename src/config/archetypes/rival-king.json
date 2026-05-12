@@ -1,0 +1,25 @@
+{
+    "_doc": "Rival King — stationary HP target placed at the center of each rival base. Damageable: when all 3 rival kings die, the player wins. Visual: flag-pole with a red banner (mirrors the player's Kingdom Flag but in rival livery). No ContactDamage — rival soldiers around the king do the fighting. Movement carried only for the faction tag (speed 0, controller 'hero_ai' is ignored by MovementSystem; absent HeroAI keeps HeroAISystem from steering it).",
+    "type": "RivalKing",
+    "mesh": {
+        "preset": "flag-pole",
+        "color":  "0x3d2f24",
+        "bannerColor": "0xb02828",
+        "poleHeight": 4.6
+    },
+    "components": {
+        "Health": {
+            "hp":    "$balance.combat.rival_king.HP",
+            "maxHp": "$balance.combat.rival_king.HP",
+            "armor": 0
+        },
+        "FlashAnim": { "color": "0xff0000", "duration": 0.15, "onEvent": "entity:damaged" },
+        "Collider": { "shape": "box", "width": 1.2, "depth": 1.2, "isStatic": true },
+        "Tag": { "tags": ["rival", "rival-king", "structure"] },
+        "Movement": {
+            "speed":      0,
+            "controller": "hero_ai",
+            "faction":    "rival"
+        }
+    }
+}

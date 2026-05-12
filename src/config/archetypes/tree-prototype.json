@@ -1,8 +1,20 @@
 {
-    "_doc": "Prototype-mode tree. Extends legacy tree.json with §4 numbers: 5 HP (was 30), deterministic 5 wood drop on death (was 3-5). The wood is delivered via the existing magnetic-harvest pipeline once the tree is felled.",
+    "_doc": "Prototype-mode tree. Extends legacy tree.json. HP and wood drop derived from balance.json economy.tree.* — HP 40 = K_chop × sword damage (4 swings to fell), drop = W_per_tree (5 wood per tree). Finite resource: respawnTime -1 disables the HarvestNodeSystem respawn queue, so once felled the tree is gone for the run. HarvestNodeSystem spawns a tree-stump prop at the same position on tree death.",
     "extends": "tree",
     "components": {
-        "Health": { "hp": 5, "maxHp": 5, "armor": 0 },
-        "Drops":  { "table": [{ "type": "wood", "chance": 1.0, "min": 5, "max": 5 }] }
+        "Health": {
+            "hp":    "$balance.economy.tree.HP",
+            "maxHp": "$balance.economy.tree.HP",
+            "armor": 0
+        },
+        "Harvestable": { "respawnTime": -1 },
+        "Drops":  {
+            "table": [{
+                "type":   "wood",
+                "chance": 1.0,
+                "min":    "$balance.economy.tree.wood_drop",
+                "max":    "$balance.economy.tree.wood_drop"
+            }]
+        }
     }
 }

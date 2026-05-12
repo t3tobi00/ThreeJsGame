@@ -1,0 +1,12 @@
+{
+    "_doc": "Kingdom Flag — central indestructible spawn anchor. ALL army + worker spawns from the SpawnMenu emerge in a ring around this entity. Tagged 'flag' so SpawnMenuSystem can locate it by tag (no hardcoded position). No Health component, so HealthSystem/ContactDamageSystem skip it entirely → indestructible. Static box collider keeps units from walking through the pole. Per V1 §3.3.1 — 1 per base.",
+    "type": "Flag",
+    "mesh": {
+        "preset": "flag-pole",
+        "color": "0xc89b3c",
+        "bannerColor": "0xd83a3a"
+    },
+    "components": {
+        "Tag": { "tags": ["flag", "kingdom", "static", "invulnerable"] }
+    }
+}
