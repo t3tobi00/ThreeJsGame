@@ -27,10 +27,41 @@ const MeshPresets = {
 // Cached once at module scope — all character meshes share these GPU buffers.
 const _charBodyGeo = new THREE.CapsuleGeometry(0.25, 0.5, 4, 8);
 const _charHeadGeo = new THREE.SphereGeometry(0.2, 8, 6);
+const _charHeadGeoHero = new THREE.SphereGeometry(0.22, 16, 12); // smoother + slightly larger; hero-only
 const _charEyeGeo  = new THREE.SphereGeometry(0.05, 4, 4);
 const _charLimbGeo = new THREE.CapsuleGeometry(0.08, 0.32, 4, 6);
+const _charHandGeo = new THREE.SphereGeometry(0.09, 8, 6);
+const _charFootGeo = new THREE.BoxGeometry(0.17, 0.07, 0.24);
+const _charNeckGeo = new THREE.CylinderGeometry(0.085, 0.085, 0.1, 10);
+const _charShoulderGeo = new THREE.SphereGeometry(0.11, 8, 6);
+const _charMouthGeo = new THREE.BoxGeometry(0.07, 0.012, 0.04);
+const _charEarGeo = new THREE.SphereGeometry(0.05, 8, 6);
 const _charHeadMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.6 });
 const _charEyeMat  = new THREE.MeshStandardMaterial({ color: 0x000000 });
+const _charMouthMat = new THREE.MeshStandardMaterial({ color: 0x331a14, roughness: 0.7 });
+
+// ── Hero-only body geometry/materials (slim, tailored — "John Wick" silhouette) ──
+// Lathe profile: narrow hip/waist/shoulders, slight chest taper. Centered on
+// Y=0 so it sits at body.position.y like the capsule does (preserves
+// PlayerAnimSystem's bodyRestY for bob).
+const _heroTorsoPts = [
+    new THREE.Vector2(0,    -0.50),
+    new THREE.Vector2(0.18, -0.50),
+    new THREE.Vector2(0.20, -0.30),
+    new THREE.Vector2(0.21,  0.00),
+    new THREE.Vector2(0.23,  0.25),
+    new THREE.Vector2(0.15,  0.45),
+    new THREE.Vector2(0,     0.50)
+];
+const _charBodyGeoHero = new THREE.LatheGeometry(_heroTorsoPts, 14);
+const _charShoulderGeoHero = new THREE.SphereGeometry(0.10, 10, 8);
+// Wayfarer-style sunglasses — two flat rectangular lenses + a thin bridge +
+// temple arms going back to the ears. Big lens area so it reads from the
+// isometric camera even though only the top edge faces the camera directly.
+const _heroLensGeo = new THREE.BoxGeometry(0.14, 0.10, 0.018);
+const _heroLensBridgeGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.085, 8);
+const _heroTempleGeo = new THREE.BoxGeometry(0.22, 0.014, 0.014);
+const _heroLensMat = new THREE.MeshStandardMaterial({ color: 0x000000, metalness: 0.6, roughness: 0.18 });
 
 // --- Built-in Presets ---
 
@@ -59,31 +90,50 @@ MeshPresets.register('character', ({ color = 0xaaaaaa } = {}) => {
     return group;
 });
 
-MeshPresets.register('character-player', ({ color = 0x3366ff } = {}) => {
+MeshPresets.register('character-player', ({
+    color = 0x3366ff,
+    pantsColor = null,
+    hero = false
+} = {}) => {
+    // EntityFactory only parses the top-level `color` key; other color args
+    // come through as hex strings ("0x..."), so normalize them here.
+    if (typeof pantsColor === 'string') pantsColor = parseInt(pantsColor, 16);
     // ── Rig hierarchy ──
     //   root
-    //   ├── torso  (body, head pivot, arm shoulder pivots)
+    //   ├── torso  (body, head pivot, arm shoulder pivots, neck, shoulder caps)
     //   │    ├── body
-    //   │    ├── head           ← named pivot, holds head sphere + eyes
-    //   │    ├── leftArm        ← shoulder pivot
+    //   │    ├── neck                  ← skin-colored bridge
+    //   │    ├── head                  ← named pivot, holds head sphere + eyes (+ mouth/hair when hero)
+    //   │    ├── leftArm               ← shoulder pivot (+ shoulder cap mesh)
     //   │    │    ├── upper arm mesh
-    //   │    │    └── leftElbow ← elbow pivot
-    //   │    │         └── forearm mesh
-    //   │    └── rightArm / rightElbow (mirror)
-    //   ├── leftLeg             ← hip pivot
+    //   │    │    └── leftElbow       ← elbow pivot
+    //   │    │         ├── forearm mesh
+    //   │    │         └── leftHand    ← skin sphere at fingertip
+    //   │    └── rightArm / rightElbow / rightHand (mirror)
+    //   ├── leftLeg                    ← hip pivot
     //   │    ├── thigh mesh
-    //   │    └── leftKnee       ← knee pivot
-    //   │         └── shin mesh
-    //   └── rightLeg / rightKnee (mirror)
+    //   │    └── leftKnee              ← knee pivot
+    //   │         ├── shin mesh
+    //   │         └── leftFoot         ← shoe box at ankle
+    //   └── rightLeg / rightKnee / rightFoot (mirror)
     //
     // Bones AnimationSystem can target by name:
     //   torso, body, head, leftArm, rightArm, leftElbow, rightElbow,
     //   leftLeg, rightLeg, leftKnee, rightKnee
     //
     // Backward compatible: rotating leftArm still rotates the whole arm
-    // (the elbow + forearm are children, so they go with it). Existing
-    // animations that only mention leftArm/rightArm/leftLeg/rightLeg keep
-    // working unchanged.
+    // (hand + forearm are children of the elbow). Workers / soldiers wrap
+    // this preset; their hat goes on `head` and tool/weapon on `rightElbow`,
+    // both still resolve fine.
+    //
+    // Params:
+    //   color       — shirt color
+    //   pantsColor  — optional, splits leg color from shirt. Default: same as shirt.
+    //   hero        — opt-in cosmetic accents: smoother head, eye whites + pupils,
+    //                 mouth, hair, slightly upturned mouth. Off by default so
+    //                 workers/soldiers (who wrap this preset) keep the chunky
+    //                 placeholder face.
+    //   hairColor   — only used when hero=true
 
     const root = new THREE.Group();
     const torso = new THREE.Group();
@@ -100,45 +150,138 @@ MeshPresets.register('character-player', ({ color = 0x3366ff } = {}) => {
     root.add(pelvis);
 
     const bodyMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
-    const limbMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
+    // Arms = sleeves = shirt color. Legs = pants color (or fall back to shirt).
+    const armMat = bodyMat;
+    const legMat = pantsColor !== null
+        ? new THREE.MeshStandardMaterial({ color: pantsColor, roughness: 0.7 })
+        : bodyMat;
+    // Feet: every character gets dark boots regardless of pantsColor so workers /
+    // soldiers (who inherit this preset without pantsColor) still look grounded.
+    // Hero gets slightly darker for contrast.
+    const footMat = new THREE.MeshStandardMaterial({
+        color: hero ? 0x1a1208 : 0x2a1f14,
+        roughness: 0.6
+    });
 
     // ── Body ──
-    const body = new THREE.Mesh(_charBodyGeo, bodyMat);
+    // Hero gets a tapered (lathe) torso — broad shoulders, narrow waist —
+    // so the silhouette reads as humanoid hero from any angle, including
+    // top-down. Workers/soldiers keep the simple capsule.
+    const body = new THREE.Mesh(hero ? _charBodyGeoHero : _charBodyGeo, bodyMat);
     body.position.y = 0.85;
     body.castShadow = true;
     body.name = 'body';
     torso.add(body);
 
+    // ── Neck ── small skin-colored cylinder bridging body top (~1.35) and head bottom.
+    const neck = new THREE.Mesh(_charNeckGeo, _charHeadMat);
+    neck.position.y = 1.40;
+    neck.castShadow = true;
+    neck.name = 'neck';
+    torso.add(neck);
+
     // ── Head pivot ──
-    // Wraps head sphere + eyes so the whole head can turn together.
+    // Raised from 1.45 → 1.62 so the neck (~5–7 cm tall in world units) is
+    // actually visible above the body capsule top at y=1.35. Workers / soldiers
+    // wrap this preset (hat is parented to head, so it lifts together) and
+    // zombies have their own preset, so this lift doesn't affect them adversely.
     const head = new THREE.Group();
     head.name = 'head';
-    head.position.y = 1.45;
+    head.position.y = 1.62;
     torso.add(head);
 
-    const headMesh = new THREE.Mesh(_charHeadGeo, _charHeadMat);
+    const headMesh = new THREE.Mesh(hero ? _charHeadGeoHero : _charHeadGeo, _charHeadMat);
     headMesh.castShadow = true;
     head.add(headMesh);
 
-    const leftEye  = new THREE.Mesh(_charEyeGeo, _charEyeMat);
-    leftEye.position.set(-0.08, 0.02, 0.18);
-    const rightEye = new THREE.Mesh(_charEyeGeo, _charEyeMat);
-    rightEye.position.set( 0.08, 0.02, 0.18);
-    head.add(leftEye, rightEye);
+    // ── Ears ── small skin-tone ovals on each side of the head. Universal
+    // (placed before the hero/non-hero split) so workers/soldiers also get
+    // them — they look slightly inhuman without ears. Hero's sunglasses
+    // temple arms hook over these.
+    const leftEar = new THREE.Mesh(_charEarGeo, _charHeadMat);
+    leftEar.position.set(-0.21, 0.04, -0.02);
+    leftEar.scale.set(0.6, 1.0, 0.4);
+    leftEar.castShadow = true;
+    leftEar.name = 'leftEar';
+    head.add(leftEar);
+
+    const rightEar = new THREE.Mesh(_charEarGeo, _charHeadMat);
+    rightEar.position.set( 0.21, 0.04, -0.02);
+    rightEar.scale.set(0.6, 1.0, 0.4);
+    rightEar.castShadow = true;
+    rightEar.name = 'rightEar';
+    head.add(rightEar);
+
+    // ── Eyes ──
+    if (hero) {
+        // Tilt head forward so the face angles toward the isometric top-down
+        // camera. Without this, the player's face points sideways and is
+        // hidden behind the hair from a top-down view.
+        head.rotation.x = 0.18;
+
+        // ── Sunglasses ── two big black lenses + thin cylindrical nose bridge
+        // + temple arms angling back from the outer lens edges to the ears.
+        // Parented to head so the head tilt (0.18 rad fwd) angles the lens
+        // faces toward the isometric camera.
+        const sunglasses = new THREE.Group();
+        sunglasses.name = 'sunglasses';
+
+        const leftLens  = new THREE.Mesh(_heroLensGeo, _heroLensMat);
+        leftLens.position.set(-0.11, 0.07, 0.20);
+        leftLens.castShadow = true;
+        const rightLens = new THREE.Mesh(_heroLensGeo, _heroLensMat);
+        rightLens.position.set( 0.11, 0.07, 0.20);
+        rightLens.castShadow = true;
+
+        const bridge = new THREE.Mesh(_heroLensBridgeGeo, _heroLensMat);
+        bridge.rotation.z = Math.PI / 2;        // lay the cylinder horizontal
+        bridge.position.set(0, 0.075, 0.20);
+
+        // Temple arms — from each outer lens edge (x=±0.18, z=0.20) back to
+        // the corresponding ear (x=±0.21, z=-0.02). atan2(dz, dx) gives the
+        // rotation around Y so the box's long axis points from lens to ear.
+        const TEMPLE_ANGLE = Math.atan2(0.22, 0.03);  // ≈ 1.43 rad — almost side-to-back
+
+        const rightTemple = new THREE.Mesh(_heroTempleGeo, _heroLensMat);
+        rightTemple.position.set( 0.195, 0.055, 0.09);
+        rightTemple.rotation.y = TEMPLE_ANGLE;
+        rightTemple.castShadow = true;
+
+        const leftTemple = new THREE.Mesh(_heroTempleGeo, _heroLensMat);
+        leftTemple.position.set(-0.195, 0.055, 0.09);
+        leftTemple.rotation.y = Math.PI - TEMPLE_ANGLE;
+        leftTemple.castShadow = true;
+
+        sunglasses.add(leftLens, rightLens, bridge, leftTemple, rightTemple);
+        head.add(sunglasses);
+
+        // Mouth — thin grim slit, dropped low toward the chin.
+        const mouth = new THREE.Mesh(_charMouthGeo, _charMouthMat);
+        mouth.position.set(0, -0.08, 0.205);
+        mouth.name = 'mouth';
+        head.add(mouth);
+
+    } else {
+        // Placeholder eyes — preserved for workers/soldiers
+        const leftEye  = new THREE.Mesh(_charEyeGeo, _charEyeMat);
+        leftEye.position.set(-0.08, 0.02, 0.18);
+        const rightEye = new THREE.Mesh(_charEyeGeo, _charEyeMat);
+        rightEye.position.set( 0.08, 0.02, 0.18);
+        head.add(leftEye, rightEye);
+    }
 
     // ── Two-segment limb builder ──
-    // Returns { root: shoulder/hip pivot, joint: elbow/knee pivot }.
-    // The capsule visual mesh sits centered along its segment so rotating
-    // the parent pivot rotates the limb visibly from the joint.
+    // Returns { shoulder, joint }. Caller can drop a hand/foot on joint at y=-SEG_LEN.
+    // mat = limb material (shirt for arms, pants for legs).
     const SEG_LEN = 0.32;            // length of one limb segment (cylinder portion)
     const SEG_HALF = SEG_LEN / 2;
 
-    const makeTwoSegmentLimb = (xOrigin, yOrigin) => {
+    const makeTwoSegmentLimb = (xOrigin, yOrigin, mat) => {
         const shoulder = new THREE.Group();
         shoulder.position.set(xOrigin, yOrigin, 0);
 
         // Upper segment hangs straight down from shoulder
-        const upper = new THREE.Mesh(_charLimbGeo, limbMat);
+        const upper = new THREE.Mesh(_charLimbGeo, mat);
         upper.position.y = -SEG_HALF;
         upper.castShadow = true;
         shoulder.add(upper);
@@ -149,7 +292,7 @@ MeshPresets.register('character-player', ({ color = 0x3366ff } = {}) => {
         shoulder.add(joint);
 
         // Lower segment hangs from joint
-        const lower = new THREE.Mesh(_charLimbGeo, limbMat);
+        const lower = new THREE.Mesh(_charLimbGeo, mat);
         lower.position.y = -SEG_HALF;
         lower.castShadow = true;
         joint.add(lower);
@@ -158,27 +301,66 @@ MeshPresets.register('character-player', ({ color = 0x3366ff } = {}) => {
     };
 
     // ── Arms ── attach to torso so they bob with the body
-    const leftArmPair = makeTwoSegmentLimb(-0.32, 1.15);
+    const leftArmPair = makeTwoSegmentLimb(-0.32, 1.15, armMat);
     leftArmPair.shoulder.name = 'leftArm';
     leftArmPair.joint.name    = 'leftElbow';
     torso.add(leftArmPair.shoulder);
 
-    const rightArmPair = makeTwoSegmentLimb(0.32, 1.15);
+    const rightArmPair = makeTwoSegmentLimb(0.32, 1.15, armMat);
     rightArmPair.shoulder.name = 'rightArm';
     rightArmPair.joint.name    = 'rightElbow';
     torso.add(rightArmPair.shoulder);
 
+    // Shoulder caps — child of the arm pivot so they rotate naturally with
+    // the swing (no visual seam). Hero gets larger pauldrons (0.14 vs 0.11)
+    // for a broader-shouldered silhouette readable from above.
+    const shoulderCapGeo = hero ? _charShoulderGeoHero : _charShoulderGeo;
+    const leftShoulderCap = new THREE.Mesh(shoulderCapGeo, bodyMat);
+    leftShoulderCap.castShadow = true;
+    leftArmPair.shoulder.add(leftShoulderCap);
+    const rightShoulderCap = new THREE.Mesh(shoulderCapGeo, bodyMat);
+    rightShoulderCap.castShadow = true;
+    rightArmPair.shoulder.add(rightShoulderCap);
+
+    // Hands — skin-colored spheres at the end of each forearm. Worker tools
+    // and soldier weapons are also parented to rightElbow at (0.04, -0.30, 0.04),
+    // so the hand sphere sits just behind the grip — no visual conflict.
+    const leftHand = new THREE.Mesh(_charHandGeo, _charHeadMat);
+    leftHand.position.y = -SEG_LEN;
+    leftHand.castShadow = true;
+    leftHand.name = 'leftHand';
+    leftArmPair.joint.add(leftHand);
+
+    const rightHand = new THREE.Mesh(_charHandGeo, _charHeadMat);
+    rightHand.position.y = -SEG_LEN;
+    rightHand.castShadow = true;
+    rightHand.name = 'rightHand';
+    rightArmPair.joint.add(rightHand);
+
     // ── Legs ── attach to PELVIS (not root) so the pelvis pivot can lower
     // the whole hip column. yOrigin = 0 because pelvis is already at y=0.55.
-    const leftLegPair = makeTwoSegmentLimb(-0.13, 0);
+    const leftLegPair = makeTwoSegmentLimb(-0.13, 0, legMat);
     leftLegPair.shoulder.name = 'leftLeg';
     leftLegPair.joint.name    = 'leftKnee';
     pelvis.add(leftLegPair.shoulder);
 
-    const rightLegPair = makeTwoSegmentLimb(0.13, 0);
+    const rightLegPair = makeTwoSegmentLimb(0.13, 0, legMat);
     rightLegPair.shoulder.name = 'rightLeg';
     rightLegPair.joint.name    = 'rightKnee';
     pelvis.add(rightLegPair.shoulder);
+
+    // Feet — flat boxes at the bottom of each shin, offset forward so toe points ahead.
+    const leftFoot = new THREE.Mesh(_charFootGeo, footMat);
+    leftFoot.position.set(0, -SEG_LEN + 0.035, 0.05);
+    leftFoot.castShadow = true;
+    leftFoot.name = 'leftFoot';
+    leftLegPair.joint.add(leftFoot);
+
+    const rightFoot = new THREE.Mesh(_charFootGeo, footMat);
+    rightFoot.position.set(0, -SEG_LEN + 0.035, 0.05);
+    rightFoot.castShadow = true;
+    rightFoot.name = 'rightFoot';
+    rightLegPair.joint.add(rightFoot);
 
     // Stash rest-Y for PlayerAnimSystem body bob
     root.userData.bodyRestY = body.position.y;

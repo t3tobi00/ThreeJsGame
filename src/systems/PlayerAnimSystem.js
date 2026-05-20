@@ -27,12 +27,16 @@ export class PlayerAnimSystem {
             // Lazy-cache limb refs the first time we see this mesh
             if (!walkAnim._refs) {
                 walkAnim._refs = {
-                    torso:    root.getObjectByName('torso'),
-                    body:     root.getObjectByName('body'),
-                    leftArm:  root.getObjectByName('leftArm'),
-                    rightArm: root.getObjectByName('rightArm'),
-                    leftLeg:  root.getObjectByName('leftLeg'),
-                    rightLeg: root.getObjectByName('rightLeg'),
+                    torso:     root.getObjectByName('torso'),
+                    body:      root.getObjectByName('body'),
+                    leftArm:   root.getObjectByName('leftArm'),
+                    rightArm:  root.getObjectByName('rightArm'),
+                    leftElbow: root.getObjectByName('leftElbow'),
+                    rightElbow:root.getObjectByName('rightElbow'),
+                    leftLeg:   root.getObjectByName('leftLeg'),
+                    rightLeg:  root.getObjectByName('rightLeg'),
+                    leftKnee:  root.getObjectByName('leftKnee'),
+                    rightKnee: root.getObjectByName('rightKnee'),
                 };
                 walkAnim._prevPos = new THREE.Vector3().copy(root.position);
                 walkAnim._bodyRestY = root.userData.bodyRestY ?? (walkAnim._refs.body?.position.y ?? 0);
@@ -107,6 +111,11 @@ export class PlayerAnimSystem {
                 continue;
             }
 
+            // Constant slight forward curl on the elbows so arms never look
+            // stick-straight (matches casual human idle pose). Walks add knee
+            // bend on top to humanize the stride.
+            const ELBOW_BASELINE = -0.18;
+
             if (moving) {
                 const swing = Math.sin(walkAnim.phase) * (0.6 + speed01 * 0.4);
 
@@ -114,6 +123,20 @@ export class PlayerAnimSystem {
                 if (!walkAnim._holdsAxe) refs.rightArm.rotation.x = -swing;
                 refs.leftLeg.rotation.x  = -swing * 0.8;
                 refs.rightLeg.rotation.x =  swing * 0.8;
+
+                // Knee bend — peaks when each leg is in back-swing (lifting).
+                // Scales with speed so very slow movement reads as a glide.
+                if (refs.leftKnee) {
+                    refs.leftKnee.rotation.x  = Math.max(0, -Math.sin(walkAnim.phase)) * 0.7 * speed01;
+                }
+                if (refs.rightKnee) {
+                    refs.rightKnee.rotation.x = Math.max(0,  Math.sin(walkAnim.phase)) * 0.7 * speed01;
+                }
+
+                // Elbow — hold the baseline curl while walking. Right elbow
+                // stays locked if a tool/axe is parented to it (worker case).
+                if (refs.leftElbow)  refs.leftElbow.rotation.x  = ELBOW_BASELINE;
+                if (refs.rightElbow && !walkAnim._holdsAxe) refs.rightElbow.rotation.x = ELBOW_BASELINE;
 
                 if (refs.body) {
                     refs.body.position.y =
@@ -130,6 +153,11 @@ export class PlayerAnimSystem {
                 if (!walkAnim._holdsAxe) refs.rightArm.rotation.x += (0 - refs.rightArm.rotation.x) * k;
                 refs.leftLeg.rotation.x  += (0 - refs.leftLeg.rotation.x)  * k;
                 refs.rightLeg.rotation.x += (0 - refs.rightLeg.rotation.x) * k;
+                if (refs.leftKnee)  refs.leftKnee.rotation.x  += (0 - refs.leftKnee.rotation.x)  * k;
+                if (refs.rightKnee) refs.rightKnee.rotation.x += (0 - refs.rightKnee.rotation.x) * k;
+                // Lerp elbows toward the casual baseline so even idle reads as humanoid
+                if (refs.leftElbow)  refs.leftElbow.rotation.x  += (ELBOW_BASELINE - refs.leftElbow.rotation.x)  * k;
+                if (refs.rightElbow && !walkAnim._holdsAxe) refs.rightElbow.rotation.x += (ELBOW_BASELINE - refs.rightElbow.rotation.x) * k;
                 if (refs.torso) refs.torso.rotation.x += (0 - refs.torso.rotation.x) * k;
 
                 if (refs.body) {

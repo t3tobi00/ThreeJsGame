@@ -2,7 +2,9 @@
   "type": "Player",
   "mesh": {
     "preset": "character-player",
-    "color": "0x3366ff"
+    "color":      "0x141420",
+    "pantsColor": "0x080810",
+    "hero":       true
   },
   "behaviors": [
     "shooter",
