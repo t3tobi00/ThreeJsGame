@@ -351,6 +351,10 @@ export class WorkerAISystem {
 
     _tryRepath(ai, myPos) {
         if (!this.pathfinder || !this._ecs) return false;
+        // If we got pinned inside a rock's AABB (e.g., chop-stand position
+        // hugging a rock next to the tree), push out before planning so the
+        // worker's start cell sits in genuinely free space.
+        this._unstickFromStatic(myPos);
         let goal = null;
         const ignore = [];
         if (ai.fsmState === 'MOVE_TO_TREE' && ai.currentTarget != null) {
@@ -378,6 +382,38 @@ export class WorkerAISystem {
         ai.path = path;
         ai.pathIdx = 0;
         return true;
+    }
+
+    /**
+     * Push `myPos` out of any static collider AABB it's currently inside.
+     * Picks the shallowest-overlap axis so the worker pops out the nearest
+     * face. Mutates myPos in place. Returns true if any push happened.
+     */
+    _unstickFromStatic(myPos) {
+        if (!this._ecs) return false;
+        const MARGIN = 0.1;
+        let pushed = false;
+        for (const id of this._ecs.queryEntities(['Transform', 'Collider'])) {
+            const col = this._ecs.getComponent(id, 'Collider');
+            if (!col?.isStatic || col.disabled) continue;
+            const tr = this._ecs.getComponent(id, 'Transform');
+            if (!tr?.mesh) continue;
+            const p = tr.mesh.position;
+            const dx = myPos.x - p.x;
+            const dz = myPos.z - p.z;
+            const halfW = (col.shape === 'circle') ? (col.radius ?? 0.5) : (col.width ?? 1) / 2;
+            const halfD = (col.shape === 'circle') ? (col.radius ?? 0.5) : (col.depth ?? 1) / 2;
+            const overlapX = halfW - Math.abs(dx);
+            const overlapZ = halfD - Math.abs(dz);
+            if (overlapX <= 0 || overlapZ <= 0) continue;
+            if (overlapX < overlapZ) {
+                myPos.x += (dx >= 0 ? 1 : -1) * (overlapX + MARGIN);
+            } else {
+                myPos.z += (dz >= 0 ? 1 : -1) * (overlapZ + MARGIN);
+            }
+            pushed = true;
+        }
+        return pushed;
     }
 
     // ════════════════════════════════════════════════════════════════

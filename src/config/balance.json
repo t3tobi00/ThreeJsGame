@@ -65,7 +65,7 @@
             "HP":               30,
             "_HP_formula":      "= K_zombie × sword.damage = 3 × 10 = 30. Three-hit kill by formula.",
 
-            "damage_per_hit":   7,
+            "damage_per_hit":   5,
             "_damage_formula":  "swarm_DPS = player.HP / T_swarm_TTK = 100 / 5 = 20. per-zombie DPS = swarm_DPS / Z_swarm_panic = 20 / 4 = 5. per-hit dmg = DPS × cooldown = 5 × 1.5 = 7.5 → 7 (round down, slight bias toward survivability + effective T_solo_TTK = 21s matches master).",
 
             "cooldown":         1.5,
@@ -80,7 +80,7 @@
             "wall_damage":      7,
             "_wall_damage_doc": "Tracks damage_per_hit. Wall HP × wall_damage / cooldown = T_wall_solo_break. With K_break_wall=30 and breach=2 logs, log HP derives below.",
 
-            "spit_damage":      7,
+            "spit_damage":      3,
             "_spit_damage_doc": "Tracks damage_per_hit. Ranged variant lands a poison cloud (2 HP/s × 10s).",
 
             "spit_cooldown":    2.2

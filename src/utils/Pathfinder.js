@@ -17,10 +17,14 @@ import * as THREE from 'three';
  * back in WorkerAISystem to direct + perpendicular nudge on stuck.
  */
 export class Pathfinder {
-    constructor({ minX = -15, maxX = 15, minZ = -15, maxZ = 15, cell = 1 } = {}) {
+    constructor({ minX = -15, maxX = 15, minZ = -15, maxZ = 15, cell = 1, padding = 0.5 } = {}) {
         this.minX = minX; this.maxX = maxX;
         this.minZ = minZ; this.maxZ = maxZ;
         this.cell = cell;
+        // Inflate every static obstacle's AABB by this much when rasterising
+        // — gives A* paths a buffer wide enough for the worker's body, so the
+        // worker doesn't graze rock corners on the planned route.
+        this.padding = padding;
         this.cols = Math.ceil((maxX - minX) / cell);
         this.rows = Math.ceil((maxZ - minZ) / cell);
     }
@@ -56,8 +60,8 @@ export class Pathfinder {
             const tr = ecs.getComponent(id, 'Transform');
             if (!tr?.mesh?.visible) continue;
             const p = tr.mesh.position;
-            const halfW = (col.shape === 'circle') ? (col.radius ?? 0.5) : (col.width ?? 1) / 2;
-            const halfD = (col.shape === 'circle') ? (col.radius ?? 0.5) : (col.depth ?? 1) / 2;
+            const halfW = ((col.shape === 'circle') ? (col.radius ?? 0.5) : (col.width ?? 1) / 2) + this.padding;
+            const halfD = ((col.shape === 'circle') ? (col.radius ?? 0.5) : (col.depth ?? 1) / 2) + this.padding;
             const cMin = this._toCell(p.x - halfW, p.z - halfD);
             const cMax = this._toCell(p.x + halfW, p.z + halfD);
             if (!cMin || !cMax) continue;
