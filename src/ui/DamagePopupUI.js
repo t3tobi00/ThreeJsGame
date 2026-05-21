@@ -55,25 +55,42 @@ export class DamagePopupUI {
                     -3px 3px 0 #000,
                     0 0 16px rgba(255,87,51,1);
             }
+            .damage-popup.kill {
+                font-size: 46px;
+                color: #ffd23a;
+                letter-spacing: 2px;
+                text-shadow:
+                    0 4px 0 #000,
+                    4px 4px 0 #000,
+                    -4px 4px 0 #000,
+                    0 0 22px rgba(255, 210, 60, 1),
+                    0 0 38px rgba(255, 170, 30, 0.8);
+            }
         `;
         document.head.appendChild(style);
     }
 
-    _spawn({ position, amount, isCrit }) {
+    _spawn({ position, amount, isCrit, label, style }) {
         if (!this.container) return;
 
+        const isKill = style === 'kill';
         const el = document.createElement('div');
-        el.className = 'damage-popup' + (isCrit ? ' crit' : '');
-        el.textContent = isCrit ? `${amount}!` : `${amount}`;
+        const classes = ['damage-popup'];
+        if (isKill) classes.push('kill');
+        else if (isCrit) classes.push('crit');
+        el.className = classes.join(' ');
+        // `label` overrides the auto-generated damage number (used for "KILL!")
+        el.textContent = label != null ? label : (isCrit ? `${amount}!` : `${amount}`);
         this.container.appendChild(el);
 
         this._active.push({
             el,
             worldPos: position.clone(),
             elapsed: 0,
-            duration: 0.8,
-            jitterX: (Math.random() - 0.5) * 30, // horizontal drift so stacked numbers fan out
-            isCrit: !!isCrit
+            duration: isKill ? 1.0 : 0.8, // KILL popups hang slightly longer
+            jitterX: (Math.random() - 0.5) * 30,
+            isCrit: !!isCrit,
+            isKill
         });
     }
 
@@ -101,11 +118,14 @@ export class DamagePopupUI {
 
             // Float upward, then ease back slightly
             const upOffset = 40 + t * 60;
-            // Scale: pop in, hold, shrink out
+            // Scale: pop in, hold, shrink out. KILL popups punch in bigger.
+            const peakScale = p.isKill ? 1.6 : (p.isCrit ? 1.4 : 1.2);
+            const popInBase = p.isKill ? 0.7 : (p.isCrit ? 0.6 : 0.5);
+            const popInRange = peakScale - popInBase;
             let scale;
-            if (t < 0.15) scale = p.isCrit ? (0.6 + (t / 0.15) * 0.8) : (0.5 + (t / 0.15) * 0.7);
-            else if (t > 0.7) scale = (p.isCrit ? 1.4 : 1.2) * (1 - (t - 0.7) / 0.3 * 0.5);
-            else scale = p.isCrit ? 1.4 : 1.2;
+            if (t < 0.15) scale = popInBase + (t / 0.15) * popInRange;
+            else if (t > 0.7) scale = peakScale * (1 - (t - 0.7) / 0.3 * 0.5);
+            else scale = peakScale;
 
             // Opacity — full for most of the life, fade at end
             const opacity = t < 0.7 ? 1 : 1 - (t - 0.7) / 0.3;

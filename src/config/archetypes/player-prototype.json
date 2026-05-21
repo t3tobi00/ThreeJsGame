@@ -1,5 +1,5 @@
 {
-    "_doc": "Prototype-mode player. Extends the legacy player.json. HP + slow regen are derived from balance.json (combat.player.HP, combat.player.regen_*). InventoryStack slotCapacity is bumped to balance.economy.carry_capacity_per_slot (default 30) so the player can chop ~6 trees of wood in one loop and afford the first Wood Box without needing pre-existing storage — fixes the chicken-and-egg where storage_cost > max_carry. Sword skill retained from parent.",
+    "_doc": "Prototype-mode player. Extends the legacy player.json. HP + slow regen are derived from balance.json (combat.player.HP, combat.player.regen_*). InventoryStack slotCapacity is bumped to balance.economy.carry_capacity_per_slot (default 30). Sword skill nulled out — auto-aim gun (Component_Gun + PlayerGunSystem) is the active weapon for the prototype feel-test. Trees can't be chopped while the sword is disabled; this is intentional for the gun-only test pass.",
     "extends": "player",
     "components": {
         "Health": {
@@ -17,6 +17,18 @@
             "anchorOffset": { "x": 0, "y": 1.55, "z": -0.5 },
             "slotSpacing":  1.5,
             "style":        "wobble"
+        },
+        "SkillLoadout": {
+            "activeSkill": null
+        },
+        "Gun": {
+            "damage": 10,
+            "fireRate": 2.5,
+            "range": 12,
+            "bulletSpeed": 70,
+            "bulletMaxRange": 16,
+            "targetFactions": ["enemy", "rival"],
+            "muzzleHeight": 1.0
         }
     }
 }

@@ -34,6 +34,7 @@ import { LavaHoleSystem } from './systems/LavaHoleSystem.js';
 import { ECSManager } from './ecs/ECSManager.js';
 import { EntityFactory } from './entities/EntityFactory.js';
 import { MovementSystem } from './systems/MovementSystem.js';
+import { PlayerGunSystem } from './systems/PlayerGunSystem.js';
 import { PlayerAnimSystem } from './systems/PlayerAnimSystem.js';
 import { AnimationSystem } from './systems/AnimationSystem.js';
 import { CombatSystem } from './systems/CombatSystem.js';
@@ -166,6 +167,20 @@ class Game {
         this.movementSystem = new MovementSystem(this.joystick, this.keyboard);
         this.ecs.registerSystem(this.movementSystem, ['Transform', 'Movement']);
 
+        // PlayerGunSystem — auto-aim gun for any entity with a Gun component
+        // (currently just the prototype player). MUST run after MovementSystem
+        // so its rotation write (toward target when stopped) is the final value
+        // of the frame. MovementSystem only writes rotation when joystick is
+        // active (velocity.length() > 0.1), so the handoff is implicit: no
+        // priority logic needed, just registration order.
+        this.playerGunSystem = new PlayerGunSystem(
+            this.scene.instance,
+            this.joystick,
+            this.keyboard,
+            null // particleSystem wired post-construct below
+        );
+        this.ecs.registerSystem(this.playerGunSystem, ['Transform', 'Gun', 'Movement']);
+
         // Hero steering — runs after MovementSystem so player input wins
         // if both update the same frame. Heroes don't use MovementSystem
         // (their controller is 'hero_ai', which MovementSystem ignores).
@@ -257,6 +272,10 @@ class Game {
         this.ecs.registerSystem(this.machineSystem, ['Transform', 'Machine']);
 
         this.particleSystem = new ParticleSystem(this.scene.instance);
+        // Late-bind particle ref into PlayerGunSystem for future slice-2 effects
+        // (localized impact dust beyond the shared hit-spark). Slice 1 doesn't
+        // call into it directly — impact reads go through 'effect:hit_spark'.
+        this.playerGunSystem.particleSystem = this.particleSystem;
 
         // LavaHoleSystem can only construct once particleSystem + ecs exist.
         // Update is called from animate(); skips work if no spawn points are

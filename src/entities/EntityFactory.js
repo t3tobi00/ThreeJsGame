@@ -42,6 +42,7 @@ import { Component_OnSpawn } from '../ecs/components/Component_OnSpawn.js';
 import { Component_Stockpile } from '../ecs/components/Component_Stockpile.js';
 import { Component_WorkerAI } from '../ecs/components/Component_WorkerAI.js';
 import { Component_Regen } from '../ecs/components/Component_Regen.js';
+import { Component_Gun } from '../ecs/components/Component_Gun.js';
 import MeshPresets from '../core/MeshPresets.js';
 import ResourceRegistry from '../core/ResourceRegistry.js';
 import EventBus from '../core/EventBus.js';
@@ -88,6 +89,7 @@ const COMPONENT_MAP = {
     Stockpile:       (d) => new Component_Stockpile(d),
     WorkerAI:        (d) => new Component_WorkerAI(d),
     Regen:           (d) => new Component_Regen(d),
+    Gun:             (d) => new Component_Gun(d),
 };
 
 

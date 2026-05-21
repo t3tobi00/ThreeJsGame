@@ -20,7 +20,7 @@ export const PLAYER_CONFIG = {
 };
 
 export const CAMERA_CONFIG = {
-    frustumSize: 22, // Zoomed out to show full base + danger zone
+    frustumSize: 19, // Zoomed out to show full base + danger zone
     near: -100,
     far: 1000,
     offset: { x: 12, y: 20, z: 12 }, // Steeper ~50° isometric angle
