@@ -420,6 +420,10 @@ class Game {
         // Prototype counters need the player ID for stack:changed filter.
         if (this.prototypeStats) this.prototypeStats.setPlayer(this.playerId);
 
+        // AudioManager anchors its listener to the player so distance
+        // attenuation reads "near = loud, far = quiet" relative to the hero.
+        if (this.audio) this.audio.setPlayer(this.playerId);
+
         // Systems that need player reference
         this.cameraSystem = new CameraSystem(this.camera, playerTransform.mesh);
 
@@ -1022,6 +1026,7 @@ class Game {
         this.harvestNodeSystem.update(deltaTime);
         if (this.drawnWallGateSystem) this.drawnWallGateSystem.update(deltaTime);
         if (this.lavaHoleSystem) this.lavaHoleSystem.update(deltaTime);
+        if (this.audio) this.audio.update(realDt);
         if (this.spawnMenuSystem) this.spawnMenuSystem.update(deltaTime);
         if (this.storageDepositSystem) this.storageDepositSystem.update(deltaTime);
         for (const well of this._resourceWells) well.update(deltaTime, this.scene.instance);

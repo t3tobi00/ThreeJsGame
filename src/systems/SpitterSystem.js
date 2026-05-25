@@ -51,7 +51,6 @@ export class SpitterSystem {
             spitter._isWindingUp = true;
             spitter.timeSinceLastSpit = 0;
             EventBus.emit('zombie:spit:windup', { attackerId: id, targetId });
-            EventBus.emit('audio:cue', { name: 'spit_hiss' });
 
             this._pending.push({
                 attackerId: id,
@@ -155,7 +154,6 @@ export class SpitterSystem {
     }
 
     _impact(proj) {
-        EventBus.emit('audio:cue', { name: 'spit_splat' });
         // Spawn a lingering poison cloud at the landing position. Damage is
         // applied by PoisonCloudSystem over the cloud's lifetime, NOT as a
         // direct hit on the targeted entity — the player can dodge by moving

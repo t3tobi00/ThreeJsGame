@@ -19,6 +19,12 @@ export class Component_Gun {
         targetFactions = ['enemy', 'rival'],
         muzzleHeight = 1.0,      // shoulder/chest spawn height for bullets
         enabled = true,
+        // Chop fields — contextual axe mode. Defaults match the wood-worker
+        // for "feels identical" play; player overrides in player-prototype
+        // to chop faster than the worker (power-fantasy tune).
+        chopRange = 1.5,
+        chopCooldown = 0.5,
+        chopDamage = 1,
     } = {}) {
         this.damage = damage;
         this.fireRate = fireRate;
@@ -29,9 +35,22 @@ export class Component_Gun {
         this.muzzleHeight = muzzleHeight;
         this.enabled = enabled;
 
-        // Runtime state
+        // Runtime state — gun
         this.cooldownLeft = 0;
         this.isFiring = false;
         this.currentTargetId = -1;
+
+        // Contextual axe mode — when the player is within chopRange of a
+        // tree AND no enemy is in gun range, swap to chopping behavior.
+        // Defaults match the wood-worker (= 1 dmg, 0.5s cooldown); override
+        // in player-prototype.json for the player's faster power-fantasy tune.
+        this.chopRange = chopRange;
+        this.chopCooldown = chopCooldown;
+        this.chopDamage = chopDamage;
+
+        // Runtime state — axe
+        this.chopCooldownLeft = 0;
+        this.isChopping = false;
+        this.currentTreeId = -1;
     }
 }

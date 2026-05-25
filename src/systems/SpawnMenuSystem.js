@@ -183,7 +183,6 @@ export class SpawnMenuSystem {
             burstPos.y = 0.6;
             this.particleSystem.createImpactBurst(burstPos, 0xffd366, 18);
         }
-        EventBus.emit('audio:cue', { name: 'chime_build' });
         EventBus.emit('spawnmenu:unitSpawned', { archetype: archetypeName, entityId: id });
     }
 
@@ -302,14 +301,12 @@ export class SpawnMenuSystem {
 
         if (cost && !this._drainCost(cost)) {
             // Tap ignored — UI greys the chip too, but this is defense in depth.
-            EventBus.emit('audio:cue', { name: 'alert_high' });
             this._exitAllModes();
             return;
         }
 
         const pos = new THREE.Vector3(this._hit.x, 0, this._hit.z);
         this.factory.create(this._placeArchetype, pos);
-        EventBus.emit('audio:cue', { name: 'chime_build' });
         this._pushTotals();
 
         // One-shot: every tap exits placement mode so we don't accidentally

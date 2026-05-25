@@ -258,7 +258,6 @@ export class LungeAnimSystem {
                             });
                         }
                     }
-                    EventBus.emit('audio:cue', { name: 'impact_thud' });
                     return;
                 }
 
@@ -290,7 +289,6 @@ export class LungeAnimSystem {
                         impactFired: false,
                         t: 0
                     });
-                    EventBus.emit('audio:cue', { name: 'impact_thud' });
                     return;
                 }
 
@@ -310,7 +308,6 @@ export class LungeAnimSystem {
                     impactFired:  false,
                     t: 0
                 });
-                EventBus.emit('audio:cue', { name: 'impact_thud' });
                 return;
             }
 
@@ -499,7 +496,6 @@ export class LungeAnimSystem {
                     if (!a.impactFired && u > 0.85 && this._particleSystem && a.hitPos) {
                         a.impactFired = true;
                         this._particleSystem.createWoodChips(a.hitPos, CHOP_CHIP_COUNT);
-                        EventBus.emit('audio:cue', { name: 'impact_thud' });
                     }
                 } else {
                     // Recovery: ease forward-down → rest.

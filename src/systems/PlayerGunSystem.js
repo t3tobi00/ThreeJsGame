@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import EventBus from '../core/EventBus.js';
 import { Bullet } from '../entities/Bullet.js';
 import { PlayerGun } from '../entities/PlayerGun.js';
+import { PlayerAxe } from '../entities/PlayerAxe.js';
 import { AimReticle } from '../entities/AimReticle.js';
 import { ObjectPool } from '../utils/ObjectPool.js';
 
@@ -47,8 +48,9 @@ export class PlayerGunSystem {
         // Single global reticle — there's only one player, no need for one per gunner
         this.reticle = new AimReticle(scene);
 
-        // Per-entity gun meshes, lazy-created on first sight
+        // Per-entity gun + axe meshes, lazy-created on first sight
         this._guns = new Map(); // entityId → PlayerGun
+        this._axes = new Map(); // entityId → PlayerAxe
 
         // Reusable temps to avoid per-frame allocations
         this._tmpDir       = new THREE.Vector3();
@@ -82,7 +84,8 @@ export class PlayerGunSystem {
     // ── Per-entity gun tick ────────────────────────────────────────────
 
     /**
-     * @returns {boolean} true if this gunner has an active target lock this frame
+     * @returns {boolean} true if this gunner has an active GUN target this frame
+     *                    (reticle stays on). False in axe mode + idle.
      */
     _updateGunner(entityId, deltaTime, ecs) {
         const transform = ecs.getComponent(entityId, 'Transform');
@@ -99,54 +102,147 @@ export class PlayerGunSystem {
         }
         gunMesh.update(deltaTime);
 
-        // Cooldown ticks every frame regardless of input state so the gun is
-        // "ready" the instant the player stops.
-        if (gun.cooldownLeft > 0) {
-            gun.cooldownLeft = Math.max(0, gun.cooldownLeft - deltaTime);
+        // Lazy-create the axe mesh on first sight (hidden until chop mode)
+        let axeMesh = this._axes.get(entityId);
+        if (!axeMesh) {
+            axeMesh = new PlayerAxe();
+            axeMesh.attachToPlayer(transform.mesh);
+            this._axes.set(entityId, axeMesh);
         }
+
+        // Both cooldowns tick every frame regardless of mode so the player
+        // is ready the instant they enter the relevant mode.
+        if (gun.cooldownLeft > 0) gun.cooldownLeft = Math.max(0, gun.cooldownLeft - deltaTime);
+        if (gun.chopCooldownLeft > 0) gun.chopCooldownLeft = Math.max(0, gun.chopCooldownLeft - deltaTime);
 
         if (!gun.enabled) {
             gun.isFiring = false;
+            gun.isChopping = false;
+            gunMesh.visible = true;
+            axeMesh.setActive(false);
             return false;
         }
 
-        // Stop-to-fire — only joystick-controlled entities (player) react to
-        // input. Keeps the system reusable for future gun-equipped NPCs.
-        if (movement.controller === 'joystick') {
-            const kb = this.keyboard ? this.keyboard.getVector() : { x: 0, y: 0 };
-            const js = this.joystick ? this.joystick.getVector() : { x: 0, y: 0 };
-            const inputMag = Math.hypot(kb.x + js.x, kb.y + js.y);
-            if (inputMag > STOP_THRESHOLD) {
-                gun.isFiring = false;
-                return false;
+        // ── Combat priority: an enemy in gun range always wins ──────────
+        const enemy = this._findTarget(entityId, transform, gun, ecs);
+        if (enemy) {
+            gunMesh.visible = true;
+            axeMesh.setActive(false);
+            gun.isChopping = false;
+
+            // Stop-to-fire: while joystick is active, movement owns rotation
+            // and the gun is idle (no shots, no reticle).
+            if (movement.controller === 'joystick') {
+                const kb = this.keyboard ? this.keyboard.getVector() : { x: 0, y: 0 };
+                const js = this.joystick ? this.joystick.getVector() : { x: 0, y: 0 };
+                const inputMag = Math.hypot(kb.x + js.x, kb.y + js.y);
+                if (inputMag > STOP_THRESHOLD) {
+                    gun.isFiring = false;
+                    return false;
+                }
+            }
+
+            // Aim + reticle + fire (existing behavior)
+            const dx = enemy.pos.x - transform.mesh.position.x;
+            const dz = enemy.pos.z - transform.mesh.position.z;
+            transform.mesh.rotation.y = Math.atan2(dx, dz);
+
+            this._tmpReticle.copy(enemy.pos);
+            this._tmpReticle.y += RETICLE_CHEST_OFFSET;
+            this.reticle.setTarget(this._tmpReticle);
+
+            gun.isFiring = true;
+            gun.currentTargetId = enemy.entityId;
+
+            if (gun.cooldownLeft <= 0) {
+                this._fire(transform, gun, enemy, gunMesh);
+                gun.cooldownLeft = 1 / gun.fireRate;
+            }
+            return true;
+        }
+
+        // ── No enemy: check for a nearby tree to chop ────────────────────
+        const tree = this._findNearbyTree(transform, gun, ecs);
+        if (tree) {
+            // Hide gun, show axe — woodsman mode
+            gunMesh.visible = false;
+            axeMesh.setActive(true);
+            gun.isFiring = false;
+            gun.isChopping = true;
+            gun.currentTreeId = tree.entityId;
+
+            // Face the tree when stopped. When moving, MovementSystem still
+            // owns rotation — axe stays in hand mid-walk, swing snaps on stop.
+            if (movement.controller === 'joystick') {
+                const kb = this.keyboard ? this.keyboard.getVector() : { x: 0, y: 0 };
+                const js = this.joystick ? this.joystick.getVector() : { x: 0, y: 0 };
+                const inputMag = Math.hypot(kb.x + js.x, kb.y + js.y);
+                if (inputMag <= STOP_THRESHOLD) {
+                    const dx = tree.pos.x - transform.mesh.position.x;
+                    const dz = tree.pos.z - transform.mesh.position.z;
+                    transform.mesh.rotation.y = Math.atan2(dx, dz);
+                }
+            }
+
+            // Chop cadence — emit damage + animation events when the
+            // worker-matched cooldown expires.
+            if (gun.chopCooldownLeft <= 0) {
+                this._chop(entityId, gun, tree);
+                gun.chopCooldownLeft = gun.chopCooldown;
+            }
+            return false; // reticle off in axe mode
+        }
+
+        // ── Idle: no enemies, no nearby trees ────────────────────────────
+        gunMesh.visible = true;
+        axeMesh.setActive(false);
+        gun.isFiring = false;
+        gun.isChopping = false;
+        return false;
+    }
+
+    /**
+     * Find the nearest entity tagged "tree" within chopRange. Stones share
+     * the "harvestable" tag but NOT "tree", so the player's axe only targets
+     * actual trees (per spec).
+     */
+    _findNearbyTree(shooterTransform, gun, ecs) {
+        const shooterPos = shooterTransform.mesh.position;
+        let best = null;
+        let bestDist = gun.chopRange;
+
+        const candidates = ecs.queryEntities(['Transform', 'Tag', 'Health']);
+        for (const id of candidates) {
+            const tag = ecs.getComponent(id, 'Tag');
+            if (!tag?.has?.('tree')) continue;
+
+            const t = ecs.getComponent(id, 'Transform');
+            const dx = t.mesh.position.x - shooterPos.x;
+            const dz = t.mesh.position.z - shooterPos.z;
+            const dist = Math.hypot(dx, dz);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = { entityId: id, pos: t.mesh.position };
             }
         }
+        return best;
+    }
 
-        const target = this._findTarget(entityId, transform, gun, ecs);
-        if (!target) {
-            gun.isFiring = false;
-            return false;
-        }
+    /**
+     * One chop beat — animation + damage. Matches WorkerAISystem._chop:
+     *   - emit 'worker:chop:swing' so LungeAnimSystem swings the player's
+     *     axe (the inner workerAxe Group is tagged userData.isWorkerAxe)
+     *   - emit 'entity:damaged' to reduce tree HP. The existing
+     *     HealthSystem → CollectorSystem death chain handles wood drops;
+     *     the player's Collector component magnets them in just like the
+     *     worker's does.
+     */
+    _chop(playerId, gun, tree) {
+        const hitPos = tree.pos.clone();
+        hitPos.y += 0.8; // mid-trunk strike point — matches WorkerAISystem
 
-        // Aim — snap-rotate toward target (matches MovementSystem's snap style)
-        const dx = target.pos.x - transform.mesh.position.x;
-        const dz = target.pos.z - transform.mesh.position.z;
-        transform.mesh.rotation.y = Math.atan2(dx, dz);
-
-        // Slide reticle to target's chest. Y offset puts the dot on the
-        // enemy's torso rather than at their feet.
-        this._tmpReticle.copy(target.pos);
-        this._tmpReticle.y += RETICLE_CHEST_OFFSET;
-        this.reticle.setTarget(this._tmpReticle);
-
-        gun.isFiring = true;
-        gun.currentTargetId = target.entityId;
-
-        if (gun.cooldownLeft <= 0) {
-            this._fire(transform, gun, target, gunMesh);
-            gun.cooldownLeft = 1 / gun.fireRate;
-        }
-        return true;
+        EventBus.emit('worker:chop:swing', { workerId: playerId, hitPos });
+        EventBus.emit('entity:damaged', { entityId: tree.entityId, damage: gun.chopDamage });
     }
 
     _findTarget(shooterId, shooterTransform, gun, ecs) {
@@ -206,6 +302,7 @@ export class PlayerGunSystem {
         // Subtle screen kick per shot. Tiny amount + tiny duration reads as
         // a snap, not a wobble — that's the "weight" of each round.
         EventBus.emit('camera:shake', { amount: 0.04, duration: 0.05 });
+        EventBus.emit('audio:cue', { name: 'gunshot' });
 
         // Bullet originates from the gun's muzzle in world space
         gunMesh.getMuzzleWorld(this._tmpMuzzle);

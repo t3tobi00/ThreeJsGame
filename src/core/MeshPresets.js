@@ -1680,6 +1680,15 @@ function _makeWorkerTool(kind) {
     return g;
 }
 
+/**
+ * Public wrapper around the internal axe builder so other modules (e.g.
+ * PlayerAxe) can reuse the worker's exact axe mesh without duplicating
+ * the geometry. Returns a fresh Group on each call — the caller owns it.
+ */
+export function buildWorkerAxe() {
+    return _makeWorkerTool('axe');
+}
+
 // ─── Soldier weapons (PR #5 attack-anim polish) ───────────────────────
 //
 // Held weapons for Scout (spear) and Bruiser (sword), attached to the

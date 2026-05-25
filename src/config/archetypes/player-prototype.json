@@ -28,7 +28,14 @@
             "bulletSpeed": 70,
             "bulletMaxRange": 16,
             "targetFactions": ["enemy", "rival"],
-            "muzzleHeight": 1.0
+            "muzzleHeight": 1.0,
+            "chopRange": 2.5,
+            "chopCooldown": 0.35,
+            "chopDamage": 2
+        },
+        "Collector": {
+            "pullForce": 2,
+            "pickupRate": 0.1
         }
     }
 }

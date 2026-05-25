@@ -19,7 +19,6 @@ import EventBus from '../core/EventBus.js';
  */
 const TRIGGER_RADIUS = 2.0;
 const ITEM_CADENCE   = 0.08;   // seconds per item, per resource type
-const TICK_THROTTLE  = 0.18;   // soft tick rate-limit (per system, all types)
 const ARC_HEIGHT     = 1.6;
 const ARC_DURATION   = 0.35;
 
@@ -30,14 +29,12 @@ export class StorageDepositSystem {
         this._playerId  = playerId ?? null;
         this._transfer  = new ResourceTransfer();
         this._cooldown  = Object.create(null);   // type → seconds since last arc launch
-        this._tickTimer = 999;
     }
 
     setPlayerId(id) { this._playerId = id; }
 
     update(deltaTime) {
         this._transfer.update(deltaTime);
-        this._tickTimer += deltaTime;
         for (const k in this._cooldown) this._cooldown[k] += deltaTime;
 
         const ecs = this._ecs;
@@ -102,15 +99,6 @@ export class StorageDepositSystem {
                 count:      playerInv.getCountByType(type),
                 totalCount: playerInv.getTotalCount()
             });
-
-            if (this._tickTimer > TICK_THROTTLE) {
-                EventBus.emit('audio:cue', { name: 'chime_info' });
-                this._tickTimer = 0;
-            }
-
-            if (playerInv.getCountByType(type) === 0) {
-                EventBus.emit('audio:cue', { name: 'chime_build' });
-            }
         }
     }
 
